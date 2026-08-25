@@ -1,0 +1,94 @@
+{
+  "name": "someonehastosayyes — Slack approval that resumes n8n (demo)",
+  "nodes": [
+    {
+      "parameters": {},
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://YOUR-DOMAIN/v1/approvals",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "Bearer YOUR_API_KEY" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  question: 'Refund order A-1 for $380?',\n  context: { order: 'A-1', amount: 380, reason: 'damaged' },\n  approve_label: 'Approve refund',\n  reject_label: 'Reject',\n  channel: 'slack',\n  to: 'C0123ABCD',\n  callback_url: $execution.resumeUrl,\n  timeout_minutes: 60,\n  default_on_timeout: 'rejected'\n}) }}",
+        "options": {}
+      },
+      "name": "Create approval",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [240, 0]
+    },
+    {
+      "parameters": {
+        "resume": "webhook",
+        "httpMethod": "POST",
+        "limitWaitTime": true,
+        "resumeAmount": 65,
+        "resumeUnit": "minutes",
+        "options": {}
+      },
+      "name": "Wait for decision",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [480, 0],
+      "webhookId": "3f2c9b5e-7a1d-4e0b-9c3a-5a1d00000001"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose" },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.body.approved }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "true", "singleValue": true }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "Approved?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [720, 0]
+    },
+    {
+      "parameters": {},
+      "name": "Do the refund",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [960, -120]
+    },
+    {
+      "parameters": {},
+      "name": "Log rejection / timeout",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [960, 120]
+    }
+  ],
+  "connections": {
+    "Manual Trigger": { "main": [[{ "node": "Create approval", "type": "main", "index": 0 }]] },
+    "Create approval": { "main": [[{ "node": "Wait for decision", "type": "main", "index": 0 }]] },
+    "Wait for decision": { "main": [[{ "node": "Approved?", "type": "main", "index": 0 }]] },
+    "Approved?": {
+      "main": [
+        [{ "node": "Do the refund", "type": "main", "index": 0 }],
+        [{ "node": "Log rejection / timeout", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": { "executionOrder": "v1" }
+}

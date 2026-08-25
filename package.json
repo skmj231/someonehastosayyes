@@ -1,0 +1,11 @@
+{
+  "name": "someonehastosayyes",
+  "version": "0.1.0",
+  "license": "MIT",
+  "repository": { "type": "git", "url": "https://github.com/skimj231/someonehastosayyes.git" },
+  "description": "승인 링크 API — n8n/Make 워크플로에 깨지지 않는 사람 승인 단계를 붙인다",
+  "main": "server.js",
+  "scripts": { "start": "node server.js", "test": "node test.js" },
+  "engines": { "node": ">=20" },
+  "dependencies": { "better-sqlite3": "^11", "express": "^4" }
+}
