@@ -76,8 +76,9 @@ CREATE TABLE IF NOT EXISTS key_requests (
 `);
 
 const app = express();
-app.use(express.json({ limit: "256kb" }));
-app.use(express.urlencoded({ extended: false }));
+const keepRaw = (req, _res, buf) => { req.rawBody = buf.toString("utf8"); };
+app.use(express.json({ limit: "256kb", verify: keepRaw }));
+app.use(express.urlencoded({ extended: false, verify: keepRaw }));
 
 const now = () => Date.now();
 const newId = () => "apr_" + crypto.randomBytes(8).toString("hex");
@@ -372,13 +373,18 @@ function verifySlack(req) {
   if (!SLACK_SIGNING_SECRET) return true;
   const ts = req.headers["x-slack-request-timestamp"];
   const sig = req.headers["x-slack-signature"];
-  if (!ts || !sig || Math.abs(now() / 1000 - Number(ts)) > 300) return false;
-  const base = `v0:${ts}:${req.rawBody}`;
-  const mine = "v0=" + crypto.createHmac("sha256", SLACK_SIGNING_SECRET).update(base).digest("hex");
-  return crypto.timingSafeEqual(Buffer.from(mine), Buffer.from(sig));
+  if (!ts || !sig) { console.warn("[slack] missing signature headers"); return false; }
+  if (Math.abs(now() / 1000 - Number(ts)) > 300) { console.warn("[slack] stale timestamp"); return false; }
+  if (typeof req.rawBody !== "string") { console.warn("[slack] no raw body captured"); return false; }
+  const mine = "v0=" + crypto.createHmac("sha256", SLACK_SIGNING_SECRET).update(`v0:${ts}:${req.rawBody}`).digest("hex");
+  const a = Buffer.from(mine, "utf8"), b = Buffer.from(String(sig), "utf8");
+  if (a.length !== b.length) { console.warn("[slack] signature mismatch (length)"); return false; }
+  const ok = crypto.timingSafeEqual(a, b);
+  if (!ok) console.warn("[slack] signature mismatch");
+  return ok;
 }
 
-app.post("/slack/interactions", express.urlencoded({ extended: false, verify: (req, _res, buf) => { req.rawBody = buf.toString(); } }), (req, res) => {
+app.post("/slack/interactions", (req, res) => {
   if (!verifySlack(req)) return res.status(401).send("bad signature");
   let payload;
   try { payload = JSON.parse(req.body.payload); } catch { return res.status(400).send("bad payload"); }
