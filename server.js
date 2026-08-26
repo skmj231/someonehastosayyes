@@ -18,6 +18,8 @@ const SLACK_SIGNING_SECRET = process.env.SLACK_SIGNING_SECRET || "";
 const SLACK_CLIENT_ID = process.env.SLACK_CLIENT_ID || "";
 const SLACK_CLIENT_SECRET = process.env.SLACK_CLIENT_SECRET || "";
 const ADMIN_SECRET = process.env.ADMIN_SECRET || "";
+const NOTIFY_SLACK_CHANNEL = process.env.NOTIFY_SLACK_CHANNEL || "";
+const NOTIFY_SLACK_KEY = process.env.NOTIFY_SLACK_KEY || (process.env.API_KEYS || "").split(",")[0].trim();
 const DEMO_KEY = "demo";
 const BRAND = "someonehastosayyes";
 
@@ -188,6 +190,13 @@ function decide(a, decision, by, comment, source) {
     .run(decision, by, now(), comment || null, a.id);
   const fresh = db.prepare("SELECT * FROM approvals WHERE id=?").get(a.id);
   if (r.changes === 1) {
+    if (fresh.api_key !== DEMO_KEY && fresh.api_key !== NOTIFY_SLACK_KEY) {
+      const label = db.prepare("SELECT label FROM keys WHERE key=?").get(fresh.api_key);
+      notifyOwner(`Approval decided on ${label?.label || fresh.api_key}`, [
+        { type: "section", text: { type: "mrkdwn", text: `*${fresh.status}* — ${label?.label || "a user"}\n${fresh.question.slice(0, 140)}` } },
+        { type: "context", elements: [{ type: "mrkdwn", text: `${fresh.id} · via ${source} · ${fresh.decided_by || ""}` }] },
+      ]);
+    }
     deliverCallback(fresh, source).catch(() => {});
     if (fresh.channel === "slack" && fresh.slack_ts) updateSlackMessage(fresh).catch(() => {});
   }
@@ -369,6 +378,15 @@ async function updateSlackMessage(a) {
   await slackApi("chat.update", { channel: a.slack_channel, ts: a.slack_ts, text: a.question, blocks: slackBlocks(a) }, token);
 }
 
+// ---------- 운영자 알림 ----------
+async function notifyOwner(text, blocks) {
+  if (!NOTIFY_SLACK_CHANNEL) return;
+  const token = slackTokenFor(NOTIFY_SLACK_KEY);
+  if (!token) return;
+  try { await slackApi("chat.postMessage", { channel: NOTIFY_SLACK_CHANNEL, text, blocks }, token); }
+  catch (e) { console.warn("[notify]", e.message || e); }
+}
+
 function verifySlack(req) {
   if (!SLACK_SIGNING_SECRET) return true;
   const ts = req.headers["x-slack-request-timestamp"];
@@ -449,6 +467,12 @@ app.post("/request-key", (req, res) => {
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return res.status(400).send(page("Check the email", "<p>That doesn't look like an email address. Go back and try again.</p>"));
   db.prepare("INSERT INTO key_requests (email,tool,note,at) VALUES (?,?,?,?)").run(email, String(req.body.tool || "").slice(0, 40), String(req.body.note || "").slice(0, 500), now());
   console.log(`[key-request] ${email} ${req.body.tool || ""} — ${req.body.note || ""}`);
+  const tool = String(req.body.tool || "—"), note = String(req.body.note || "").slice(0, 300);
+  notifyOwner(`New key request: ${email}`, [
+    { type: "section", text: { type: "mrkdwn", text: `*New key request*\n${email} · ${tool}` } },
+    ...(note ? [{ type: "section", text: { type: "mrkdwn", text: `> ${note.replace(/\n/g, " ")}` } }] : []),
+    { type: "context", elements: [{ type: "mrkdwn", text: "Issue a key with POST /admin/keys, then reply by hand." }] },
+  ]);
   res.send(page("Request received", `<h1>Got it</h1><p>A key goes out to <b>${esc(email)}</b> by hand, usually within a few hours. It comes with a Slack connect link.</p><p><a href="/">Back</a></p>`));
 });
 
