@@ -315,12 +315,12 @@ async function sendEmail(a) {
   const url = `${BASE_URL}/a/${a.token}`;
   const ctx = a.context ? JSON.parse(a.context) : null;
   const html = `<p style="font-size:16px"><b>${esc(a.question)}</b></p>${ctx ? `<pre style="background:#f4f4f5;padding:12px">${esc(typeof ctx === "string" ? ctx : JSON.stringify(ctx, null, 2))}</pre>` : ""}
-  <p><a href="${url}" style="display:inline-block;padding:12px 20px;background:#111;color:#fff;border-radius:8px;text-decoration:none">열어서 결정하기</a></p>
-  <p style="color:#666;font-size:13px">기한 ${new Date(a.timeout_at).toLocaleString("ko-KR")}</p>`;
+  <p><a href="${url}" style="display:inline-block;padding:12px 20px;background:#111;color:#fff;border-radius:8px;text-decoration:none">Open and decide</a></p>
+  <p style="color:#666;font-size:13px">Answer by ${fmt(a.timeout_at)}</p>`;
   const r = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: { authorization: `Bearer ${RESEND_API_KEY}`, "content-type": "application/json" },
-    body: JSON.stringify({ from: EMAIL_FROM, to: a.recipient, subject: `[승인 요청] ${a.question.slice(0, 60)}`, html }),
+    body: JSON.stringify({ from: EMAIL_FROM, to: a.recipient, subject: `[Needs a yes] ${a.question.slice(0, 60)}`, html }),
   });
   if (!r.ok) throw new Error(`resend ${r.status}: ${await r.text()}`);
 }
@@ -341,10 +341,12 @@ function slackBlocks(a) {
         { type: "button", style: "danger", text: { type: "plain_text", text: a.reject_label }, action_id: "rejected", value: a.token },
       ],
     });
-    blocks.push({ type: "context", elements: [{ type: "mrkdwn", text: `기한 ${new Date(a.timeout_at).toLocaleString("ko-KR")} · 지나면 "${a.default_on_timeout}" · <${BASE_URL}/a/${a.token}|브라우저에서 열기>` }] });
+    const dflt = a.default_on_timeout === "approved" ? a.approve_label : a.reject_label;
+    blocks.push({ type: "context", elements: [{ type: "mrkdwn", text: `Answer by ${fmt(a.timeout_at)} · after that it counts as "${dflt}" · <${BASE_URL}/a/${a.token}|open in browser>` }] });
   } else {
-    const label = { approved: a.approve_label, rejected: a.reject_label, timed_out: "시간 초과", canceled: "취소됨" }[a.status] || a.status;
-    blocks.push({ type: "context", elements: [{ type: "mrkdwn", text: `✅ *${label}* · ${a.decided_by || ""} · ${a.decided_at ? new Date(a.decided_at).toLocaleString("ko-KR") : ""}${a.comment ? ` · ${a.comment}` : ""}` }] });
+    const label = { approved: a.approve_label, rejected: a.reject_label, timed_out: "no answer in time", canceled: "withdrawn" }[a.status] || a.status;
+    const mark = a.status === "approved" ? "✅" : "⛔";
+    blocks.push({ type: "context", elements: [{ type: "mrkdwn", text: `${mark} *${label}* · ${a.decided_by || ""} · ${a.decided_at ? fmt(a.decided_at) : ""}${a.comment ? ` · ${a.comment}` : ""}` }] });
   }
   return blocks;
 }
