@@ -10,7 +10,9 @@ const crypto = require("crypto");
 const PORT = process.env.PORT || 3000;
 const BASE_URL = (process.env.BASE_URL || `http://localhost:${PORT}`).replace(/\/$/, "");
 const API_KEYS = (process.env.API_KEYS || "dev-key").split(",").map((s) => s.trim());
-const SIGNING_SECRET = process.env.SIGNING_SECRET || "change-me";
+const SIGNING_SECRET = process.env.SIGNING_SECRET || "change-me"; // 내부 상태 토큰용 (슬랙 OAuth state)
+// 서명키: 환경변수 SIGNING_KEY (PEM). 없으면 DB에 하나 만들어 보관.
+let SIGN_PRIV = null, SIGN_PUB_PEM = null, SIGN_KEY_ID = null;
 const RESEND_API_KEY = process.env.RESEND_API_KEY || "";
 const EMAIL_FROM = process.env.EMAIL_FROM || "approvals@example.com";
 const SLACK_BOT_TOKEN = process.env.SLACK_BOT_TOKEN || "";
@@ -68,6 +70,21 @@ CREATE TABLE IF NOT EXISTS slack_installs (
   bot_token TEXT NOT NULL,
   installed_at INTEGER NOT NULL
 );
+CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS outbox (
+  approval_id TEXT PRIMARY KEY,
+  url TEXT NOT NULL,
+  body TEXT NOT NULL,
+  signature TEXT NOT NULL,
+  attempts INTEGER NOT NULL DEFAULT 0,
+  next_at INTEGER NOT NULL,
+  state TEXT NOT NULL,            -- queued | delivered | endpoint_gone | failed
+  last_status INTEGER,
+  last_error TEXT,
+  created_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_outbox_due ON outbox(state, next_at);
+CREATE TABLE IF NOT EXISTS ratelimit (bucket TEXT PRIMARY KEY, count INTEGER NOT NULL, window_start INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS key_requests (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   email TEXT NOT NULL,
@@ -77,7 +94,37 @@ CREATE TABLE IF NOT EXISTS key_requests (
 );
 `);
 
+(function initSigningKey() {
+  let priv = process.env.SIGNING_KEY || null;
+  if (!priv) {
+    const row = db.prepare("SELECT v FROM meta WHERE k='signing_key'").get();
+    if (row) priv = row.v;
+    else {
+      const kp = crypto.generateKeyPairSync("ed25519");
+      priv = kp.privateKey.export({ type: "pkcs8", format: "pem" });
+      db.prepare("INSERT INTO meta (k,v) VALUES ('signing_key',?)").run(priv);
+      console.log("[sign] generated a new Ed25519 signing key and stored it in the database");
+    }
+  }
+  SIGN_PRIV = crypto.createPrivateKey(priv);
+  SIGN_PUB_PEM = crypto.createPublicKey(SIGN_PRIV).export({ type: "spki", format: "pem" });
+  SIGN_KEY_ID = crypto.createHash("sha256").update(SIGN_PUB_PEM).digest("hex").slice(0, 16);
+})();
+function sign(text) { return crypto.sign(null, Buffer.from(text, "utf8"), SIGN_PRIV).toString("base64"); }
+function verify(text, sigB64) { try { return crypto.verify(null, Buffer.from(text, "utf8"), crypto.createPublicKey(SIGN_PUB_PEM), Buffer.from(sigB64, "base64")); } catch { return false; } }
+
+// ── 속도 제한: 버킷당 window 안에 max회. DB 기반이라 재시작에도 유지.
+function rateLimited(bucket, max, windowMs) {
+  const t = now();
+  const row = db.prepare("SELECT count, window_start FROM ratelimit WHERE bucket=?").get(bucket);
+  if (!row || t - row.window_start > windowMs) { db.prepare("INSERT OR REPLACE INTO ratelimit (bucket,count,window_start) VALUES (?,?,?)").run(bucket, 1, t); return false; }
+  if (row.count >= max) return true;
+  db.prepare("UPDATE ratelimit SET count=count+1 WHERE bucket=?").run(bucket); return false;
+}
+const ip = (req) => (req.headers["x-forwarded-for"] || req.socket.remoteAddress || "").toString().split(",")[0].trim();
+
 const app = express();
+app.set("trust proxy", true);
 const keepRaw = (req, _res, buf) => { req.rawBody = buf.toString("utf8"); };
 app.use(express.json({ limit: "256kb", verify: keepRaw }));
 app.use(express.urlencoded({ extended: false, verify: keepRaw }));
@@ -100,11 +147,9 @@ function auth(req, res, next) {
 function callbackState(a) {
   if (!a.callback_url) return "none";
   if (a.status === "pending") return "waiting_for_decision";
-  const rows = db.prepare("SELECT status_code FROM deliveries WHERE approval_id=? ORDER BY attempt").all(a.id);
-  if (rows.some((r) => r.status_code && r.status_code >= 200 && r.status_code < 300)) return "delivered";
-  if (rows.some((r) => r.status_code === 404 || r.status_code === 409)) return "already_consumed";
-  if (rows.length >= 5) return "failed";
-  return "retrying";
+  const o = db.prepare("SELECT state FROM outbox WHERE approval_id=?").get(a.id);
+  if (!o) return "queued";
+  return o.state === "queued" ? "retrying" : o.state; // delivered | endpoint_gone | failed
 }
 function publicView(a) {
   return {
@@ -127,6 +172,7 @@ function publicView(a) {
 
 // ---------- 승인 생성 ----------
 app.post("/v1/approvals", auth, async (req, res) => {
+  if (rateLimited("create:" + req.apiKey, 600, 60e3)) return res.status(429).json({ error: "rate limit: 600 approvals per minute per key" });
   const b = req.body || {};
   if (!b.question || typeof b.question !== "string") return res.status(400).json({ error: "question (string) required" });
   const channel = b.channel || "link";
@@ -193,11 +239,11 @@ function decide(a, decision, by, comment, source) {
     if (fresh.api_key !== DEMO_KEY && fresh.api_key !== NOTIFY_SLACK_KEY) {
       const label = db.prepare("SELECT label FROM keys WHERE key=?").get(fresh.api_key);
       notifyOwner(`Approval decided on ${label?.label || fresh.api_key}`, [
-        { type: "section", text: { type: "mrkdwn", text: `*${fresh.status}* — ${label?.label || "a user"}\n${fresh.question.slice(0, 140)}` } },
+        { type: "section", text: { type: "mrkdwn", text: `*${fresh.status}* · ${label?.label || "a user"}\n${fresh.question.slice(0, 140)}` } },
         { type: "context", elements: [{ type: "mrkdwn", text: `${fresh.id} · via ${source} · ${fresh.decided_by || ""}` }] },
       ]);
     }
-    deliverCallback(fresh, source).catch(() => {});
+    enqueueCallback(fresh, source);
     if (fresh.channel === "slack" && fresh.slack_ts) updateSlackMessage(fresh).catch(() => {});
   }
   return { fresh, changed: r.changes === 1 };
@@ -236,7 +282,7 @@ function renderApproval(a) {
   }
   return `<p class="eyebrow">${BRAND}</p><h1>${esc(a.question)}</h1>${ctxHtml}
     <form method="post">
-      <input name="name" placeholder="Your name (optional — it goes on the record)" aria-label="Your name">
+      <input name="name" placeholder="Your name (optional, it goes on the record)" aria-label="Your name">
       <input name="comment" placeholder="A note (optional)" aria-label="Note">
       <div class="row">
         <button name="decision" value="approved" class="yes">${esc(a.approve_label)}</button>
@@ -262,10 +308,12 @@ input:focus-visible,button:focus-visible{outline:2px solid var(--ink);outline-of
 }
 
 // ---------- 콜백 (n8n resumeUrl / Make 웹훅) ----------
-// 재시도 5회, 지수 백오프. 서명 헤더 포함. 결정 1건당 콜백은 최대 1번만 "성공"으로 기록.
-async function deliverCallback(a, source) {
-  if (!a.callback_url) return;
-  const body = JSON.stringify({
+// 결정 즉시 outbox에 넣고, 스윕이 전달한다. 재시도는 DB에 있으므로 재배포·재시작에도 사라지지 않는다.
+// 백오프: 0s, 10s, 1m, 5m, 15m, 1h, 3h, 6h, 12h, 24h → 총 약 2일. 그 뒤 failed.
+const BACKOFF = [0, 10e3, 60e3, 300e3, 900e3, 3600e3, 3*3600e3, 6*3600e3, 12*3600e3, 24*3600e3];
+
+function receiptFor(a, source) {
+  return {
     id: a.id,
     status: a.status,
     approved: a.status === "approved",
@@ -275,25 +323,69 @@ async function deliverCallback(a, source) {
     source,
     question: a.question,
     context: a.context ? JSON.parse(a.context) : null,
-  });
-  const sig = crypto.createHmac("sha256", SIGNING_SECRET).update(body).digest("hex");
-  const delays = [0, 2000, 10000, 60000, 300000];
-  for (let i = 0; i < delays.length; i++) {
-    if (delays[i]) await new Promise((r) => setTimeout(r, delays[i]));
-    try {
-      const r = await fetch(a.callback_url, {
-        method: "POST",
-        headers: { "content-type": "application/json", "x-approval-signature": sig, "x-approval-id": a.id },
-        body,
-      });
-      db.prepare("INSERT INTO deliveries (approval_id,attempt,status_code,at) VALUES (?,?,?,?)").run(a.id, i + 1, r.status, now());
-      // n8n resumeUrl은 일회용: 404/409는 "이미 소비됨"으로 보고 재시도하지 않는다.
-      if (r.ok || r.status === 404 || r.status === 409) return;
-    } catch (e) {
-      db.prepare("INSERT INTO deliveries (approval_id,attempt,error,at) VALUES (?,?,?,?)").run(a.id, i + 1, String(e.message || e), now());
-    }
-  }
+    channel: a.channel,
+    created_at: new Date(a.created_at).toISOString(),
+    issuer: BASE_URL,
+    key_id: SIGN_KEY_ID,
+  };
 }
+
+function enqueueCallback(a, source) {
+  if (!a.callback_url) return;
+  const body = JSON.stringify(receiptFor(a, source));
+  db.prepare(`INSERT OR IGNORE INTO outbox (approval_id,url,body,signature,attempts,next_at,state,created_at) VALUES (?,?,?,?,0,?,'queued',?)`)
+    .run(a.id, a.callback_url, body, sign(body), now(), now());
+  deliverDue().catch(() => {});
+}
+
+let delivering = false;
+async function deliverDue() {
+  if (delivering) return; delivering = true;
+  try {
+    const due = db.prepare("SELECT * FROM outbox WHERE state='queued' AND next_at <= ? ORDER BY next_at LIMIT 50").all(now());
+    for (const o of due) {
+      let status = null, error = null;
+      try {
+        const r = await fetch(o.url, { method: "POST", headers: { "content-type": "application/json", "x-approval-signature": o.signature, "x-approval-key-id": SIGN_KEY_ID, "x-approval-id": o.approval_id }, body: o.body, signal: AbortSignal.timeout(15000) });
+        status = r.status;
+      } catch (e) { error = String(e.message || e); }
+      db.prepare("INSERT INTO deliveries (approval_id,attempt,status_code,error,at) VALUES (?,?,?,?,?)").run(o.approval_id, o.attempts + 1, status, error, now());
+      let state = "queued", next = now();
+      if (status && status >= 200 && status < 300) state = "delivered";
+      else if (status === 404 || status === 409 || status === 410) state = "endpoint_gone"; // n8n 일회용 resumeUrl: 소비됐거나 실행이 사라짐. 재시도는 무의미.
+      else if (o.attempts + 1 >= BACKOFF.length) state = "failed";
+      else next = now() + BACKOFF[o.attempts + 1];
+      db.prepare("UPDATE outbox SET attempts=attempts+1, next_at=?, state=?, last_status=?, last_error=? WHERE approval_id=?").run(next, state, status, error, o.approval_id);
+      if (state === "failed") notifyOwner(`Callback FAILED after ${BACKOFF.length} attempts: ${o.approval_id}`, [{ type: "section", text: { type: "mrkdwn", text: `*Callback failed* for ${o.approval_id}\n${o.url}\nlast: ${status || error}` } }]);
+    }
+  } finally { delivering = false; }
+}
+setInterval(() => deliverDue().catch(() => {}), 5000).unref();
+
+// 영수증: 자기완결 JSON + 서명. 고객이 보관하고, 누구나 공개키로 검증.
+app.get("/v1/approvals/:id/receipt", auth, (req, res) => {
+  const a = db.prepare("SELECT * FROM approvals WHERE id=? AND api_key=?").get(req.params.id, req.apiKey);
+  if (!a) return res.status(404).json({ error: "not found" });
+  if (a.status === "pending") return res.status(409).json({ error: "not decided yet" });
+  const o = db.prepare("SELECT body, signature FROM outbox WHERE approval_id=?").get(a.id);
+  const body = o ? o.body : JSON.stringify(receiptFor(a, "receipt"));
+  const signature = o ? o.signature : sign(body);
+  res.json({ receipt: JSON.parse(body), receipt_json: body, signature, key_id: SIGN_KEY_ID, public_key_url: `${BASE_URL}/.well-known/approval-signing-key`, verify_url: `${BASE_URL}/v1/verify` });
+});
+app.get("/.well-known/approval-signing-key", (_req, res) => res.type("text/plain").send(SIGN_PUB_PEM));
+app.get("/v1/signing-key", (_req, res) => res.json({ key_id: SIGN_KEY_ID, algorithm: "Ed25519", public_key_pem: SIGN_PUB_PEM, how: "verify(receipt_json bytes, base64 signature) with this key. Node: crypto.verify(null, Buffer.from(receipt_json), publicKey, Buffer.from(signature,'base64'))" }));
+app.post("/v1/verify", (req, res) => {
+  const { receipt_json, signature } = req.body || {};
+  if (typeof receipt_json !== "string" || typeof signature !== "string") return res.status(400).json({ error: "receipt_json (string) and signature (base64) required" });
+  res.json({ valid: verify(receipt_json, signature), key_id: SIGN_KEY_ID });
+});
+// 공개 카운터: 사람에게 전달된 결정 수 / 콜백 유실 수. 랜딩 하단용.
+app.get("/v1/public-stats", (_req, res) => {
+  const decided = db.prepare("SELECT COUNT(*) c FROM approvals WHERE status IN ('approved','rejected','timed_out') AND api_key<>?").get(DEMO_KEY).c;
+  const delivered = db.prepare("SELECT COUNT(*) c FROM outbox WHERE state='delivered'").get().c;
+  const lost = db.prepare("SELECT COUNT(*) c FROM outbox WHERE state='failed'").get().c;
+  res.json({ decisions: decided, callbacks_delivered: delivered, callbacks_lost: lost });
+});
 
 app.get("/v1/approvals/:id/deliveries", auth, (req, res) => {
   const a = db.prepare("SELECT id FROM approvals WHERE id=? AND api_key=?").get(req.params.id, req.apiKey);
@@ -421,8 +513,8 @@ app.post("/slack/interactions", (req, res) => {
 
 app.get("/v1/stats", auth, (req, res) => {
   const rows = db.prepare("SELECT status, COUNT(*) c FROM approvals WHERE api_key=? GROUP BY status").all(req.apiKey);
-  const cb = db.prepare("SELECT COUNT(DISTINCT approval_id) c FROM deliveries WHERE status_code BETWEEN 200 AND 299").get().c;
-  res.json({ by_status: Object.fromEntries(rows.map((r) => [r.status, r.c])), callbacks_delivered: cb });
+  const cb = db.prepare("SELECT state, COUNT(*) c FROM outbox o JOIN approvals a ON a.id=o.approval_id WHERE a.api_key=? GROUP BY state").all(req.apiKey);
+  res.json({ by_status: Object.fromEntries(rows.map((r) => [r.status, r.c])), callbacks: Object.fromEntries(cb.map((r) => [r.state, r.c])) });
 });
 
 // ---------- 슬랙 설치 (워크스페이스마다 한 번) ----------
@@ -435,7 +527,7 @@ app.get("/slack/install", (req, res) => {
   if (!known) return res.status(401).send(page("Unknown key", "<p>Add <code>?key=YOUR_API_KEY</code> to this URL.</p>"));
   const u = new URL("https://slack.com/oauth/v2/authorize");
   u.searchParams.set("client_id", SLACK_CLIENT_ID);
-  u.searchParams.set("scope", "chat:write,chat:write.public");
+  u.searchParams.set("scope", "chat:write,chat:write.public,im:write");
   u.searchParams.set("redirect_uri", `${BASE_URL}/slack/oauth/callback`);
   u.searchParams.set("state", stateFor(key));
   res.redirect(u.toString());
@@ -465,11 +557,12 @@ app.get("/admin/key-requests", (req, res) => {
 
 // ---------- 키 요청 (랜딩 폼) ----------
 app.post("/request-key", (req, res) => {
+  if (rateLimited("reqkey:" + ip(req), 5, 3600e3)) return res.status(429).send(page("Slow down", "<p class=\"muted\">Too many requests from this address. Try again in an hour.</p>"));
   const email = String(req.body.email || "").trim().slice(0, 200);
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return res.status(400).send(page("Check the email", "<p>That doesn't look like an email address. Go back and try again.</p>"));
   db.prepare("INSERT INTO key_requests (email,tool,note,at) VALUES (?,?,?,?)").run(email, String(req.body.tool || "").slice(0, 40), String(req.body.note || "").slice(0, 500), now());
   console.log(`[key-request] ${email} ${req.body.tool || ""} — ${req.body.note || ""}`);
-  const tool = String(req.body.tool || "—"), note = String(req.body.note || "").slice(0, 300);
+  const tool = String(req.body.tool || "-"), note = String(req.body.note || "").slice(0, 300);
   notifyOwner(`New key request: ${email}`, [
     { type: "section", text: { type: "mrkdwn", text: `*New key request*\n${email} · ${tool}` } },
     ...(note ? [{ type: "section", text: { type: "mrkdwn", text: `> ${note.replace(/\n/g, " ")}` } }] : []),
@@ -480,6 +573,7 @@ app.post("/request-key", (req, res) => {
 
 // ---------- 데모: 랜딩에서 실제 승인 링크를 만들어 보여줌 ----------
 app.post("/demo", (req, res) => {
+  if (rateLimited("demo:" + ip(req), 20, 3600e3)) return res.status(429).json({ error: "too many demo requests from this address; try again in an hour" });
   const a = {
     id: newId(), token: newToken(), api_key: DEMO_KEY,
     question: String(req.body.question || "Refund order A-1 for $380?").slice(0, 200),
