@@ -550,6 +550,20 @@ app.post("/admin/keys", (req, res) => {
   db.prepare("INSERT INTO keys (key,label,created_at) VALUES (?,?,?)").run(key, String(req.body?.label || ""), now());
   res.status(201).json({ key, label: req.body?.label || "", slack_install_url: `${BASE_URL}/slack/install?key=${key}` });
 });
+// 서명 비밀키 내보내기 (한 번만 쓰고 Railway 환경변수 SIGNING_KEY에 넣는다. 그러면 볼륨이 날아가도 키는 산다)
+app.get("/admin/signing-key-export", (req, res) => {
+  if (!ADMIN_SECRET || req.headers["x-admin-secret"] !== ADMIN_SECRET) return res.status(401).json({ error: "no" });
+  const row = db.prepare("SELECT v FROM meta WHERE k='signing_key'").get();
+  res.type("text/plain").send(process.env.SIGNING_KEY || (row && row.v) || "");
+});
+// DB 스냅샷 다운로드 (무료 백업: 주 1회 내려받아 보관)
+app.get("/admin/backup", async (req, res) => {
+  if (!ADMIN_SECRET || req.headers["x-admin-secret"] !== ADMIN_SECRET) return res.status(401).json({ error: "no" });
+  const tmp = `/tmp/backup-${Date.now()}.db`;
+  await db.backup(tmp);
+  res.download(tmp, `approvals-${new Date().toISOString().slice(0, 10)}.db`, () => { try { require("fs").unlinkSync(tmp); } catch {} });
+});
+
 app.get("/admin/key-requests", (req, res) => {
   if (!ADMIN_SECRET || req.headers["x-admin-secret"] !== ADMIN_SECRET) return res.status(401).json({ error: "no" });
   res.json(db.prepare("SELECT * FROM key_requests ORDER BY at DESC LIMIT 200").all());
