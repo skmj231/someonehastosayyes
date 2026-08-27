@@ -21,6 +21,11 @@
   a:hover{text-decoration:underline;text-underline-offset:3px}
   .page{max-width:680px;margin:0 auto;padding:40px 24px 96px}
 
+  .notice{display:flex;align-items:center;justify-content:space-between;gap:16px;margin:-40px -24px 40px;padding:12px 24px;background:var(--yes-soft);color:var(--yes);font-size:14.5px;line-height:1.4}
+  .notice b{font-weight:600}
+  .notice a{text-decoration:underline;text-underline-offset:3px}
+  .notice button{border:0;background:transparent;color:var(--yes);font-size:18px;line-height:1;cursor:pointer;padding:4px 6px;flex:none}
+  .notice.hide{display:none}
   .mark{font-size:14px;font-weight:500;letter-spacing:.01em;color:var(--ink-2);display:flex;justify-content:space-between;align-items:baseline}
   .mark b{color:var(--ink);font-weight:600}
   .mark a{margin-left:20px}
@@ -46,6 +51,9 @@
   .ledger li.on{color:var(--ink-2)}
   .ledger li.on .v{color:var(--ink)}
   .ledger .v{word-break:break-word}
+  .ledger.steps li{grid-template-columns:28px 1fr}
+  .ledger.steps{font-family:var(--sans);font-size:16px;color:var(--ink)}
+  .ledger.steps li span:first-child{color:var(--ink-3);font-family:var(--mono)}
   .ledger a{text-decoration:underline;text-underline-offset:3px}
   .verdict{font:500 clamp(40px,9vw,72px)/1 var(--sans);letter-spacing:-.04em;margin:26px 0 0;min-height:1em;color:var(--yes);opacity:0;transform:translateY(6px);transition:opacity .25s ease,transform .25s ease}
   .verdict.no{color:var(--no)}
@@ -77,10 +85,14 @@
 </head>
 <body>
 <div class="page">
+  <div class="notice" id="relay-notice">
+    <span><b>Moving off Relay.app?</b> The approve/reject step is the part that doesn't transfer. Rebuild the workflow in n8n or Make; put the yes here. <a href="#request">Get a key</a>. Free while we're small, no card.</span>
+    <button type="button" aria-label="Dismiss" id="relay-dismiss">×</button>
+  </div>
   <div class="mark"><b>someonehastosayyes</b><span><a href="#request">get a key</a><a href="https://github.com/skmj231/someonehastosayyes">source</a></span></div>
 
   <h1>Someone has to say <span class="yes">yes</span> before your automation does the thing.</h1>
-  <p class="lede">One request from n8n or Make. A person gets a button in Slack or email. Your workflow continues — once, and with a record of who said yes.</p>
+  <p class="lede">One request from n8n or Make. A person gets a button in Slack or email. Your workflow continues, once, with a record of who said yes.</p>
 
   <section>
     <h2>Try it. This makes a real request.</h2>
@@ -91,10 +103,19 @@
     <ul class="ledger" id="ledger">
       <li id="l1"><span>request</span><span class="v" id="rid">not yet</span></li>
       <li id="l2"><span>the person</span><span class="v" id="link">gets a link like the one they'd get in Slack or email</span></li>
-      <li id="l3"><span>answer</span><span class="v" id="st">—</span></li>
+      <li id="l3"><span>answer</span><span class="v" id="st">not yet</span></li>
       <li id="l4"><span>your workflow</span><span class="v">receives {approved, decided_by, decided_at} at its resume URL, once</span></li>
     </ul>
     <div class="verdict" id="verdict" aria-live="polite"></div>
+  </section>
+
+  <section>
+    <h2>How you start</h2>
+    <ul class="ledger steps">
+      <li class="on"><span>1</span><span class="v">Ask for a key below. It arrives by email, usually within a few hours.</span></li>
+      <li class="on"><span>2</span><span class="v">Click the Slack link in that email once, or skip it and use email approvals.</span></li>
+      <li class="on"><span>3</span><span class="v">Put one HTTP request in your workflow where the pause goes. n8n: import the workflow file. Make: two modules. That's the whole setup.</span></li>
+    </ul>
   </section>
 
   <section>
@@ -105,7 +126,7 @@
       <li><span class="was">Make has no approval step outside Enterprise.</span><span class="now">Two HTTP modules. Make spends no operations while the person thinks.</span></li>
       <li><span class="was">No one decided what happens if nobody answers.</span><span class="now">Every request carries a deadline and a default. The default is no.</span></li>
       <li><span class="was">An email scanner opens the link and “approves”.</span><span class="now">Opening never decides. Only a press does.</span></li>
-      <li><span class="was">“I said yes — did it actually run?”</span><span class="now">Each request tells you whether the callback was delivered, and keeps every attempt.</span></li>
+      <li><span class="was">“I said yes. Did it actually run?”</span><span class="now">Each request tells you whether the callback was delivered, and keeps every attempt.</span></li>
     </ul>
   </section>
 
@@ -122,6 +143,18 @@ curl -X POST {{BASE_URL}}/v1/approvals \
     <p class="after"><a href="https://github.com/skmj231/someonehastosayyes/blob/main/examples/n8n-approval-demo.json">n8n workflow to import</a><a href="https://github.com/skmj231/someonehastosayyes/blob/main/examples/make-recipe.md">Make recipe</a><a href="https://github.com/skmj231/someonehastosayyes/blob/main/README.md">API</a></p>
   </section>
 
+  <section>
+    <h2>Before you ask</h2>
+    <ul class="plain">
+      <li><span class="was">Does it cost anything?</span><span class="now">Nothing, and no card. It's free while we're small.</span></li>
+      <li><span class="was">Does the person who approves need an account?</span><span class="now">No. They get a Slack button or a link. They never see this site.</span></li>
+      <li><span class="was">What do you keep?</span><span class="now">The question, its context, the decision, who made it and when. You can pull a signed receipt for every decision and keep it wherever you like.</span></li>
+      <li><span class="was">What if you disappear?</span><span class="now">The code is open source and runs from one file on any server. Receipts verify with a public key that works without us.</span></li>
+      <li><span class="was">What can't it do?</span><span class="now">Yes or no, with an optional note. No editing drafts, no forms, no dashboard. On purpose.</span></li>
+      <li><span class="was">Will it work with my tool?</span><span class="now">If it can send an HTTP request, yes. n8n, Make, Zapier via Webhooks, scripts, agents.</span></li>
+    </ul>
+  </section>
+
   <section id="request">
     <h2>Get a key</h2>
     <form class="key" method="post" action="/request-key">
@@ -133,10 +166,21 @@ curl -X POST {{BASE_URL}}/v1/approvals \
     <p class="fine">Keys are sent by hand, usually within a few hours. Free while we're small. The code is open; self-hosting is always free.</p>
   </section>
 
-  <footer><span>someonehastosayyes — a pause in your automation where a person decides.</span><span>Questions: reply to the key email.</span></footer>
+  <footer><span>someonehastosayyes. A pause in your automation where a person decides.</span><span id="pubstats"></span></footer>
 </div>
 
 <script>
+(function(){
+  fetch('/v1/public-stats').then(function(r){return r.json()}).then(function(p){
+    var el=document.getElementById('pubstats'); if(!el) return;
+    el.textContent=p.callbacks_delivered+' decisions delivered · '+p.callbacks_lost+' lost';
+  }).catch(function(){});
+})();
+(function(){
+  var n=document.getElementById('relay-notice'),x=document.getElementById('relay-dismiss');
+  try{ if(localStorage.getItem('relay-notice')==='1') n.classList.add('hide'); }catch(e){}
+  x.addEventListener('click',function(){ n.classList.add('hide'); try{ localStorage.setItem('relay-notice','1'); }catch(e){} });
+})();
 (function(){
   var go=document.getElementById('go'),q=document.getElementById('q'),rid=document.getElementById('rid'),link=document.getElementById('link'),
       st=document.getElementById('st'),verdict=document.getElementById('verdict'),timer=null;
@@ -148,7 +192,7 @@ curl -X POST {{BASE_URL}}/v1/approvals \
       var d=await r.json();
       rid.textContent=d.id; on('l1');
       link.innerHTML=''; var a=document.createElement('a'); a.href=d.approve_url; a.target='_blank'; a.rel='noopener'; a.textContent='open their link'; link.appendChild(a);
-      link.appendChild(document.createTextNode(' — press yes or no there')); on('l2');
+      link.appendChild(document.createTextNode('. Press yes or no there')); on('l2');
       st.textContent='waiting for a press'; on('l3');
       timer=setInterval(async function(){
         var s=await (await fetch(d.status_url)).json();

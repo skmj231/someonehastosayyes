@@ -277,7 +277,8 @@ function renderApproval(a) {
     const cls = a.status === "approved" ? "yes" : "no";
     return `<p class="eyebrow">${BRAND}</p><h1>${esc(a.question)}</h1>${ctxHtml}
       <p class="verdict ${cls}">${esc(word)}.</p>
-      <p class="muted">${a.decided_by ? esc(a.decided_by) + " · " : ""}${a.decided_at ? fmt(a.decided_at) : ""}${a.comment ? " · " + esc(a.comment) : ""}</p>
+      <p class="muted">${a.decided_by ? esc(a.decided_by) + " · " : ""}${a.decided_at ? `<time data-ts="${a.decided_at}">${fmt(a.decided_at)} UTC</time>` : ""}${a.comment ? " · " + esc(a.comment) : ""}</p>
+      <script>document.querySelectorAll('time[data-ts]').forEach(function(t){var d=new Date(+t.dataset.ts);t.textContent=d.toLocaleString(undefined,{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});});</script>
       <p class="muted">Already recorded. Nothing more to do.</p>`;
   }
   return `<p class="eyebrow">${BRAND}</p><h1>${esc(a.question)}</h1>${ctxHtml}
@@ -289,7 +290,8 @@ function renderApproval(a) {
         <button name="decision" value="rejected" class="no">${esc(a.reject_label)}</button>
       </div>
     </form>
-    <p class="muted">Answer by ${fmt(a.timeout_at)}. After that it counts as “${esc(a.default_on_timeout === "approved" ? a.approve_label : a.reject_label)}”.</p>`;
+    <p class="muted">Answer by <time data-ts="${a.timeout_at}">${fmt(a.timeout_at)} UTC</time>. After that it counts as “${esc(a.default_on_timeout === "approved" ? a.approve_label : a.reject_label)}”.</p>
+    <script>document.querySelectorAll('time[data-ts]').forEach(function(t){var d=new Date(+t.dataset.ts);t.textContent=d.toLocaleString(undefined,{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});});</script>`;
 }
 
 function page(title, body) {
@@ -408,7 +410,7 @@ async function sendEmail(a) {
   const ctx = a.context ? JSON.parse(a.context) : null;
   const html = `<p style="font-size:16px"><b>${esc(a.question)}</b></p>${ctx ? `<pre style="background:#f4f4f5;padding:12px">${esc(typeof ctx === "string" ? ctx : JSON.stringify(ctx, null, 2))}</pre>` : ""}
   <p><a href="${url}" style="display:inline-block;padding:12px 20px;background:#111;color:#fff;border-radius:8px;text-decoration:none">Open and decide</a></p>
-  <p style="color:#666;font-size:13px">Answer by ${fmt(a.timeout_at)}</p>`;
+  <p style="color:#666;font-size:13px">Answer by ${fmt(a.timeout_at)} UTC (about ${Math.round((a.timeout_at - now()) / 3600000)} hours from now)</p>`;
   const r = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: { authorization: `Bearer ${RESEND_API_KEY}`, "content-type": "application/json" },
@@ -434,11 +436,13 @@ function slackBlocks(a) {
       ],
     });
     const dflt = a.default_on_timeout === "approved" ? a.approve_label : a.reject_label;
-    blocks.push({ type: "context", elements: [{ type: "mrkdwn", text: `Answer by ${fmt(a.timeout_at)} · after that it counts as "${dflt}" · <${BASE_URL}/a/${a.token}|open in browser>` }] });
+    const ts = Math.floor(a.timeout_at / 1000);
+    blocks.push({ type: "context", elements: [{ type: "mrkdwn", text: `Answer by <!date^${ts}^{date_short_pretty} at {time}|${fmt(a.timeout_at)} UTC> · after that it counts as "${dflt}" · <${BASE_URL}/a/${a.token}|open in browser>` }] });
   } else {
     const label = { approved: a.approve_label, rejected: a.reject_label, timed_out: "no answer in time", canceled: "withdrawn" }[a.status] || a.status;
     const mark = a.status === "approved" ? "✅" : "⛔";
-    blocks.push({ type: "context", elements: [{ type: "mrkdwn", text: `${mark} *${label}* · ${a.decided_by || ""} · ${a.decided_at ? fmt(a.decided_at) : ""}${a.comment ? ` · ${a.comment}` : ""}` }] });
+    const dts = a.decided_at ? Math.floor(a.decided_at / 1000) : null;
+    blocks.push({ type: "context", elements: [{ type: "mrkdwn", text: `${mark} *${label}* · ${a.decided_by || ""}${dts ? ` · <!date^${dts}^{date_short_pretty} at {time}|${fmt(a.decided_at)} UTC>` : ""}${a.comment ? ` · ${a.comment}` : ""}` }] });
   }
   return blocks;
 }
