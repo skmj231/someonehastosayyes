@@ -11,7 +11,9 @@ const net = require("net");
 
 const PORT = process.env.PORT || 3000;
 const BASE_URL = (process.env.BASE_URL || `http://localhost:${PORT}`).replace(/\/$/, "");
-const API_KEYS = (process.env.API_KEYS || "dev-key").split(",").map((s) => s.trim());
+// 운영에서는 DB 발급 키만으로 실행할 수 있다. 개발 환경에서만 편의용 기본 키를 둔다.
+const API_KEYS = (process.env.API_KEYS || (process.env.NODE_ENV === "production" ? "" : "dev-key"))
+  .split(",").map((s) => s.trim()).filter(Boolean);
 const SIGNING_SECRET = process.env.SIGNING_SECRET || "change-me"; // 내부 상태 토큰용 (슬랙 OAuth state)
 // 서명키: 환경변수 SIGNING_KEY (PEM). 없으면 DB에 하나 만들어 보관.
 let SIGN_PRIV = null, SIGN_PUB_PEM = null, SIGN_KEY_ID = null;
@@ -43,7 +45,7 @@ function validateProductionConfig() {
   if (!IS_PRODUCTION) return;
   const problems = [];
   if (!BASE_URL.startsWith("https://")) problems.push("BASE_URL must use https");
-  if (!API_KEYS.length || API_KEYS.includes("dev-key")) problems.push("API_KEYS must not use the development default");
+  if (API_KEYS.includes("dev-key")) problems.push("API_KEYS must not use the development default");
   if (SIGNING_SECRET === "change-me" || SIGNING_SECRET.length < 32) problems.push("SIGNING_SECRET must be at least 32 characters");
   if (ADMIN_SECRET.length < 24) problems.push("ADMIN_SECRET must be at least 24 characters");
   const slackValues = [SLACK_CLIENT_ID, SLACK_CLIENT_SECRET, SLACK_SIGNING_SECRET];
