@@ -879,6 +879,54 @@ app.post("/admin/keys", adminAuth, (req, res) => {
   const installToken = issueSlackInstallToken(key);
   res.status(201).json({ key, label: req.body?.label || "", slack_install_url: `${BASE_URL}/slack/install?token=${installToken}` });
 });
+
+function keyFingerprint(key) {
+  return crypto.createHash("sha256").update(key).digest("hex").slice(0, 16);
+}
+
+function keyUsage(key) {
+  const approvals = db.prepare("SELECT COUNT(*) c FROM approvals WHERE api_key=?").get(key).c;
+  const pending = db.prepare("SELECT COUNT(*) c FROM approvals WHERE api_key=? AND status='pending'").get(key).c;
+  const slack = db.prepare("SELECT team_id,team_name,installed_at FROM slack_installs WHERE api_key=?").get(key);
+  return { approvals, pending, slack: slack || null };
+}
+
+// 원문 키를 노출하지 않는 운영용 목록. fingerprint로 사용처를 확인한다.
+app.get("/admin/keys", adminAuth, (_req, res) => {
+  const stored = db.prepare("SELECT key,label,created_at FROM keys ORDER BY created_at").all().map(row => ({
+    fingerprint: keyFingerprint(row.key),
+    label: row.label || "",
+    created_at: new Date(row.created_at).toISOString(),
+    source: "database",
+    revocable: true,
+    ...keyUsage(row.key)
+  }));
+  const configured = API_KEYS.map(key => ({
+    fingerprint: keyFingerprint(key),
+    label: "environment key",
+    created_at: null,
+    source: "environment",
+    revocable: false,
+    ...keyUsage(key)
+  }));
+  res.json([...configured, ...stored]);
+});
+
+// 대기 중 승인이 있는 키는 실수로 폐기할 수 없다.
+app.delete("/admin/keys/:fingerprint", adminAuth, (req, res) => {
+  const matches = db.prepare("SELECT key,label FROM keys").all()
+    .filter(row => keyFingerprint(row.key) === req.params.fingerprint);
+  if (matches.length !== 1) return res.status(404).json({ error: "key not found" });
+  const row = matches[0];
+  const usage = keyUsage(row.key);
+  if (usage.pending > 0) return res.status(409).json({ error: "key has pending approvals", pending: usage.pending });
+  db.transaction(() => {
+    db.prepare("DELETE FROM slack_install_tokens WHERE api_key=?").run(row.key);
+    db.prepare("DELETE FROM slack_installs WHERE api_key=?").run(row.key);
+    db.prepare("DELETE FROM keys WHERE key=?").run(row.key);
+  })();
+  res.json({ revoked: true, fingerprint: req.params.fingerprint, label: row.label || "", historical_approvals_retained: usage.approvals });
+});
 // 서명 비밀키 내보내기 (한 번만 쓰고 Railway 환경변수 SIGNING_KEY에 넣는다. 그러면 볼륨이 날아가도 키는 산다)
 app.get("/admin/signing-key-export", adminAuth, (req, res) => {
   const row = db.prepare("SELECT v FROM meta WHERE k='signing_key'").get();
