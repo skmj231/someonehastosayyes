@@ -887,8 +887,9 @@ function keyFingerprint(key) {
 function keyUsage(key) {
   const approvals = db.prepare("SELECT COUNT(*) c FROM approvals WHERE api_key=?").get(key).c;
   const pending = db.prepare("SELECT COUNT(*) c FROM approvals WHERE api_key=? AND status='pending'").get(key).c;
+  const pending_items = db.prepare("SELECT id,question,channel,created_at,timeout_at FROM approvals WHERE api_key=? AND status='pending' ORDER BY created_at").all(key);
   const slack = db.prepare("SELECT team_id,team_name,installed_at FROM slack_installs WHERE api_key=?").get(key);
-  return { approvals, pending, slack: slack || null };
+  return { approvals, pending, pending_items, slack: slack || null };
 }
 
 // 비밀값을 저장하지 않는 작은 운영 화면. 브라우저 메모리에서만 관리자 요청에 사용한다.
@@ -899,7 +900,7 @@ app.get("/admin/key-console", (_req, res) => {
   <input id="secret" type="password" autocomplete="off" aria-label="Administrator value"><button id="load">Load keys</button><p id="message"></p><div id="keys"></div>
   <script>
   const secret=document.querySelector('#secret'), keys=document.querySelector('#keys'), message=document.querySelector('#message');
-  document.querySelector('#load').onclick=async()=>{message.textContent='Loading…';keys.replaceChildren();try{const r=await fetch('/admin/keys',{headers:{'x-admin-secret':secret.value}});const data=await r.json();if(!r.ok)throw new Error(data.error||('HTTP '+r.status));for(const k of data){const row=document.createElement('div');row.className='row';const title=document.createElement('strong');title.textContent=k.label||'(unlabelled key)';const meta=document.createElement('div');meta.className='meta';meta.textContent='fingerprint '+k.fingerprint+' · '+k.source+' · approvals '+k.approvals+' · pending '+k.pending+(k.slack?' · Slack '+(k.slack.team_name||k.slack.team_id):'');row.append(title,meta);keys.append(row)}message.textContent=data.length+' keys found.'}catch(e){message.className='error';message.textContent=e.message}};
+  document.querySelector('#load').onclick=async()=>{message.textContent='Loading…';keys.replaceChildren();try{const r=await fetch('/admin/keys',{headers:{'x-admin-secret':secret.value}});const data=await r.json();if(!r.ok)throw new Error(data.error||('HTTP '+r.status));for(const k of data){const row=document.createElement('div');row.className='row';const title=document.createElement('strong');title.textContent=k.label||'(unlabelled key)';const meta=document.createElement('div');meta.className='meta';meta.textContent='fingerprint '+k.fingerprint+' · '+k.source+' · approvals '+k.approvals+' · pending '+k.pending+(k.slack?' · Slack '+(k.slack.team_name||k.slack.team_id):'');row.append(title,meta);for(const p of k.pending_items||[]){const item=document.createElement('div');item.textContent='Pending: '+p.id+' · '+p.question+' · '+new Date(p.created_at).toISOString()+(p.timeout_at?' · timeout '+new Date(p.timeout_at).toISOString():'');row.append(item)}keys.append(row)}message.textContent=data.length+' keys found.'}catch(e){message.className='error';message.textContent=e.message}};
   </script></html>`);
 });
 
