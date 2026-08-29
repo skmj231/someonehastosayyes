@@ -426,13 +426,6 @@ function decide(a, decision, by, comment, source) {
   const fresh = db.prepare("SELECT * FROM approvals WHERE id=?").get(a.id);
   if (r.changes === 1) {
     archiveReceipt(fresh, source);
-    if (fresh.api_key !== DEMO_KEY && fresh.api_key !== NOTIFY_SLACK_KEY) {
-      const label = db.prepare("SELECT label FROM keys WHERE key=?").get(fresh.api_key);
-      notifyOwner(`Approval decided on ${label?.label || fresh.api_key}`, [
-        { type: "section", text: { type: "mrkdwn", text: `*${fresh.status}* · ${label?.label || "a user"}\n${fresh.question.slice(0, 140)}` } },
-        { type: "context", elements: [{ type: "mrkdwn", text: `${fresh.id} · via ${source} · ${fresh.decided_by || ""}` }] },
-      ]);
-    }
     enqueueCallback(fresh, source);
     if (fresh.channel === "slack" && fresh.slack_ts) {
       enqueueSlackUpdate(fresh);
@@ -560,7 +553,7 @@ async function deliverDue() {
       else if (o.attempts + 1 >= BACKOFF.length) state = "failed";
       else next = now() + BACKOFF[o.attempts + 1];
       db.prepare("UPDATE outbox SET attempts=attempts+1, next_at=?, state=?, last_status=?, last_error=? WHERE approval_id=?").run(next, state, status, error, o.approval_id);
-      if (state === "failed") notifyOwner(`Callback FAILED after ${BACKOFF.length} attempts: ${o.approval_id}`, [{ type: "section", text: { type: "mrkdwn", text: `*Callback failed* for ${o.approval_id}\n${o.url}\nlast: ${status || error}` } }]);
+      if (state === "failed") notifyOwner("A callback delivery permanently failed", [{ type: "section", text: { type: "mrkdwn", text: "*Callback delivery failed*\nCheck authenticated delivery history for details. Customer URLs and approval content are not copied into operator Slack." } }]);
     }
   } finally { delivering = false; }
 }
