@@ -15,10 +15,10 @@
 | 버튼 누르면 404 | 3초 안에 200 응답하고 메시지를 제자리에서 교체 |
 | 버튼이 갱신 안 됨 | "○○님이 14:32 승인"으로 즉시 교체, 두 번째 클릭도 에러 없이 현재 상태 표시 |
 | 새 탭 열림 | 슬랙은 버튼으로 끝. 이메일은 페이지에서 POST 버튼 |
-| resumeUrl 일회용 | 결정 1건당 콜백 1번. 404/409 받으면 "이미 소비됨"으로 보고 재시도 안 함 |
+| resumeUrl 일회용 | 첫 결정만 기록. 콜백은 같은 승인 ID로 재시도하고 404/409/410이면 "이미 소비됨"으로 보고 중단 |
 | 메일 보안 스캐너가 링크를 미리 열어 자동 승인됨 | GET은 절대 결정하지 않음. 결정은 POST만 |
 | 타임아웃이 뭔지 모른다 | 요청마다 `timeout_minutes` + `default_on_timeout` 명시. 기본 24시간, 기본값 거절 |
-| 콜백이 유실된다 | 5회 재시도(0s, 2s, 10s, 1m, 5m), 서명 헤더, 전달 이력 API |
+| 콜백이 유실된다 | 최대 10회 재시도(약 46시간), Ed25519 서명, 전달 이력 API |
 
 ## 파일
 
@@ -45,6 +45,7 @@ VPS(1~2만원/월)나 Railway/Fly 무료 구간. SQLite 파일 하나라 백업�
 ```http
 POST /v1/approvals
 Authorization: Bearer <API_KEY>
+Idempotency-Key: <YOUR_WORKFLOW_EXECUTION_ID>
 Content-Type: application/json
 
 {
@@ -74,9 +75,11 @@ Content-Type: application/json
 
 `channel: "link"`면 아무것도 발송하지 않고 `approve_url`만 줍니다. 이 링크를 카톡·문자·기존 슬랙 노드 등 원하는 곳에 직접 보내면 됩니다. **가장 빨리 시작하는 방법.**
 
+`Idempotency-Key`는 선택 사항이지만 운영 환경에서는 권장합니다. 네트워크 오류로 같은 생성 요청을 다시 보내도 같은 승인 건을 반환하므로, 승인 메시지가 두 개 생기지 않습니다.
+
 ### 상태 조회 (폴링)
 
-응답의 `callback` 필드로 "내가 승인 눌렀는데 자동화가 실행됐나?"에 답합니다: `waiting_for_decision` → `delivered` | `retrying` | `already_consumed` | `failed`.
+응답의 `callback` 필드로 "내가 승인 눌렀는데 자동화가 실행됐나?"에 답합니다: `waiting_for_decision` → `delivered` | `retrying` | `endpoint_gone` | `failed`.
 
 ```http
 GET /v1/approvals/{id}
@@ -88,6 +91,8 @@ GET /v1/approvals/{id}
 POST /v1/approvals/{id}/cancel
 ```
 
+취소도 `status: "canceled"`, `approved: false`인 최종 콜백을 보내므로 기다리던 워크플로가 멈춘 채 남지 않습니다.
+
 ### 콜백 페이로드 (결정되면 `callback_url`로 POST)
 
 ```json
@@ -98,13 +103,13 @@ POST /v1/approvals/{id}/cancel
   "decided_by": "민수",
   "decided_at": "2026-08-25T05:32:10.000Z",
   "comment": null,
-  "source": "slack",           // slack | web | timeout
+  "source": "slack",           // slack | web | timeout | api
   "question": "...",
   "context": { ... }
 }
 ```
 
-헤더 `x-approval-signature`: 본문의 HMAC-SHA256(SIGNING_SECRET). `x-approval-id`: 승인 ID.
+헤더 `x-approval-signature`: 본문의 Ed25519 서명. `x-approval-key-id`: 공개키 ID. `x-approval-id`: 승인 ID. 공개키는 `/.well-known/approval-signing-key`, 검증 도우미는 `POST /v1/verify`에서 제공합니다.
 
 ### 통계
 
@@ -126,6 +131,7 @@ GET /v1/approvals/{id}/deliveries
 1. **HTTP Request** 노드
    - POST `https://approve.yourdomain.com/v1/approvals`
    - Header `Authorization: Bearer <key>`
+   - Header `Idempotency-Key: {{ $execution.id }}` (실행 재시도 때 승인 중복 생성 방지)
    - Body(JSON): `question`, `context`, `channel: "slack"`, `to`, 그리고
      `"callback_url": "{{ $execution.resumeUrl }}"`
 2. **Wait** 노드 — Resume: *On Webhook Call*, HTTP Method: POST
@@ -148,7 +154,7 @@ Make의 두-시나리오 우회를 없애진 않지만, 승인 페이지·발송
 
 ## 슬랙 (사용자당 클릭 한 번)
 
-앱은 우리가 하나 소유하고, 사용자는 `https://<host>/slack/install?key=<키>`를 눌러 자기 워크스페이스에 설치합니다. 그 뒤 그 키로 보내는 `channel: "slack"` 요청은 그 사람 워크스페이스로 갑니다. 앱 자체 설정은 `DEPLOY.md`.
+앱은 우리가 하나 소유하고, 사용자는 키 발급 때 받은 `slack_install_url`을 눌러 자기 워크스페이스에 설치합니다. 링크에는 API 키 대신 30일 뒤 만료되는 별도 설치 토큰만 들어갑니다. 새 링크가 필요하면 API 키로 `POST /v1/slack/install-link`를 호출합니다. 설치 뒤 그 키로 보내는 `channel: "slack"` 요청은 그 사람 워크스페이스로 갑니다. 앱 자체 설정은 `DEPLOY.md`.
 
 ## (대안) 워크스페이스 하나만 쓸 때
 
@@ -168,6 +174,7 @@ resend.com 가입 → 도메인 인증 → API 키를 `RESEND_API_KEY`에. 메�
 
 ```bash
 npm test   # 생성 → GET 비결정 → POST 승인 → 콜백 → 멱등성 → 타임아웃, 약 35초
+npm run test:reliability   # 중복 생성·동시 클릭·재시도·취소·서명·보안 경계, 약 2초
 ```
 
 ## 관리자

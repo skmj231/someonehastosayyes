@@ -32,7 +32,7 @@ Put everything Scenario B will need into `context`. It comes back untouched in t
 - A real approval page (no Google Form). Opening the link never decides; only pressing does — so email security scanners can't approve on the manager's behalf.
 - A deadline and a default. If nobody presses in 24 h, Scenario B still fires with `approved: false`.
 - Who pressed and when, in the payload.
-- Exactly one callback per decision, with retries if Make's webhook hiccups.
+- One recorded decision. Callback retries keep the same approval ID, so Scenario B can deduplicate safely if a response is lost.
 
 ## Callback payload Scenario B receives
 ```json

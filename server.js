@@ -6,6 +6,8 @@
 const express = require("express");
 const Database = require("better-sqlite3");
 const crypto = require("crypto");
+const dns = require("dns").promises;
+const net = require("net");
 
 const PORT = process.env.PORT || 3000;
 const BASE_URL = (process.env.BASE_URL || `http://localhost:${PORT}`).replace(/\/$/, "");
@@ -24,9 +26,28 @@ const NOTIFY_SLACK_CHANNEL = process.env.NOTIFY_SLACK_CHANNEL || "";
 const NOTIFY_SLACK_KEY = process.env.NOTIFY_SLACK_KEY || (process.env.API_KEYS || "").split(",")[0].trim();
 const DEMO_KEY = "demo";
 const BRAND = "someonehastosayyes";
+const IS_PRODUCTION = process.env.NODE_ENV === "production";
+const ALLOW_PRIVATE_CALLBACKS = process.env.ALLOW_PRIVATE_CALLBACKS === "true" || !IS_PRODUCTION;
+const DELIVERY_SWEEP_MS = Math.max(50, Number(process.env.DELIVERY_SWEEP_MS) || 5000);
+const TIMEOUT_SWEEP_MS = Math.max(50, Number(process.env.TIMEOUT_SWEEP_MS) || 30000);
+const CALLBACK_BACKOFF_SCALE = Math.max(0.001, Number(process.env.CALLBACK_BACKOFF_SCALE) || 1);
+
+function validateProductionConfig() {
+  if (!IS_PRODUCTION) return;
+  const problems = [];
+  if (!BASE_URL.startsWith("https://")) problems.push("BASE_URL must use https");
+  if (!API_KEYS.length || API_KEYS.includes("dev-key")) problems.push("API_KEYS must not use the development default");
+  if (SIGNING_SECRET === "change-me" || SIGNING_SECRET.length < 32) problems.push("SIGNING_SECRET must be at least 32 characters");
+  if (ADMIN_SECRET.length < 24) problems.push("ADMIN_SECRET must be at least 24 characters");
+  const slackValues = [SLACK_CLIENT_ID, SLACK_CLIENT_SECRET, SLACK_SIGNING_SECRET];
+  if (slackValues.some(Boolean) && !slackValues.every(Boolean)) problems.push("Slack OAuth requires CLIENT_ID, CLIENT_SECRET, and SIGNING_SECRET together");
+  if (problems.length) throw new Error("Unsafe production configuration:\n- " + problems.join("\n- "));
+}
+validateProductionConfig();
 
 const db = new Database(process.env.DB_PATH || "askhuman.db");
 db.pragma("journal_mode = WAL");
+db.pragma("busy_timeout = 5000");
 db.exec(`
 CREATE TABLE IF NOT EXISTS approvals (
   id TEXT PRIMARY KEY,
@@ -47,6 +68,7 @@ CREATE TABLE IF NOT EXISTS approvals (
   comment TEXT,
   slack_channel TEXT,
   slack_ts TEXT,
+  idempotency_key TEXT,
   created_at INTEGER NOT NULL
 );
 CREATE TABLE IF NOT EXISTS deliveries (
@@ -69,6 +91,12 @@ CREATE TABLE IF NOT EXISTS slack_installs (
   team_name TEXT,
   bot_token TEXT NOT NULL,
   installed_at INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS slack_install_tokens (
+  token TEXT PRIMARY KEY,
+  api_key TEXT NOT NULL,
+  expires_at INTEGER NOT NULL,
+  used_at INTEGER
 );
 CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS outbox (
@@ -93,6 +121,13 @@ CREATE TABLE IF NOT EXISTS key_requests (
   at INTEGER NOT NULL
 );
 `);
+
+// Existing SQLite files are migrated in place. The optional key lets an
+// automation safely retry approval creation without making a second request.
+if (!db.prepare("PRAGMA table_info(approvals)").all().some((c) => c.name === "idempotency_key")) {
+  db.exec("ALTER TABLE approvals ADD COLUMN idempotency_key TEXT");
+}
+db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_approval_idempotency ON approvals(api_key, idempotency_key) WHERE idempotency_key IS NOT NULL");
 
 (function initSigningKey() {
   let priv = process.env.SIGNING_KEY || null;
@@ -125,9 +160,18 @@ const ip = (req) => (req.headers["x-forwarded-for"] || req.socket.remoteAddress 
 
 const app = express();
 app.set("trust proxy", true);
+app.disable("x-powered-by");
+const asyncRoute = (handler) => (req, res, next) => Promise.resolve(handler(req, res, next)).catch(next);
 const keepRaw = (req, _res, buf) => { req.rawBody = buf.toString("utf8"); };
 app.use(express.json({ limit: "256kb", verify: keepRaw }));
 app.use(express.urlencoded({ extended: false, verify: keepRaw }));
+app.use((req, res, next) => {
+  res.set("X-Content-Type-Options", "nosniff");
+  res.set("Referrer-Policy", "no-referrer");
+  res.set("X-Frame-Options", "DENY");
+  if (req.path.startsWith("/a/") || req.path.startsWith("/admin/")) res.set("Cache-Control", "no-store");
+  next();
+});
 
 const now = () => Date.now();
 const newId = () => "apr_" + crypto.randomBytes(8).toString("hex");
@@ -137,10 +181,57 @@ const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "
 // ---------- 인증 ----------
 function auth(req, res, next) {
   const key = (req.headers.authorization || "").replace(/^Bearer\s+/i, "") || req.headers["x-api-key"];
-  const ok = key && (API_KEYS.includes(key) || key === DEMO_KEY || db.prepare("SELECT 1 FROM keys WHERE key=?").get(key));
+  const ok = key && (API_KEYS.includes(key) || db.prepare("SELECT 1 FROM keys WHERE key=?").get(key));
   if (!ok) return res.status(401).json({ error: "invalid api key" });
   req.apiKey = key;
   next();
+}
+
+function sameSecret(value, expected) {
+  const a = Buffer.from(String(value || ""));
+  const b = Buffer.from(String(expected || ""));
+  return a.length === b.length && a.length > 0 && crypto.timingSafeEqual(a, b);
+}
+
+function adminAuth(req, res, next) {
+  if (rateLimited("admin:" + ip(req), 30, 60e3)) return res.status(429).json({ error: "rate limited" });
+  if (!ADMIN_SECRET || !sameSecret(req.headers["x-admin-secret"], ADMIN_SECRET)) return res.status(401).json({ error: "unauthorized" });
+  next();
+}
+
+function isPrivateAddress(address) {
+  if (net.isIPv4(address)) {
+    const p = address.split(".").map(Number);
+    return p[0] === 10 || p[0] === 127 || p[0] === 0 ||
+      (p[0] === 169 && p[1] === 254) || (p[0] === 172 && p[1] >= 16 && p[1] <= 31) ||
+      (p[0] === 192 && p[1] === 168) || (p[0] === 100 && p[1] >= 64 && p[1] <= 127) ||
+      p[0] >= 224;
+  }
+  if (net.isIPv6(address)) {
+    const a = address.toLowerCase();
+    return a === "::" || a === "::1" || a.startsWith("fc") || a.startsWith("fd") ||
+      a.startsWith("fe8") || a.startsWith("fe9") || a.startsWith("fea") || a.startsWith("feb") ||
+      a.startsWith("::ffff:127.") || a.startsWith("::ffff:10.") || a.startsWith("::ffff:192.168.");
+  }
+  return true;
+}
+
+async function validateCallbackUrl(value) {
+  if (!value) return null;
+  if (typeof value !== "string" || value.length > 2048) throw new Error("callback_url must be a valid URL under 2048 characters");
+  let u;
+  try { u = new URL(value); } catch { throw new Error("callback_url must be a valid http(s) URL"); }
+  if (!['http:', 'https:'].includes(u.protocol) || u.username || u.password) throw new Error("callback_url must be a valid http(s) URL without credentials");
+  if (IS_PRODUCTION && u.protocol !== "https:") throw new Error("callback_url must use https in the hosted service");
+  if (!ALLOW_PRIVATE_CALLBACKS) {
+    let addresses;
+    try { addresses = await dns.lookup(u.hostname, { all: true, verbatim: true }); }
+    catch { throw new Error("callback_url hostname could not be resolved"); }
+    if (!addresses.length || addresses.some((x) => isPrivateAddress(x.address))) {
+      throw new Error("callback_url must not point to a private or local network");
+    }
+  }
+  return u.toString();
 }
 
 // ---------- 공개 표현 ----------
@@ -171,18 +262,26 @@ function publicView(a) {
 }
 
 // ---------- 승인 생성 ----------
-app.post("/v1/approvals", auth, async (req, res) => {
+app.post("/v1/approvals", auth, asyncRoute(async (req, res) => {
+  const idem = String(req.headers["idempotency-key"] || "").trim();
+  if (idem.length > 200) return res.status(400).json({ error: "Idempotency-Key must be 200 characters or fewer" });
+  if (idem) {
+    const existing = db.prepare("SELECT * FROM approvals WHERE api_key=? AND idempotency_key=?").get(req.apiKey, idem);
+    if (existing) return res.set("Idempotent-Replayed", "true").status(200).json(publicView(existing));
+  }
   if (rateLimited("create:" + req.apiKey, 600, 60e3)) return res.status(429).json({ error: "rate limit: 600 approvals per minute per key" });
   const b = req.body || {};
-  if (!b.question || typeof b.question !== "string") return res.status(400).json({ error: "question (string) required" });
+  if (!b.question || typeof b.question !== "string" || !b.question.trim()) return res.status(400).json({ error: "question (non-empty string) required" });
+  if (b.question.length > 500) return res.status(400).json({ error: "question must be 500 characters or fewer" });
   const channel = b.channel || "link";
-  if (req.apiKey === DEMO_KEY && channel !== "link") return res.status(403).json({ error: "demo key supports channel=link only. Request a key at " + BASE_URL });
   if (!["link", "email", "slack"].includes(channel)) return res.status(400).json({ error: "channel must be link|email|slack" });
   if (channel === "email" && !b.to) return res.status(400).json({ error: "to (email) required for channel=email" });
   if (channel === "slack" && !b.to) return res.status(400).json({ error: "to (slack channel id or user id) required for channel=slack" });
-  if (b.callback_url && !/^https?:\/\//.test(b.callback_url)) return res.status(400).json({ error: "callback_url must be http(s)" });
+  let callbackUrl;
+  try { callbackUrl = await validateCallbackUrl(b.callback_url); }
+  catch (e) { return res.status(400).json({ error: e.message }); }
   const timeoutMin = b.timeout_minutes == null ? 24 * 60 : Number(b.timeout_minutes);
-  if (!(timeoutMin > 0)) return res.status(400).json({ error: "timeout_minutes must be > 0" });
+  if (!(timeoutMin > 0) || timeoutMin > 60 * 24 * 90) return res.status(400).json({ error: "timeout_minutes must be > 0 and no more than 90 days" });
   const defOnTimeout = b.default_on_timeout || "rejected";
   if (!["approved", "rejected", "timed_out"].includes(defOnTimeout)) return res.status(400).json({ error: "default_on_timeout must be approved|rejected|timed_out" });
 
@@ -190,20 +289,21 @@ app.post("/v1/approvals", auth, async (req, res) => {
     id: newId(),
     token: newToken(),
     api_key: req.apiKey,
-    question: b.question,
+    question: b.question.trim(),
     context: b.context ? JSON.stringify(b.context) : null,
-    approve_label: b.approve_label || "Yes",
-    reject_label: b.reject_label || "No",
-    callback_url: b.callback_url || null,
+    approve_label: String(b.approve_label || "Yes").slice(0, 80),
+    reject_label: String(b.reject_label || "No").slice(0, 80),
+    callback_url: callbackUrl,
     channel,
     recipient: b.to || null,
     timeout_at: now() + timeoutMin * 60 * 1000,
     default_on_timeout: defOnTimeout,
     status: "pending",
+    idempotency_key: idem || null,
     created_at: now(),
   };
-  db.prepare(`INSERT INTO approvals (id,token,api_key,question,context,approve_label,reject_label,callback_url,channel,recipient,timeout_at,default_on_timeout,status,created_at)
-    VALUES (@id,@token,@api_key,@question,@context,@approve_label,@reject_label,@callback_url,@channel,@recipient,@timeout_at,@default_on_timeout,@status,@created_at)`).run(a);
+  db.prepare(`INSERT INTO approvals (id,token,api_key,question,context,approve_label,reject_label,callback_url,channel,recipient,timeout_at,default_on_timeout,status,idempotency_key,created_at)
+    VALUES (@id,@token,@api_key,@question,@context,@approve_label,@reject_label,@callback_url,@channel,@recipient,@timeout_at,@default_on_timeout,@status,@idempotency_key,@created_at)`).run(a);
 
   try {
     if (channel === "email") await sendEmail(a);
@@ -213,7 +313,7 @@ app.post("/v1/approvals", auth, async (req, res) => {
     return res.status(202).json({ ...publicView(a), delivery_warning: String(e.message || e) });
   }
   res.status(201).json(publicView(a));
-});
+}));
 
 app.get("/v1/approvals/:id", auth, (req, res) => {
   const a = db.prepare("SELECT * FROM approvals WHERE id=? AND api_key=?").get(req.params.id, req.apiKey);
@@ -225,8 +325,8 @@ app.post("/v1/approvals/:id/cancel", auth, (req, res) => {
   const a = db.prepare("SELECT * FROM approvals WHERE id=? AND api_key=?").get(req.params.id, req.apiKey);
   if (!a) return res.status(404).json({ error: "not found" });
   if (a.status !== "pending") return res.status(409).json(publicView(a));
-  db.prepare("UPDATE approvals SET status='canceled', decided_at=? WHERE id=?").run(now(), a.id);
-  res.json(publicView(db.prepare("SELECT * FROM approvals WHERE id=?").get(a.id)));
+  const { fresh } = decide(a, "canceled", "api", null, "api");
+  res.json(publicView(fresh));
 });
 
 // ---------- 결정 (공통) ----------
@@ -290,7 +390,7 @@ function renderApproval(a) {
         <button name="decision" value="rejected" class="no">${esc(a.reject_label)}</button>
       </div>
     </form>
-    <p class="muted">Answer by <time data-ts="${a.timeout_at}">${fmt(a.timeout_at)} UTC</time>. After that it counts as “${esc(a.default_on_timeout === "approved" ? a.approve_label : a.reject_label)}”.</p>
+    <p class="muted">Answer by <time data-ts="${a.timeout_at}">${fmt(a.timeout_at)} UTC</time>. After that it counts as “${esc(a.default_on_timeout === "approved" ? a.approve_label : a.default_on_timeout === "rejected" ? a.reject_label : "no answer in time") }”.</p>
     <script>document.querySelectorAll('time[data-ts]').forEach(function(t){var d=new Date(+t.dataset.ts);t.textContent=d.toLocaleString(undefined,{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});});</script>`;
 }
 
@@ -312,7 +412,8 @@ input:focus-visible,button:focus-visible{outline:2px solid var(--ink);outline-of
 // ---------- 콜백 (n8n resumeUrl / Make 웹훅) ----------
 // 결정 즉시 outbox에 넣고, 스윕이 전달한다. 재시도는 DB에 있으므로 재배포·재시작에도 사라지지 않는다.
 // 백오프: 0s, 10s, 1m, 5m, 15m, 1h, 3h, 6h, 12h, 24h → 총 약 2일. 그 뒤 failed.
-const BACKOFF = [0, 10e3, 60e3, 300e3, 900e3, 3600e3, 3*3600e3, 6*3600e3, 12*3600e3, 24*3600e3];
+const BACKOFF = [0, 10e3, 60e3, 300e3, 900e3, 3600e3, 3*3600e3, 6*3600e3, 12*3600e3, 24*3600e3]
+  .map((ms) => ms * CALLBACK_BACKOFF_SCALE);
 
 function receiptFor(a, source) {
   return {
@@ -348,7 +449,8 @@ async function deliverDue() {
     for (const o of due) {
       let status = null, error = null;
       try {
-        const r = await fetch(o.url, { method: "POST", headers: { "content-type": "application/json", "x-approval-signature": o.signature, "x-approval-key-id": SIGN_KEY_ID, "x-approval-id": o.approval_id }, body: o.body, signal: AbortSignal.timeout(15000) });
+        await validateCallbackUrl(o.url);
+        const r = await fetch(o.url, { method: "POST", redirect: "manual", headers: { "content-type": "application/json", "x-approval-signature": o.signature, "x-approval-key-id": SIGN_KEY_ID, "x-approval-id": o.approval_id }, body: o.body, signal: AbortSignal.timeout(15000) });
         status = r.status;
       } catch (e) { error = String(e.message || e); }
       db.prepare("INSERT INTO deliveries (approval_id,attempt,status_code,error,at) VALUES (?,?,?,?,?)").run(o.approval_id, o.attempts + 1, status, error, now());
@@ -362,7 +464,7 @@ async function deliverDue() {
     }
   } finally { delivering = false; }
 }
-setInterval(() => deliverDue().catch(() => {}), 5000).unref();
+setInterval(() => deliverDue().catch(() => {}), DELIVERY_SWEEP_MS).unref();
 
 // 영수증: 자기완결 JSON + 서명. 고객이 보관하고, 누구나 공개키로 검증.
 app.get("/v1/approvals/:id/receipt", auth, (req, res) => {
@@ -401,7 +503,7 @@ setInterval(() => {
   for (const a of due) decide(a, a.default_on_timeout, "timeout", null, "timeout");
   // 랜딩 데모로 만든 요청은 하루 뒤 삭제
   db.prepare("DELETE FROM approvals WHERE api_key=? AND created_at < ?").run(DEMO_KEY, now() - 24 * 3600 * 1000);
-}, 30 * 1000).unref();
+}, TIMEOUT_SWEEP_MS).unref();
 
 // ---------- 이메일 (Resend) ----------
 async function sendEmail(a) {
@@ -435,7 +537,7 @@ function slackBlocks(a) {
         { type: "button", style: "danger", text: { type: "plain_text", text: a.reject_label }, action_id: "rejected", value: a.token },
       ],
     });
-    const dflt = a.default_on_timeout === "approved" ? a.approve_label : a.reject_label;
+    const dflt = a.default_on_timeout === "approved" ? a.approve_label : a.default_on_timeout === "rejected" ? a.reject_label : "no answer in time";
     const ts = Math.floor(a.timeout_at / 1000);
     blocks.push({ type: "context", elements: [{ type: "mrkdwn", text: `Answer by <!date^${ts}^{date_short_pretty} at {time}|${fmt(a.timeout_at)} UTC> · after that it counts as "${dflt}" · <${BASE_URL}/a/${a.token}|open in browser>` }] });
   } else {
@@ -450,6 +552,13 @@ function slackBlocks(a) {
 function slackTokenFor(apiKey) {
   const row = db.prepare("SELECT bot_token FROM slack_installs WHERE api_key=?").get(apiKey);
   return (row && row.bot_token) || SLACK_BOT_TOKEN;
+}
+
+function issueSlackInstallToken(apiKey) {
+  const token = crypto.randomBytes(24).toString("base64url");
+  db.prepare("INSERT INTO slack_install_tokens (token,api_key,expires_at) VALUES (?,?,?)")
+    .run(token, apiKey, now() + 30 * 24 * 3600 * 1000);
+  return token;
 }
 
 async function slackApi(method, payload, token) {
@@ -486,7 +595,7 @@ async function notifyOwner(text, blocks) {
 }
 
 function verifySlack(req) {
-  if (!SLACK_SIGNING_SECRET) return true;
+  if (!SLACK_SIGNING_SECRET) { console.warn("[slack] SLACK_SIGNING_SECRET is not configured"); return false; }
   const ts = req.headers["x-slack-request-timestamp"];
   const sig = req.headers["x-slack-signature"];
   if (!ts || !sig) { console.warn("[slack] missing signature headers"); return false; }
@@ -506,10 +615,11 @@ app.post("/slack/interactions", (req, res) => {
   try { payload = JSON.parse(req.body.payload); } catch { return res.status(400).send("bad payload"); }
   const action = (payload.actions || [])[0];
   if (!action) return res.status(200).send();
+  if (!["approved", "rejected"].includes(action.action_id)) return res.status(400).send("unknown action");
   const a = db.prepare("SELECT * FROM approvals WHERE token=?").get(action.value);
   if (!a) return res.status(200).send();
   const by = payload.user?.name || payload.user?.username || payload.user?.id || "slack";
-  const { fresh, changed } = decide(a, action.action_id === "approved" ? "approved" : "rejected", by, null, "slack");
+  const { fresh, changed } = decide(a, action.action_id, by, null, "slack");
   // 두 번째 클릭이어도 에러 대신 현재 상태로 메시지를 갱신해준다.
   res.status(200).json({ replace_original: true, text: fresh.question, blocks: slackBlocks(fresh) });
   void changed;
@@ -522,54 +632,68 @@ app.get("/v1/stats", auth, (req, res) => {
 });
 
 // ---------- 슬랙 설치 (워크스페이스마다 한 번) ----------
-// /slack/install?key=<api_key> → 슬랙 인증 → /slack/oauth/callback → 그 키에 봇 토큰 저장
-function stateFor(key) { return key + "." + crypto.createHmac("sha256", SIGNING_SECRET).update("slack:" + key).digest("hex").slice(0, 24); }
+// 설치 링크에는 API 키 대신 만료되는 별도 토큰만 넣는다.
+function stateFor(token) { return token + "." + crypto.createHmac("sha256", SIGNING_SECRET).update("slack:" + token).digest("hex").slice(0, 32); }
 app.get("/slack/install", (req, res) => {
-  const key = String(req.query.key || "");
   if (!SLACK_CLIENT_ID) return res.status(503).send(page("Slack not configured", "<p>SLACK_CLIENT_ID is not set on this server.</p>"));
-  const known = API_KEYS.includes(key) || db.prepare("SELECT 1 FROM keys WHERE key=?").get(key);
-  if (!known) return res.status(401).send(page("Unknown key", "<p>Add <code>?key=YOUR_API_KEY</code> to this URL.</p>"));
+  const key = String(req.query.key || "");
+  if (key) {
+    const known = API_KEYS.includes(key) || db.prepare("SELECT 1 FROM keys WHERE key=?").get(key);
+    if (!known) return res.status(401).send(page("Unknown key", "<p>That install link is not valid.</p>"));
+    return res.redirect(303, `/slack/install?token=${issueSlackInstallToken(key)}`);
+  }
+  const token = String(req.query.token || "");
+  const install = db.prepare("SELECT * FROM slack_install_tokens WHERE token=? AND used_at IS NULL AND expires_at>?").get(token, now());
+  if (!install) return res.status(401).send(page("Install link expired", "<p>Generate a fresh Slack install link and try again.</p>"));
   const u = new URL("https://slack.com/oauth/v2/authorize");
   u.searchParams.set("client_id", SLACK_CLIENT_ID);
   u.searchParams.set("scope", "chat:write,chat:write.public,im:write");
   u.searchParams.set("redirect_uri", `${BASE_URL}/slack/oauth/callback`);
-  u.searchParams.set("state", stateFor(key));
+  u.searchParams.set("state", stateFor(token));
   res.redirect(u.toString());
 });
-app.get("/slack/oauth/callback", async (req, res) => {
-  const state = String(req.query.state || ""); const key = state.split(".")[0];
-  if (!key || stateFor(key) !== state) return res.status(400).send(page("Bad state", "<p>Start again from /slack/install.</p>"));
+app.get("/slack/oauth/callback", asyncRoute(async (req, res) => {
+  const state = String(req.query.state || ""); const token = state.split(".")[0];
+  const install = token && stateFor(token) === state
+    ? db.prepare("SELECT * FROM slack_install_tokens WHERE token=? AND used_at IS NULL AND expires_at>?").get(token, now())
+    : null;
+  if (!install) return res.status(400).send(page("Bad state", "<p>Start again from a fresh Slack install link.</p>"));
   if (!req.query.code) return res.status(400).send(page("Slack declined", `<p>${esc(req.query.error || "no code")}</p>`));
   const form = new URLSearchParams({ client_id: SLACK_CLIENT_ID, client_secret: SLACK_CLIENT_SECRET, code: String(req.query.code), redirect_uri: `${BASE_URL}/slack/oauth/callback` });
   const j = await (await fetch("https://slack.com/api/oauth.v2.access", { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: form })).json();
   if (!j.ok) return res.status(400).send(page("Slack error", `<p>${esc(j.error)}</p>`));
-  db.prepare("INSERT OR REPLACE INTO slack_installs (api_key,team_id,team_name,bot_token,installed_at) VALUES (?,?,?,?,?)").run(key, j.team?.id, j.team?.name, j.access_token, now());
+  db.transaction(() => {
+    db.prepare("INSERT OR REPLACE INTO slack_installs (api_key,team_id,team_name,bot_token,installed_at) VALUES (?,?,?,?,?)").run(install.api_key, j.team?.id, j.team?.name, j.access_token, now());
+    db.prepare("UPDATE slack_install_tokens SET used_at=? WHERE token=?").run(now(), token);
+  })();
   res.send(page("Slack connected", `<h1>Slack connected</h1><p><b>${esc(j.team?.name || j.team?.id)}</b> is now linked to your key.</p><p>Send an approval with <code>"channel": "slack", "to": "C…"</code>. Invite the bot to private channels first.</p>`));
+}));
+
+app.post("/v1/slack/install-link", auth, (req, res) => {
+  const token = issueSlackInstallToken(req.apiKey);
+  res.status(201).json({ slack_install_url: `${BASE_URL}/slack/install?token=${token}`, expires_in_days: 30 });
 });
 
 // ---------- 관리자: 키 발급 (재시작 없이) ----------
-app.post("/admin/keys", (req, res) => {
-  if (!ADMIN_SECRET || req.headers["x-admin-secret"] !== ADMIN_SECRET) return res.status(401).json({ error: "no" });
+app.post("/admin/keys", adminAuth, (req, res) => {
   const key = "ah_" + crypto.randomBytes(16).toString("base64url");
   db.prepare("INSERT INTO keys (key,label,created_at) VALUES (?,?,?)").run(key, String(req.body?.label || ""), now());
-  res.status(201).json({ key, label: req.body?.label || "", slack_install_url: `${BASE_URL}/slack/install?key=${key}` });
+  const installToken = issueSlackInstallToken(key);
+  res.status(201).json({ key, label: req.body?.label || "", slack_install_url: `${BASE_URL}/slack/install?token=${installToken}` });
 });
 // 서명 비밀키 내보내기 (한 번만 쓰고 Railway 환경변수 SIGNING_KEY에 넣는다. 그러면 볼륨이 날아가도 키는 산다)
-app.get("/admin/signing-key-export", (req, res) => {
-  if (!ADMIN_SECRET || req.headers["x-admin-secret"] !== ADMIN_SECRET) return res.status(401).json({ error: "no" });
+app.get("/admin/signing-key-export", adminAuth, (req, res) => {
   const row = db.prepare("SELECT v FROM meta WHERE k='signing_key'").get();
   res.type("text/plain").send(process.env.SIGNING_KEY || (row && row.v) || "");
 });
 // DB 스냅샷 다운로드 (무료 백업: 주 1회 내려받아 보관)
-app.get("/admin/backup", async (req, res) => {
-  if (!ADMIN_SECRET || req.headers["x-admin-secret"] !== ADMIN_SECRET) return res.status(401).json({ error: "no" });
+app.get("/admin/backup", adminAuth, asyncRoute(async (req, res) => {
   const tmp = `/tmp/backup-${Date.now()}.db`;
   await db.backup(tmp);
   res.download(tmp, `approvals-${new Date().toISOString().slice(0, 10)}.db`, () => { try { require("fs").unlinkSync(tmp); } catch {} });
-});
+}));
 
-app.get("/admin/key-requests", (req, res) => {
-  if (!ADMIN_SECRET || req.headers["x-admin-secret"] !== ADMIN_SECRET) return res.status(401).json({ error: "no" });
+app.get("/admin/key-requests", adminAuth, (req, res) => {
   res.json(db.prepare("SELECT * FROM key_requests ORDER BY at DESC LIMIT 200").all());
 });
 
@@ -578,8 +702,8 @@ app.post("/request-key", (req, res) => {
   if (rateLimited("reqkey:" + ip(req), 5, 3600e3)) return res.status(429).send(page("Slow down", "<p class=\"muted\">Too many requests from this address. Try again in an hour.</p>"));
   const email = String(req.body.email || "").trim().slice(0, 200);
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return res.status(400).send(page("Check the email", "<p>That doesn't look like an email address. Go back and try again.</p>"));
-  db.prepare("INSERT INTO key_requests (email,tool,note,at) VALUES (?,?,?,?)").run(email, String(req.body.tool || "").slice(0, 40), String(req.body.note || "").slice(0, 500), now());
-  console.log(`[key-request] ${email} ${req.body.tool || ""} — ${req.body.note || ""}`);
+  const stored = db.prepare("INSERT INTO key_requests (email,tool,note,at) VALUES (?,?,?,?)").run(email, String(req.body.tool || "").slice(0, 40), String(req.body.note || "").slice(0, 500), now());
+  console.log(`[key-request] stored request ${stored.lastInsertRowid}`);
   const tool = String(req.body.tool || "-"), note = String(req.body.note || "").slice(0, 300);
   notifyOwner(`New key request: ${email}`, [
     { type: "section", text: { type: "mrkdwn", text: `*New key request*\n${email} · ${tool}` } },
@@ -614,6 +738,34 @@ const fs = require("fs");
 const LANDING = fs.existsSync(__dirname + "/landing.html") ? fs.readFileSync(__dirname + "/landing.html", "utf8") : "<h1>askhuman</h1>";
 app.get("/", (_req, res) => res.type("html").send(LANDING.replaceAll("{{BASE_URL}}", BASE_URL)));
 
-app.get("/health", (_req, res) => res.json({ ok: true, pending: db.prepare("SELECT COUNT(*) c FROM approvals WHERE status='pending'").get().c }));
+app.get("/health", (_req, res) => {
+  const check = db.pragma("quick_check", { simple: true });
+  res.status(check === "ok" ? 200 : 503).json({
+    ok: check === "ok",
+    database: check === "ok" ? "ok" : "error",
+    pending: db.prepare("SELECT COUNT(*) c FROM approvals WHERE status='pending'").get().c,
+    callbacks_queued: db.prepare("SELECT COUNT(*) c FROM outbox WHERE state='queued'").get().c,
+  });
+});
 
-app.listen(PORT, () => console.log(`${BRAND} listening on ${BASE_URL}`));
+app.use((err, req, res, _next) => {
+  console.error("[request-error]", req.method, req.path, err && (err.stack || err.message || err));
+  if (res.headersSent) return res.end();
+  res.status(500).json({ error: "internal server error" });
+});
+
+const server = app.listen(PORT, () => console.log(`${BRAND} listening on ${BASE_URL}`));
+let shuttingDown = false;
+async function shutdown(signal) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  console.log(`[shutdown] ${signal}`);
+  server.close();
+  const deadline = now() + 16000;
+  while (delivering && now() < deadline) await new Promise((resolve) => setTimeout(resolve, 50));
+  try { db.pragma("wal_checkpoint(TRUNCATE)"); } catch {}
+  try { db.close(); } catch {}
+  process.exit(0);
+}
+process.on("SIGTERM", () => { shutdown("SIGTERM").catch(() => process.exit(1)); });
+process.on("SIGINT", () => { shutdown("SIGINT").catch(() => process.exit(1)); });

@@ -5,7 +5,7 @@
   "repository": { "type": "git", "url": "https://github.com/skmj231/someonehastosayyes.git" },
   "description": "승인 링크 API — n8n/Make 워크플로에 깨지지 않는 사람 승인 단계를 붙인다",
   "main": "server.js",
-  "scripts": { "start": "node server.js", "test": "node test.js" },
+  "scripts": { "start": "node server.js", "test": "node test.js", "test:reliability": "node --test test-reliability.js" },
   "engines": { "node": ">=20" },
   "dependencies": { "better-sqlite3": "^11", "express": "^4" }
 }

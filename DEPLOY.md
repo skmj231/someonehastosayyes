@@ -12,11 +12,14 @@
 |---|---|
 | BASE_URL | https://<도메인> (끝에 / 없이) |
 | API_KEYS | 본인용 키 1개 (나머지는 /admin/keys로 발급) |
-| SIGNING_SECRET | 아무 긴 문자열 |
-| ADMIN_SECRET | 아무 긴 문자열. /admin/* 호출용 |
+| SIGNING_SECRET | 32자 이상의 무작위 문자열 |
+| ADMIN_SECRET | 24자 이상의 무작위 문자열. /admin/* 호출용 |
 | DB_PATH | /data/someonehastosayyes.db |
+| NODE_ENV | production |
 | RESEND_API_KEY, EMAIL_FROM | 이메일 채널 쓸 때 |
 | SLACK_CLIENT_ID, SLACK_CLIENT_SECRET, SLACK_SIGNING_SECRET | 슬랙 채널 쓸 때 (아래) |
+
+관리형 서비스는 안전을 위해 HTTPS 공개 콜백만 허용합니다. 사내망에서 직접 self-host하며 로컬 n8n 주소로 콜백해야 할 때만 `ALLOW_PRIVATE_CALLBACKS=true`를 명시적으로 설정하세요.
 
 ## 슬랙 앱 (한 번, 우리가 소유. 사용자는 "Add to Slack"만 누름)
 1. api.slack.com/apps → Create New App → From scratch
@@ -25,7 +28,7 @@
 4. Basic Information → Client ID, Client Secret, Signing Secret 을 환경변수에
 5. (선택) Manage Distribution → Activate Public Distribution — 다른 워크스페이스가 설치하려면 필요
 
-사용자에게 주는 설치 링크: `https://<도메인>/slack/install?key=<그 사람 키>`
+키 발급 응답의 `slack_install_url`을 사용자에게 줍니다. 이 주소에는 API 키가 아니라 30일 뒤 만료되는 별도 설치 토큰만 들어갑니다.
 설치되면 그 키로 보내는 슬랙 요청이 그 사람 워크스페이스로 갑니다.
 
 ## 키 발급 (재시작 없이)

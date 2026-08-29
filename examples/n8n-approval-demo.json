@@ -15,7 +15,8 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "Authorization", "value": "Bearer YOUR_API_KEY" }
+            { "name": "Authorization", "value": "Bearer YOUR_API_KEY" },
+            { "name": "Idempotency-Key", "value": "={{ $execution.id }}" }
           ]
         },
         "sendBody": true,

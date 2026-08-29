@@ -9,7 +9,7 @@ https://community.n8n.io/t/human-in-the-loop-with-slack/284892
 
 > Ran into the same thing. What's happening: Slack expects a 200 within 3 seconds on the Interactivity Request URL, and the URL n8n gives you for the Wait node is single-use — the second delivery (Slack retries on slow responses) hits an already-consumed resume URL and gets a 404, which Slack then shows on the button.
 >
-> Two things fixed it for me: (1) answer Slack immediately with `replace_original`, and (2) put a tiny relay in between that dedupes the click and calls the resume URL exactly once, with retries only on 5xx (never on 404, since that means "already resumed").
+> Two things fixed it for me: (1) answer Slack immediately with `replace_original`, and (2) put a tiny relay in between that records only the first click and calls the resume URL with a stable approval ID, retrying transient failures but not 404 (which means the one-time endpoint is gone).
 >
 > I wrapped that into a small open-source relay so I didn't have to rebuild it per workflow. Attached is an importable workflow: HTTP Request → Wait (on webhook) → IF. `callback_url` is just `{{ $execution.resumeUrl }}`.
 >
