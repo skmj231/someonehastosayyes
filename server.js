@@ -891,6 +891,18 @@ function keyUsage(key) {
   return { approvals, pending, slack: slack || null };
 }
 
+// 비밀값을 저장하지 않는 작은 운영 화면. 브라우저 메모리에서만 관리자 요청에 사용한다.
+app.get("/admin/key-console", (_req, res) => {
+  res.type("html").send(`<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Key inventory</title>
+  <style>body{font:16px/1.5 system-ui;margin:40px;max-width:900px;color:#171a17}input,button{font:inherit;padding:10px 12px}input{width:min(420px,70vw)}button{cursor:pointer}.row{padding:18px 0;border-top:1px solid #ddd}.meta{color:#5f675f;font-size:14px}.error{color:#a21d16}</style>
+  <h1>API key inventory</h1><p>The administrator value stays in this browser tab and is never saved.</p>
+  <input id="secret" type="password" autocomplete="off" aria-label="Administrator value"><button id="load">Load keys</button><p id="message"></p><div id="keys"></div>
+  <script>
+  const secret=document.querySelector('#secret'), keys=document.querySelector('#keys'), message=document.querySelector('#message');
+  document.querySelector('#load').onclick=async()=>{message.textContent='Loading…';keys.replaceChildren();try{const r=await fetch('/admin/keys',{headers:{'x-admin-secret':secret.value}});const data=await r.json();if(!r.ok)throw new Error(data.error||('HTTP '+r.status));for(const k of data){const row=document.createElement('div');row.className='row';const title=document.createElement('strong');title.textContent=k.label||'(unlabelled key)';const meta=document.createElement('div');meta.className='meta';meta.textContent='fingerprint '+k.fingerprint+' · '+k.source+' · approvals '+k.approvals+' · pending '+k.pending+(k.slack?' · Slack '+(k.slack.team_name||k.slack.team_id):'');row.append(title,meta);keys.append(row)}message.textContent=data.length+' keys found.'}catch(e){message.className='error';message.textContent=e.message}};
+  </script></html>`);
+});
+
 // 원문 키를 노출하지 않는 운영용 목록. fingerprint로 사용처를 확인한다.
 app.get("/admin/keys", adminAuth, (_req, res) => {
   const stored = db.prepare("SELECT key,label,created_at FROM keys ORDER BY created_at").all().map(row => ({
