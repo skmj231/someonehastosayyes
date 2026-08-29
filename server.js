@@ -247,6 +247,7 @@ function publicView(a) {
     callback: callbackState(a),
     id: a.id,
     status: a.status,
+    approved: a.status === "pending" ? null : a.status === "approved",
     question: a.question,
     context: a.context ? JSON.parse(a.context) : null,
     channel: a.channel,

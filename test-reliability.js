@@ -96,6 +96,7 @@ async function run() {
 
   const approval = await create({ question: "Approve refund?", callback_url: CALLBACK + "/ok", timeout_minutes: 5 });
   assert.equal(approval.r.status, 201);
+  assert.equal(approval.body.approved, null, "pending approval must not look approved or rejected yet");
   r = await fetch(approval.body.approve_url);
   assert.equal(r.status, 200);
   assert.match(r.headers.get("cache-control"), /no-store/);
@@ -121,7 +122,10 @@ async function run() {
 
   const canceled = await create({ question: "Cancel me", callback_url: CALLBACK + "/cancel" });
   r = await fetch(BASE + `/v1/approvals/${canceled.body.id}/cancel`, { method: "POST", headers });
-  assert.equal((await r.json()).status, "canceled");
+  const canceledResponse = await r.json();
+  assert.equal(canceledResponse.status, "canceled");
+  assert.equal(canceledResponse.approved, false, "cancel response must route through the false branch");
+  assert.equal((await status(canceled.body.id)).approved, false, "cancel status lookup must match its callback payload");
   await sleep(100);
   assert.equal(counts.get("/cancel"), 1, "cancel must release the waiting workflow");
 
