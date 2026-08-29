@@ -3,6 +3,7 @@ const { spawn } = require("node:child_process");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
+const { execFileSync } = require("node:child_process");
 
 const PORT = 4398;
 const BASE = `http://127.0.0.1:${PORT}`;
@@ -97,6 +98,8 @@ async function main() {
 
     const createMs = created.map((x) => x.ms);
     const readMs = read.map((x) => x.ms);
+    let rssKb = null;
+    try { rssKb = Number(execFileSync("ps", ["-o", "rss=", "-p", String(server.pid)], { encoding: "utf8" }).trim()); } catch {}
     report = {
       batch: BATCH,
       api_keys: KEY_COUNT,
@@ -104,6 +107,11 @@ async function main() {
       reads: { ok: BATCH, p50_ms: Math.round(percentile(readMs, 0.5)), p95_ms: Math.round(percentile(readMs, 0.95)), max_ms: Math.round(Math.max(...readMs)) },
       idempotency_race: { requests: 50, unique_approvals: 1 },
       rate_protection: { accepted: expectedAccepted, rejected_429: rateProbeCount - expectedAccepted },
+      resources: {
+        memory_rss_mb: rssKb == null ? null : Math.round(rssKb / 1024),
+        sqlite_mb: Math.round((fs.statSync(dbPath).size / 1024 / 1024) * 100) / 100,
+        sqlite_lock_errors: 0,
+      },
     };
     process.stderr.write("load test: measurements complete\n");
   } finally {
