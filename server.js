@@ -900,8 +900,17 @@ app.get("/admin/key-console", (_req, res) => {
   <input id="secret" type="password" autocomplete="off" aria-label="Administrator value"><button id="load">Load keys</button><p id="message"></p><div id="keys"></div>
   <script>
   const secret=document.querySelector('#secret'), keys=document.querySelector('#keys'), message=document.querySelector('#message');
-  document.querySelector('#load').onclick=async()=>{message.textContent='Loading…';keys.replaceChildren();try{const r=await fetch('/admin/keys',{headers:{'x-admin-secret':secret.value}});const data=await r.json();if(!r.ok)throw new Error(data.error||('HTTP '+r.status));for(const k of data){const row=document.createElement('div');row.className='row';const title=document.createElement('strong');title.textContent=k.label||'(unlabelled key)';const meta=document.createElement('div');meta.className='meta';meta.textContent='fingerprint '+k.fingerprint+' · '+k.source+' · approvals '+k.approvals+' · pending '+k.pending+(k.slack?' · Slack '+(k.slack.team_name||k.slack.team_id):'');row.append(title,meta);for(const p of k.pending_items||[]){const item=document.createElement('div');item.textContent='Pending: '+p.id+' · '+p.question+' · '+new Date(p.created_at).toISOString()+(p.timeout_at?' · timeout '+new Date(p.timeout_at).toISOString():'');row.append(item)}keys.append(row)}message.textContent=data.length+' keys found.'}catch(e){message.className='error';message.textContent=e.message}};
+  document.querySelector('#load').onclick=load;
+  async function load(){message.textContent='Loading…';keys.replaceChildren();try{const r=await fetch('/admin/keys',{headers:{'x-admin-secret':secret.value}});const data=await r.json();if(!r.ok)throw new Error(data.error||('HTTP '+r.status));for(const k of data){const row=document.createElement('div');row.className='row';const title=document.createElement('strong');title.textContent=k.label||'(unlabelled key)';const meta=document.createElement('div');meta.className='meta';meta.textContent='fingerprint '+k.fingerprint+' · '+k.source+' · approvals '+k.approvals+' · pending '+k.pending+(k.slack?' · Slack '+(k.slack.team_name||k.slack.team_id):'');row.append(title,meta);for(const p of k.pending_items||[]){const item=document.createElement('div');item.textContent='Pending: '+p.id+' · '+p.question+' · '+new Date(p.created_at).toISOString()+(p.timeout_at?' · timeout '+new Date(p.timeout_at).toISOString():' ');const cancel=document.createElement('button');cancel.textContent='Cancel pending test';cancel.onclick=async()=>{const r=await fetch('/admin/approvals/'+encodeURIComponent(p.id)+'/cancel',{method:'POST',headers:{'x-admin-secret':secret.value}});if(!r.ok){const d=await r.json();throw new Error(d.error||('HTTP '+r.status))}await load()};item.append(' ',cancel);row.append(item)}keys.append(row)}message.textContent=data.length+' keys found.'}catch(e){message.className='error';message.textContent=e.message}}
   </script></html>`);
+});
+
+app.post("/admin/approvals/:id/cancel", adminAuth, (req, res) => {
+  const a = db.prepare("SELECT * FROM approvals WHERE id=?").get(req.params.id);
+  if (!a) return res.status(404).json({ error: "not found" });
+  if (a.status !== "pending") return res.status(409).json(publicView(a));
+  const { fresh } = decide(a, "canceled", "admin", null, "admin cleanup");
+  res.json(publicView(fresh));
 });
 
 // 원문 키를 노출하지 않는 운영용 목록. fingerprint로 사용처를 확인한다.
