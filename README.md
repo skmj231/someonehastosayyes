@@ -77,6 +77,10 @@ Content-Type: application/json
 
 `Idempotency-Key`는 선택 사항이지만 운영 환경에서는 권장합니다. 네트워크 오류로 같은 생성 요청을 다시 보내도 같은 승인 건을 반환하므로, 승인 메시지가 두 개 생기지 않습니다.
 
+`context`에는 승인 화면에 꼭 필요한 최소 정보만 넣으세요(최대 20KB). 주문 원문, 고객 파일, 전체 업무 데이터는 n8n/Make에 두고 `order_id` 같은 참조값만 보내는 방식을 권장합니다.
+
+Slack·이메일 발송은 먼저 SQLite 영속 큐에 기록됩니다. 외부 서비스가 일시적으로 실패하면 응답은 `202`와 `notification.state: "retrying"`을 반환하고 약 2일 동안 백오프로 자동 재시도합니다. 서버가 재시작돼도 이어지며, Resend `Idempotency-Key`와 Slack `client_msg_id`로 중복 발송을 막습니다.
+
 ### 상태 조회 (폴링)
 
 응답의 `callback` 필드로 "내가 승인 눌렀는데 자동화가 실행됐나?"에 답합니다: `waiting_for_decision` → `delivered` | `retrying` | `endpoint_gone` | `failed`.
@@ -124,6 +128,21 @@ GET /v1/stats
 GET /v1/approvals/{id}/deliveries
 ```
 
+Slack·이메일 알림의 성공, 실패, 재시도 이력:
+
+```http
+GET /v1/approvals/{id}/notifications
+```
+
+### 보관과 삭제
+
+- 대기 건: 결정·취소·타임아웃까지(최대 90일)
+- 결정된 운영 기록: 90일
+- 콜백·알림의 상세 시도 기록: 30일
+- 서명된 결정 영수증: 1년
+
+현재 정책과 환경별 설정값은 `GET /v1/retention`에서 확인합니다. 결정된 한 건과 영수증을 즉시 지우려면 `DELETE /v1/approvals/{id}`를 사용합니다. 키에 속한 모든 데이터를 지우려면 `DELETE /v1/data`에 `{"confirm":"DELETE ALL DATA"}`를 보냅니다. 대기 중인 건은 기다리는 자동화를 보호하기 위해 먼저 결정하거나 취소해야 합니다.
+
 ## n8n 레시피 (슬랙 Send-and-Wait 대체)
 
 `examples/n8n-approval-demo.json`을 n8n에 Import 하고 URL·키·채널 ID만 바꾸면 됩니다. 수동 구성은:
@@ -142,7 +161,7 @@ GET /v1/approvals/{id}/deliveries
 ## Make.com 레시피 (승인 단계 없는 플랜용)
 
 시나리오 A (본 흐름):
-1. **HTTP > Make a request** — POST `/v1/approvals`, `callback_url`에 시나리오 B의 Custom Webhook URL, `context`에 이어서 처리할 데이터 전부
+1. **HTTP > Make a request** — POST `/v1/approvals`, `callback_url`에 시나리오 B의 Custom Webhook URL, `context`에는 후속 데이터를 찾을 ID와 승인에 필요한 최소 정보
 2. 끝. (시나리오는 여기서 끝나도 됨 — 대기 비용 0)
 
 시나리오 B (재개):

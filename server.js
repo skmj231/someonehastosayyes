@@ -31,6 +31,13 @@ const ALLOW_PRIVATE_CALLBACKS = process.env.ALLOW_PRIVATE_CALLBACKS === "true" |
 const DELIVERY_SWEEP_MS = Math.max(50, Number(process.env.DELIVERY_SWEEP_MS) || 5000);
 const TIMEOUT_SWEEP_MS = Math.max(50, Number(process.env.TIMEOUT_SWEEP_MS) || 30000);
 const CALLBACK_BACKOFF_SCALE = Math.max(0.001, Number(process.env.CALLBACK_BACKOFF_SCALE) || 1);
+const NOTIFICATION_BACKOFF_SCALE = Math.max(0.001, Number(process.env.NOTIFICATION_BACKOFF_SCALE) || 1);
+const RESEND_API_URL = process.env.RESEND_API_URL || "https://api.resend.com/emails";
+const SLACK_API_BASE = (process.env.SLACK_API_BASE || "https://slack.com/api").replace(/\/$/, "");
+const DECISION_RETENTION_MS = Math.max(1, Number(process.env.DECISION_RETENTION_DAYS) || 90) * 86400e3;
+const DELIVERY_RETENTION_MS = Math.max(1, Number(process.env.DELIVERY_RETENTION_DAYS) || 30) * 86400e3;
+const RECEIPT_RETENTION_MS = Math.max(1, Number(process.env.RECEIPT_RETENTION_DAYS) || 365) * 86400e3;
+const RETENTION_SWEEP_MS = Math.max(1000, Number(process.env.RETENTION_SWEEP_MS) || 6 * 3600e3);
 
 function validateProductionConfig() {
   if (!IS_PRODUCTION) return;
@@ -112,6 +119,38 @@ CREATE TABLE IF NOT EXISTS outbox (
   created_at INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_outbox_due ON outbox(state, next_at);
+CREATE TABLE IF NOT EXISTS notification_outbox (
+  approval_id TEXT PRIMARY KEY,
+  channel TEXT NOT NULL,
+  purpose TEXT NOT NULL DEFAULT 'initial',
+  attempts INTEGER NOT NULL DEFAULT 0,
+  next_at INTEGER NOT NULL,
+  state TEXT NOT NULL,
+  provider_id TEXT,
+  last_status INTEGER,
+  last_error TEXT,
+  created_at INTEGER NOT NULL,
+  delivered_at INTEGER
+);
+CREATE INDEX IF NOT EXISTS idx_notification_due ON notification_outbox(state, next_at);
+CREATE TABLE IF NOT EXISTS notification_deliveries (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  approval_id TEXT NOT NULL,
+  attempt INTEGER NOT NULL,
+  status_code INTEGER,
+  error TEXT,
+  at INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS receipt_archive (
+  approval_id TEXT PRIMARY KEY,
+  api_key TEXT NOT NULL,
+  receipt_json TEXT NOT NULL,
+  signature TEXT NOT NULL,
+  key_id TEXT NOT NULL,
+  decided_at INTEGER NOT NULL,
+  expires_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_receipt_expiry ON receipt_archive(expires_at);
 CREATE TABLE IF NOT EXISTS ratelimit (bucket TEXT PRIMARY KEY, count INTEGER NOT NULL, window_start INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS key_requests (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -127,7 +166,13 @@ CREATE TABLE IF NOT EXISTS key_requests (
 if (!db.prepare("PRAGMA table_info(approvals)").all().some((c) => c.name === "idempotency_key")) {
   db.exec("ALTER TABLE approvals ADD COLUMN idempotency_key TEXT");
 }
+if (!db.prepare("PRAGMA table_info(notification_outbox)").all().some((c) => c.name === "purpose")) {
+  db.exec("ALTER TABLE notification_outbox ADD COLUMN purpose TEXT NOT NULL DEFAULT 'initial'");
+}
 db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_approval_idempotency ON approvals(api_key, idempotency_key) WHERE idempotency_key IS NOT NULL");
+// A process can stop after claiming a notification but before recording the
+// provider response. Stable provider idempotency keys make replay safe.
+db.prepare("UPDATE notification_outbox SET state='queued', next_at=? WHERE state='sending'").run(Date.now());
 
 (function initSigningKey() {
   let priv = process.env.SIGNING_KEY || null;
@@ -243,8 +288,10 @@ function callbackState(a) {
   return o.state === "queued" ? "retrying" : o.state; // delivered | endpoint_gone | failed
 }
 function publicView(a) {
+  const notification = a.channel === "link" ? null : db.prepare("SELECT state,attempts,last_error FROM notification_outbox WHERE approval_id=?").get(a.id);
   return {
     callback: callbackState(a),
+    notification: notification ? { state: notification.state === "queued" ? "retrying" : notification.state, attempts: notification.attempts, last_error: notification.last_error } : (a.channel === "link" ? { state: "not_needed", attempts: 0, last_error: null } : null),
     id: a.id,
     status: a.status,
     approved: a.status === "pending" ? null : a.status === "approved",
@@ -274,6 +321,7 @@ app.post("/v1/approvals", auth, asyncRoute(async (req, res) => {
   const b = req.body || {};
   if (!b.question || typeof b.question !== "string" || !b.question.trim()) return res.status(400).json({ error: "question (non-empty string) required" });
   if (b.question.length > 500) return res.status(400).json({ error: "question must be 500 characters or fewer" });
+  if (b.context != null && Buffer.byteLength(JSON.stringify(b.context), "utf8") > 20_000) return res.status(400).json({ error: "context must be 20 KB or smaller; keep detailed business data in n8n or Make" });
   const channel = b.channel || "link";
   if (!["link", "email", "slack"].includes(channel)) return res.status(400).json({ error: "channel must be link|email|slack" });
   if (channel === "email" && !b.to) return res.status(400).json({ error: "to (email) required for channel=email" });
@@ -306,12 +354,10 @@ app.post("/v1/approvals", auth, asyncRoute(async (req, res) => {
   db.prepare(`INSERT INTO approvals (id,token,api_key,question,context,approve_label,reject_label,callback_url,channel,recipient,timeout_at,default_on_timeout,status,idempotency_key,created_at)
     VALUES (@id,@token,@api_key,@question,@context,@approve_label,@reject_label,@callback_url,@channel,@recipient,@timeout_at,@default_on_timeout,@status,@idempotency_key,@created_at)`).run(a);
 
-  try {
-    if (channel === "email") await sendEmail(a);
-    if (channel === "slack") await sendSlack(a);
-  } catch (e) {
-    // 발송 실패해도 링크는 살아있음. 상태만 알려줌.
-    return res.status(202).json({ ...publicView(a), delivery_warning: String(e.message || e) });
+  if (channel === "email" || channel === "slack") {
+    enqueueNotification(a);
+    const sent = await deliverNotification(a.id);
+    if (!sent.delivered) return res.status(202).json({ ...publicView(a), delivery_warning: sent.error || "notification queued for retry" });
   }
   res.status(201).json(publicView(a));
 }));
@@ -330,6 +376,48 @@ app.post("/v1/approvals/:id/cancel", auth, (req, res) => {
   res.json(publicView(fresh));
 });
 
+function purgeApproval(id, includeReceipt) {
+  db.prepare("DELETE FROM deliveries WHERE approval_id=?").run(id);
+  db.prepare("DELETE FROM outbox WHERE approval_id=?").run(id);
+  db.prepare("DELETE FROM notification_deliveries WHERE approval_id=?").run(id);
+  db.prepare("DELETE FROM notification_outbox WHERE approval_id=?").run(id);
+  if (includeReceipt) db.prepare("DELETE FROM receipt_archive WHERE approval_id=?").run(id);
+  return db.prepare("DELETE FROM approvals WHERE id=?").run(id).changes;
+}
+
+app.delete("/v1/approvals/:id", auth, (req, res) => {
+  const a = db.prepare("SELECT id,status FROM approvals WHERE id=? AND api_key=?").get(req.params.id, req.apiKey);
+  const archived = db.prepare("SELECT approval_id FROM receipt_archive WHERE approval_id=? AND api_key=?").get(req.params.id, req.apiKey);
+  if (!a && !archived) return res.status(404).json({ error: "not found" });
+  if (a?.status === "pending") return res.status(409).json({ error: "cancel or decide the pending approval before deleting it" });
+  db.transaction(() => {
+    if (a) purgeApproval(a.id, true);
+    else db.prepare("DELETE FROM receipt_archive WHERE approval_id=? AND api_key=?").run(req.params.id, req.apiKey);
+  })();
+  res.status(204).end();
+});
+
+app.delete("/v1/data", auth, (req, res) => {
+  if (req.body?.confirm !== "DELETE ALL DATA") return res.status(400).json({ error: "confirm must equal DELETE ALL DATA" });
+  const pending = db.prepare("SELECT COUNT(*) c FROM approvals WHERE api_key=? AND status='pending'").get(req.apiKey).c;
+  if (pending) return res.status(409).json({ error: "cancel or decide pending approvals first", pending });
+  const ids = db.prepare("SELECT id FROM approvals WHERE api_key=?").all(req.apiKey);
+  db.transaction(() => {
+    for (const { id } of ids) purgeApproval(id, true);
+    db.prepare("DELETE FROM receipt_archive WHERE api_key=?").run(req.apiKey);
+  })();
+  res.json({ deleted: ids.length, receipts_deleted: true });
+});
+
+app.get("/v1/retention", auth, (_req, res) => res.json({
+  pending: "until decided, canceled, or timed out (maximum 90 days)",
+  decision_records_days: Math.round(DECISION_RETENTION_MS / 86400e3),
+  delivery_attempt_details_days: Math.round(DELIVERY_RETENTION_MS / 86400e3),
+  signed_receipts_days: Math.round(RECEIPT_RETENTION_MS / 86400e3),
+  delete_one: "DELETE /v1/approvals/:id",
+  delete_all: "DELETE /v1/data with JSON {\"confirm\":\"DELETE ALL DATA\"}",
+}));
+
 // ---------- 결정 (공통) ----------
 // 멱등: 이미 결정됐으면 아무것도 바꾸지 않고 기존 결정을 돌려준다.
 function decide(a, decision, by, comment, source) {
@@ -337,6 +425,7 @@ function decide(a, decision, by, comment, source) {
     .run(decision, by, now(), comment || null, a.id);
   const fresh = db.prepare("SELECT * FROM approvals WHERE id=?").get(a.id);
   if (r.changes === 1) {
+    archiveReceipt(fresh, source);
     if (fresh.api_key !== DEMO_KEY && fresh.api_key !== NOTIFY_SLACK_KEY) {
       const label = db.prepare("SELECT label FROM keys WHERE key=?").get(fresh.api_key);
       notifyOwner(`Approval decided on ${label?.label || fresh.api_key}`, [
@@ -345,7 +434,10 @@ function decide(a, decision, by, comment, source) {
       ]);
     }
     enqueueCallback(fresh, source);
-    if (fresh.channel === "slack" && fresh.slack_ts) updateSlackMessage(fresh).catch(() => {});
+    if (fresh.channel === "slack" && fresh.slack_ts) {
+      enqueueSlackUpdate(fresh);
+      deliverNotification(fresh.id).catch(() => {});
+    }
   }
   return { fresh, changed: r.changes === 1 };
 }
@@ -434,6 +526,13 @@ function receiptFor(a, source) {
   };
 }
 
+function archiveReceipt(a, source) {
+  const body = JSON.stringify(receiptFor(a, source));
+  db.prepare(`INSERT OR REPLACE INTO receipt_archive
+    (approval_id,api_key,receipt_json,signature,key_id,decided_at,expires_at) VALUES (?,?,?,?,?,?,?)`)
+    .run(a.id, a.api_key, body, sign(body), SIGN_KEY_ID, a.decided_at || now(), (a.decided_at || now()) + RECEIPT_RETENTION_MS);
+}
+
 function enqueueCallback(a, source) {
   if (!a.callback_url) return;
   const body = JSON.stringify(receiptFor(a, source));
@@ -470,12 +569,12 @@ setInterval(() => deliverDue().catch(() => {}), DELIVERY_SWEEP_MS).unref();
 // 영수증: 자기완결 JSON + 서명. 고객이 보관하고, 누구나 공개키로 검증.
 app.get("/v1/approvals/:id/receipt", auth, (req, res) => {
   const a = db.prepare("SELECT * FROM approvals WHERE id=? AND api_key=?").get(req.params.id, req.apiKey);
-  if (!a) return res.status(404).json({ error: "not found" });
-  if (a.status === "pending") return res.status(409).json({ error: "not decided yet" });
-  const o = db.prepare("SELECT body, signature FROM outbox WHERE approval_id=?").get(a.id);
-  const body = o ? o.body : JSON.stringify(receiptFor(a, "receipt"));
-  const signature = o ? o.signature : sign(body);
-  res.json({ receipt: JSON.parse(body), receipt_json: body, signature, key_id: SIGN_KEY_ID, public_key_url: `${BASE_URL}/.well-known/approval-signing-key`, verify_url: `${BASE_URL}/v1/verify` });
+  const archived = db.prepare("SELECT * FROM receipt_archive WHERE approval_id=? AND api_key=?").get(req.params.id, req.apiKey);
+  if (!a && !archived) return res.status(404).json({ error: "not found" });
+  if (a?.status === "pending") return res.status(409).json({ error: "not decided yet" });
+  const body = archived?.receipt_json || JSON.stringify(receiptFor(a, "receipt"));
+  const signature = archived?.signature || sign(body);
+  res.json({ receipt: JSON.parse(body), receipt_json: body, signature, key_id: archived?.key_id || SIGN_KEY_ID, retained_until: archived ? new Date(archived.expires_at).toISOString() : null, public_key_url: `${BASE_URL}/.well-known/approval-signing-key`, verify_url: `${BASE_URL}/v1/verify` });
 });
 app.get("/.well-known/approval-signing-key", (_req, res) => res.type("text/plain").send(SIGN_PUB_PEM));
 app.get("/v1/signing-key", (_req, res) => res.json({ key_id: SIGN_KEY_ID, algorithm: "Ed25519", public_key_pem: SIGN_PUB_PEM, how: "verify(receipt_json bytes, base64 signature) with this key. Node: crypto.verify(null, Buffer.from(receipt_json), publicKey, Buffer.from(signature,'base64'))" }));
@@ -498,6 +597,14 @@ app.get("/v1/approvals/:id/deliveries", auth, (req, res) => {
   res.json(db.prepare("SELECT attempt,status_code,error,at FROM deliveries WHERE approval_id=? ORDER BY attempt").all(a.id));
 });
 
+app.get("/v1/approvals/:id/notifications", auth, (req, res) => {
+  const a = db.prepare("SELECT id FROM approvals WHERE id=? AND api_key=?").get(req.params.id, req.apiKey);
+  if (!a) return res.status(404).json({ error: "not found" });
+  const delivery = db.prepare("SELECT channel,state,attempts,provider_id,last_status,last_error,delivered_at FROM notification_outbox WHERE approval_id=?").get(a.id);
+  const attempts = db.prepare("SELECT attempt,status_code,error,at FROM notification_deliveries WHERE approval_id=? ORDER BY attempt").all(a.id);
+  res.json({ delivery: delivery || { state: "not_needed", attempts: 0 }, attempts });
+});
+
 // ---------- 타임아웃 스윕 ----------
 setInterval(() => {
   const due = db.prepare("SELECT * FROM approvals WHERE status='pending' AND timeout_at <= ?").all(now());
@@ -505,6 +612,85 @@ setInterval(() => {
   // 랜딩 데모로 만든 요청은 하루 뒤 삭제
   db.prepare("DELETE FROM approvals WHERE api_key=? AND created_at < ?").run(DEMO_KEY, now() - 24 * 3600 * 1000);
 }, TIMEOUT_SWEEP_MS).unref();
+
+function cleanupRetention() {
+  const cutoff = now() - DECISION_RETENTION_MS;
+  const old = db.prepare("SELECT id FROM approvals WHERE status<>'pending' AND decided_at IS NOT NULL AND decided_at<?").all(cutoff);
+  const result = db.transaction(() => {
+    const callbackAttempts = db.prepare("DELETE FROM deliveries WHERE at<?").run(now() - DELIVERY_RETENTION_MS).changes;
+    const notificationAttempts = db.prepare("DELETE FROM notification_deliveries WHERE at<?").run(now() - DELIVERY_RETENTION_MS).changes;
+    for (const { id } of old) purgeApproval(id, false);
+    const receipts = db.prepare("DELETE FROM receipt_archive WHERE expires_at<?").run(now()).changes;
+    return { decisions: old.length, callback_attempts: callbackAttempts, notification_attempts: notificationAttempts, receipts };
+  })();
+  if (Object.values(result).some(Boolean)) console.log("[retention]", JSON.stringify(result));
+  return result;
+}
+setInterval(cleanupRetention, RETENTION_SWEEP_MS).unref();
+
+// ---------- Slack / email notification outbox ----------
+// The approval is committed first. Provider outages therefore cannot lose the
+// request, and a restart simply resumes queued rows from SQLite.
+const NOTIFICATION_BACKOFF = [0, 10e3, 60e3, 300e3, 900e3, 3600e3, 3*3600e3, 6*3600e3, 12*3600e3, 24*3600e3]
+  .map((ms) => ms * NOTIFICATION_BACKOFF_SCALE);
+
+function enqueueNotification(a) {
+  db.prepare(`INSERT OR IGNORE INTO notification_outbox
+    (approval_id,channel,purpose,attempts,next_at,state,created_at) VALUES (?,?,'initial',0,?,'queued',?)`)
+    .run(a.id, a.channel, now(), now());
+}
+
+function enqueueSlackUpdate(a) {
+  db.prepare(`INSERT INTO notification_outbox
+    (approval_id,channel,purpose,attempts,next_at,state,created_at)
+    VALUES (?,'slack','update',0,?,'queued',?)
+    ON CONFLICT(approval_id) DO UPDATE SET purpose='update',attempts=0,next_at=excluded.next_at,state='queued',provider_id=NULL,last_status=NULL,last_error=NULL,delivered_at=NULL`)
+    .run(a.id, now(), now());
+}
+
+async function deliverNotification(approvalId) {
+  const claimed = db.prepare("UPDATE notification_outbox SET state='sending' WHERE approval_id=? AND state='queued' AND next_at<=?").run(approvalId, now());
+  if (!claimed.changes) {
+    const current = db.prepare("SELECT state,last_error FROM notification_outbox WHERE approval_id=?").get(approvalId);
+    return { delivered: current?.state === "delivered", error: current?.last_error || "notification already being processed" };
+  }
+  const job = db.prepare("SELECT * FROM notification_outbox WHERE approval_id=?").get(approvalId);
+  const a = db.prepare("SELECT * FROM approvals WHERE id=?").get(approvalId);
+  if (!a || (job.purpose === "initial" && a.status !== "pending")) {
+    db.prepare("UPDATE notification_outbox SET state='canceled',last_error=? WHERE approval_id=?").run("approval is no longer pending", approvalId);
+    return { delivered: false, error: "approval is no longer pending" };
+  }
+  const attempt = job.attempts + 1;
+  try {
+    const result = job.purpose === "update" ? await updateSlackMessage(a) : job.channel === "email" ? await sendEmail(a) : await sendSlack(a);
+    db.prepare("INSERT INTO notification_deliveries (approval_id,attempt,status_code,error,at) VALUES (?,?,?,?,?)").run(approvalId, attempt, result.status || 200, null, now());
+    db.prepare("UPDATE notification_outbox SET attempts=?,state='delivered',provider_id=?,last_status=?,last_error=NULL,delivered_at=? WHERE approval_id=?")
+      .run(attempt, result.providerId, result.status || 200, now(), approvalId);
+    return { delivered: true };
+  } catch (error) {
+    const status = Number(error.status) || null;
+    const message = String(error.message || error).slice(0, 1000);
+    db.prepare("INSERT INTO notification_deliveries (approval_id,attempt,status_code,error,at) VALUES (?,?,?,?,?)").run(approvalId, attempt, status, message, now());
+    const permanent = error.permanent || (status && status >= 400 && status < 500 && ![408, 409, 429].includes(status));
+    const state = permanent || attempt >= NOTIFICATION_BACKOFF.length ? "failed" : "queued";
+    const retryAfterMs = Number(error.retryAfter) > 0 ? Number(error.retryAfter) * 1000 : 0;
+    const nextAt = now() + Math.max(NOTIFICATION_BACKOFF[Math.min(attempt, NOTIFICATION_BACKOFF.length - 1)], retryAfterMs);
+    db.prepare("UPDATE notification_outbox SET attempts=?,state=?,next_at=?,last_status=?,last_error=? WHERE approval_id=?")
+      .run(attempt, state, nextAt, status, message, approvalId);
+    return { delivered: false, error: message };
+  }
+}
+
+let deliveringNotifications = false;
+async function deliverDueNotifications() {
+  if (deliveringNotifications) return;
+  deliveringNotifications = true;
+  try {
+    const due = db.prepare("SELECT approval_id FROM notification_outbox WHERE state='queued' AND next_at<=? ORDER BY next_at LIMIT 50").all(now());
+    for (const row of due) await deliverNotification(row.approval_id);
+  } finally { deliveringNotifications = false; }
+}
+setInterval(() => deliverDueNotifications().catch(() => {}), DELIVERY_SWEEP_MS).unref();
 
 // ---------- 이메일 (Resend) ----------
 async function sendEmail(a) {
@@ -514,12 +700,15 @@ async function sendEmail(a) {
   const html = `<p style="font-size:16px"><b>${esc(a.question)}</b></p>${ctx ? `<pre style="background:#f4f4f5;padding:12px">${esc(typeof ctx === "string" ? ctx : JSON.stringify(ctx, null, 2))}</pre>` : ""}
   <p><a href="${url}" style="display:inline-block;padding:12px 20px;background:#111;color:#fff;border-radius:8px;text-decoration:none">Open and decide</a></p>
   <p style="color:#666;font-size:13px">Answer by ${fmt(a.timeout_at)} UTC (about ${Math.round((a.timeout_at - now()) / 3600000)} hours from now)</p>`;
-  const r = await fetch("https://api.resend.com/emails", {
+  const r = await fetch(RESEND_API_URL, {
     method: "POST",
-    headers: { authorization: `Bearer ${RESEND_API_KEY}`, "content-type": "application/json" },
+    headers: { authorization: `Bearer ${RESEND_API_KEY}`, "content-type": "application/json", "idempotency-key": `approval-email/${a.id}` },
     body: JSON.stringify({ from: EMAIL_FROM, to: a.recipient, subject: `[Needs a yes] ${a.question.slice(0, 60)}`, html }),
   });
-  if (!r.ok) throw new Error(`resend ${r.status}: ${await r.text()}`);
+  const text = await r.text();
+  if (!r.ok) { const e = new Error(`resend ${r.status}: ${text}`); e.status = r.status; e.retryAfter = r.headers.get("retry-after"); throw e; }
+  let body = {}; try { body = JSON.parse(text); } catch {}
+  return { providerId: body.id || null, status: r.status };
 }
 
 // ---------- 슬랙 ----------
@@ -563,27 +752,41 @@ function issueSlackInstallToken(apiKey) {
 }
 
 async function slackApi(method, payload, token) {
-  const r = await fetch(`https://slack.com/api/${method}`, {
+  const r = await fetch(`${SLACK_API_BASE}/${method}`, {
     method: "POST",
     headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
     body: JSON.stringify(payload),
   });
   const j = await r.json();
-  if (!j.ok) throw new Error(`slack ${method}: ${j.error}`);
+  if (!r.ok || !j.ok) {
+    const code = j.error || String(r.status);
+    const e = new Error(`slack ${method}: ${code}`);
+    e.status = r.status;
+    e.retryAfter = r.headers.get("retry-after");
+    e.permanent = ["invalid_auth", "not_authed", "missing_scope", "token_revoked", "account_inactive", "channel_not_found", "no_permission", "invalid_arguments"].includes(code);
+    throw e;
+  }
   return j;
+}
+
+function slackClientMessageId(id) {
+  const h = crypto.createHash("sha256").update(id).digest("hex").slice(0, 32);
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-4${h.slice(13, 16)}-a${h.slice(17, 20)}-${h.slice(20)}`;
 }
 
 async function sendSlack(a) {
   const token = slackTokenFor(a.api_key);
   if (!token) throw new Error(`Slack not connected for this key. Connect at ${BASE_URL}/slack/install?key=<your key>. approve_url still works`);
-  const j = await slackApi("chat.postMessage", { channel: a.recipient, text: a.question, blocks: slackBlocks(a) }, token);
+  const j = await slackApi("chat.postMessage", { channel: a.recipient, text: a.question, blocks: slackBlocks(a), client_msg_id: slackClientMessageId(a.id) }, token);
   db.prepare("UPDATE approvals SET slack_channel=?, slack_ts=? WHERE id=?").run(j.channel, j.ts, a.id);
+  return { providerId: `${j.channel}:${j.ts}`, status: 200 };
 }
 
 async function updateSlackMessage(a) {
   const token = slackTokenFor(a.api_key);
-  if (!token || !a.slack_ts) return;
-  await slackApi("chat.update", { channel: a.slack_channel, ts: a.slack_ts, text: a.question, blocks: slackBlocks(a) }, token);
+  if (!token || !a.slack_ts) { const e = new Error("Slack message is not available for update"); e.permanent = true; throw e; }
+  const j = await slackApi("chat.update", { channel: a.slack_channel, ts: a.slack_ts, text: a.question, blocks: slackBlocks(a) }, token);
+  return { providerId: `${j.channel || a.slack_channel}:${j.ts || a.slack_ts}`, status: 200 };
 }
 
 // ---------- 운영자 알림 ----------
@@ -629,7 +832,8 @@ app.post("/slack/interactions", (req, res) => {
 app.get("/v1/stats", auth, (req, res) => {
   const rows = db.prepare("SELECT status, COUNT(*) c FROM approvals WHERE api_key=? GROUP BY status").all(req.apiKey);
   const cb = db.prepare("SELECT state, COUNT(*) c FROM outbox o JOIN approvals a ON a.id=o.approval_id WHERE a.api_key=? GROUP BY state").all(req.apiKey);
-  res.json({ by_status: Object.fromEntries(rows.map((r) => [r.status, r.c])), callbacks: Object.fromEntries(cb.map((r) => [r.state, r.c])) });
+  const notifications = db.prepare("SELECT n.state,COUNT(*) c FROM notification_outbox n JOIN approvals a ON a.id=n.approval_id WHERE a.api_key=? GROUP BY n.state").all(req.apiKey);
+  res.json({ by_status: Object.fromEntries(rows.map((r) => [r.status, r.c])), callbacks: Object.fromEntries(cb.map((r) => [r.state, r.c])), notifications: Object.fromEntries(notifications.map((r) => [r.state, r.c])) });
 });
 
 // ---------- 슬랙 설치 (워크스페이스마다 한 번) ----------
@@ -746,6 +950,7 @@ app.get("/health", (_req, res) => {
     database: check === "ok" ? "ok" : "error",
     pending: db.prepare("SELECT COUNT(*) c FROM approvals WHERE status='pending'").get().c,
     callbacks_queued: db.prepare("SELECT COUNT(*) c FROM outbox WHERE state='queued'").get().c,
+    notifications_queued: db.prepare("SELECT COUNT(*) c FROM notification_outbox WHERE state IN ('queued','sending')").get().c,
   });
 });
 
@@ -763,7 +968,7 @@ async function shutdown(signal) {
   console.log(`[shutdown] ${signal}`);
   server.close();
   const deadline = now() + 16000;
-  while (delivering && now() < deadline) await new Promise((resolve) => setTimeout(resolve, 50));
+  while ((delivering || deliveringNotifications) && now() < deadline) await new Promise((resolve) => setTimeout(resolve, 50));
   try { db.pragma("wal_checkpoint(TRUNCATE)"); } catch {}
   try { db.close(); } catch {}
   process.exit(0);
