@@ -1,0 +1,410 @@
+<!doctype html>
+<html lang="en" data-theme="light"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Approval Flow Motion</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --ground:#F7F8F3;
+  --paper:#FFFEF6;
+  --ink:#181A16;
+  --muted:#63675F;
+  --faint:#94988D;
+  --rule-strong:#C7CABE;
+  --green:#3E7250;
+  --green-soft:rgba(62,114,80,.09);
+  --olive-bg:#F7F8DA;
+  --olive-line:#CED387;
+  --olive-ink:#3A4118;
+  --rose-bg:#EFE8E7;
+  --rose-ink:#8F4941;
+  --card-shadow:0 1px 1px rgba(24,26,22,.03), 0 16px 32px -24px rgba(24,26,22,.30);
+  --card-shadow-lift:0 1px 2px rgba(24,26,22,.05), 0 22px 40px -22px rgba(24,26,22,.36);
+
+  --ease-out:cubic-bezier(.22,1,.36,1);
+  --ease-in-out:cubic-bezier(.5,0,.2,1);
+  --ease-spring:cubic-bezier(.34,1.42,.52,1);
+  --ease-exit:cubic-bezier(.4,0,1,1);
+  --d1:180ms; --d2:320ms; --d3:480ms; --d4:700ms;
+
+  --sans:"Instrument Sans", ui-sans-serif, system-ui, -apple-system, "Helvetica Neue", sans-serif;
+  --mono:"IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --ground:#121510; --paper:#1A1E15; --ink:#EEF0E4; --muted:#9AA091; --faint:#6E7467;
+    --rule-strong:#3B4235;
+    --green:#71B085; --green-soft:rgba(113,176,133,.13);
+    --olive-bg:#2F3616; --olive-line:#6B7437; --olive-ink:#DFE69C;
+    --rose-bg:#302422; --rose-ink:#D3928A;
+    --card-shadow:0 1px 2px rgba(0,0,0,.5), 0 18px 36px -24px rgba(0,0,0,.9);
+    --card-shadow-lift:0 2px 4px rgba(0,0,0,.55), 0 24px 44px -22px rgba(0,0,0,1);
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#121510; --paper:#1A1E15; --ink:#EEF0E4; --muted:#9AA091; --faint:#6E7467;
+  --rule-strong:#3B4235;
+  --green:#71B085; --green-soft:rgba(113,176,133,.13);
+  --olive-bg:#2F3616; --olive-line:#6B7437; --olive-ink:#DFE69C;
+  --rose-bg:#302422; --rose-ink:#D3928A;
+  --card-shadow:0 1px 2px rgba(0,0,0,.5), 0 18px 36px -24px rgba(0,0,0,.9);
+  --card-shadow-lift:0 2px 4px rgba(0,0,0,.55), 0 24px 44px -22px rgba(0,0,0,1);
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--ground); color:var(--ink);
+  font-family:var(--sans); font-size:15px; line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+  min-height:100dvh; display:grid; align-content:center;
+}
+.piece{width:100%; max-width:1240px; margin:0 auto; padding:56px 40px}
+@media (max-width:640px){ .piece{padding:40px 20px} }
+
+/* ---------- flow ---------- */
+.fit{position:relative}
+.flow{
+  position:absolute; top:0; left:50%; width:1040px;
+  display:flex; align-items:center; justify-content:space-between;
+  transform-origin:50% 0;
+}
+.fit.stacked .flow{position:static; width:auto; transform:none; flex-direction:column}
+
+.node{position:relative; width:214px; flex:0 0 auto; opacity:0; transform:translateY(10px);
+  transition:opacity var(--d3) var(--ease-out), transform var(--d3) var(--ease-out)}
+.node.on{opacity:1; transform:none}
+.node.out{opacity:0; transform:translateY(-6px); transition-duration:var(--d2); transition-timing-function:var(--ease-exit)}
+.fit.stacked .node{width:min(320px,100%)}
+
+.node-head{display:flex; align-items:center; gap:9px; margin-bottom:10px}
+.node-head,.node-title,.node-meta{transition:opacity var(--d4) var(--ease-in-out)}
+.node.dim .node-head,.node.dim .node-title,.node.dim .node-meta{opacity:.34}
+.sq{
+  width:21px; height:21px; flex:0 0 21px; border-radius:1px;
+  background:var(--olive-bg); border:1px solid var(--olive-line); color:var(--olive-ink);
+  font-family:var(--mono); font-size:10px; font-weight:500;
+  display:grid; place-items:center;
+}
+.sq.done{background:var(--green-soft); border-color:var(--green); color:var(--green)}
+.lbl{font-family:var(--mono); font-size:10px; letter-spacing:.16em; text-transform:uppercase; color:var(--muted)}
+.node-title{font-size:19px; font-weight:600; letter-spacing:-.016em; line-height:1.26}
+.node-meta{font-size:13px; color:var(--muted); margin-top:6px; font-variant-numeric:tabular-nums}
+
+.waiting{
+  position:absolute; top:100%; left:0; margin-top:14px;
+  display:flex; align-items:center; gap:8px;
+  font-family:var(--mono); font-size:10px; letter-spacing:.09em; color:var(--muted);
+  opacity:0; transform:translateY(-3px);
+  transition:opacity var(--d2) var(--ease-out), transform var(--d2) var(--ease-out);
+}
+.waiting.on{opacity:1; transform:none}
+.dots{display:inline-flex; gap:3px}
+.dots i{width:3.5px; height:3.5px; border-radius:50%; background:var(--green); display:block;
+  animation:pulse 1.3s var(--ease-in-out) infinite}
+.dots i:nth-child(2){animation-delay:.17s}
+.dots i:nth-child(3){animation-delay:.34s}
+@keyframes pulse{0%,100%{opacity:.2}50%{opacity:1}}
+
+/* connectors */
+.link{width:138px; height:22px; flex:0 0 auto; position:relative}
+.link-inner{position:absolute; inset:0}
+.fit.stacked .link{width:22px; height:66px; margin:18px 0}
+.fit.stacked .link-inner{width:66px; height:22px; top:50%; left:50%; transform:translate(-50%,-50%) rotate(90deg)}
+.link svg{position:absolute; inset:0; width:100%; height:100%; overflow:visible}
+.link line,.link path{stroke:var(--rule-strong); stroke-width:1; fill:none}
+.link .head{opacity:0; transition:opacity 160ms linear}
+.link.arrived .head{opacity:1}
+.packet{
+  position:absolute; top:50%; left:0; width:6px; height:6px; margin:-3px 0 0 -3px;
+  border-radius:50%; background:var(--olive-line); opacity:0;
+}
+.packet.on{opacity:1}
+.packet.decision{background:var(--green); box-shadow:0 0 0 3.5px var(--green-soft)}
+
+/* card */
+.card-slot{flex:0 0 auto; position:relative}
+.card{
+  position:relative; width:334px; background:var(--paper);
+  border:1px solid var(--green); border-radius:1px; padding:19px;
+  opacity:0; transform:translateY(6px) scale(.966); transform-origin:50% 42%; box-shadow:none;
+  transition:opacity var(--d3) var(--ease-out), transform var(--d3) var(--ease-spring),
+             box-shadow var(--d4) var(--ease-in-out);
+}
+.card.on{opacity:1; transform:none; box-shadow:var(--card-shadow)}
+.card.pending{box-shadow:var(--card-shadow-lift), 0 0 0 4px var(--green-soft)}
+.card.resolved{opacity:.5; box-shadow:var(--card-shadow)}
+.card.out{opacity:0; transform:translateY(-5px) scale(.99); transition-duration:var(--d2); transition-timing-function:var(--ease-exit)}
+.fit.stacked .card{width:min(320px,100%)}
+
+.ring{position:absolute; inset:-1px; border:1px solid var(--green); border-radius:1px; opacity:0; pointer-events:none}
+.ring.fire{animation:ringOut 640ms var(--ease-out) forwards}
+@keyframes ringOut{0%{opacity:.5; transform:scale(1)} 100%{opacity:0; transform:scale(1.085)}}
+
+.card-row{display:flex; align-items:center; gap:9px; margin-bottom:12px}
+.card h4{margin:0; font-size:20px; font-weight:600; letter-spacing:-.018em}
+.card-sub{margin:6px 0 0; font-size:13px; color:var(--muted)}
+.btns{display:flex; gap:9px; margin-top:17px}
+.btn{
+  flex:1; border:0; border-radius:1px; padding:11px 10px; cursor:default;
+  font-family:var(--sans); font-size:13.5px; font-weight:600; letter-spacing:-.005em;
+  display:flex; align-items:center; justify-content:center; gap:6px;
+  transition:transform 120ms var(--ease-out), opacity var(--d2) var(--ease-in-out),
+             box-shadow 180ms var(--ease-out);
+}
+.btn-approve{background:var(--green); color:#FFFEF6}
+:root[data-theme="dark"] .btn-approve{color:#10140D}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .btn-approve{color:#10140D} }
+.btn-reject{background:var(--rose-bg); color:var(--rose-ink)}
+.btn.hover{transform:translateY(-1.5px); box-shadow:0 5px 14px -6px rgba(24,26,22,.45)}
+.btn.press{transform:translateY(0) scale(.978); box-shadow:none}
+.btn.receded{opacity:.28}
+.btn .check{width:0; opacity:0; overflow:hidden;
+  transition:width var(--d2) var(--ease-spring), opacity var(--d2) var(--ease-out)}
+.btn.confirmed .check{width:14px; opacity:1}
+
+.ripple{position:absolute; width:12px; height:12px; border-radius:50%; pointer-events:none;
+  background:currentColor; opacity:0; transform:translate(-50%,-50%)}
+.ripple.fire{animation:rip 560ms var(--ease-out) forwards}
+@keyframes rip{0%{opacity:.3; transform:translate(-50%,-50%) scale(.4)} 100%{opacity:0; transform:translate(-50%,-50%) scale(9)}}
+
+.cursor{position:absolute; left:0; top:0; width:18px; height:18px; pointer-events:none;
+  opacity:0; z-index:5; filter:drop-shadow(0 2px 3px rgba(24,26,22,.3)); transition:opacity 200ms linear}
+.cursor.on{opacity:1}
+
+.chip{
+  position:absolute; top:100%; left:0; margin-top:12px;
+  display:inline-flex; align-items:center; gap:7px;
+  background:var(--olive-bg); border:1px solid var(--olive-line); color:var(--olive-ink);
+  border-radius:1px; padding:5px 10px;
+  font-family:var(--mono); font-size:10.5px; letter-spacing:.03em;
+  opacity:0; transform:scale(.9) translateY(4px);
+  transition:opacity var(--d2) var(--ease-out), transform var(--d3) var(--ease-spring);
+}
+.chip.on{opacity:1; transform:none}
+.chip svg{width:10px; height:10px; flex:0 0 10px}
+.chip path{stroke:currentColor; stroke-width:2.3; fill:none; stroke-linecap:round; stroke-linejoin:round;
+  stroke-dasharray:16; stroke-dashoffset:16; transition:stroke-dashoffset 300ms var(--ease-out) 130ms}
+.chip.on path{stroke-dashoffset:0}
+.node-meta.late{opacity:0; transform:translateY(3px);
+  transition:opacity var(--d2) var(--ease-out), transform var(--d2) var(--ease-out)}
+.node-meta.late.on{opacity:1; transform:none}
+.fit.stacked .waiting,.fit.stacked .chip{position:static; top:auto}
+
+@media (prefers-reduced-motion: reduce){
+  *{animation-duration:.001ms !important; transition-duration:.001ms !important}
+}
+</style>
+
+</head><body>
+<div class="piece">
+  <div class="fit" id="fit">
+    <div class="flow" id="flow">
+
+      <div class="node" id="nodeA">
+        <div class="node-head">
+          <span class="sq" id="platSq">n8</span>
+          <span class="lbl" id="platName">n8n workflow</span>
+        </div>
+        <div class="node-title">Refund requested</div>
+        <div class="node-meta">Order A-184 · $380</div>
+        <div class="waiting" id="waiting">
+          <span class="dots"><i></i><i></i><i></i></span>
+          <span>run paused</span>
+        </div>
+      </div>
+
+      <div class="link" id="link1">
+        <div class="link-inner">
+          <svg viewBox="0 0 138 22" preserveAspectRatio="none" aria-hidden="true">
+            <line id="l1" x1="0" y1="11" x2="131" y2="11"></line>
+            <path class="head" d="M126 7.2 L131.5 11 L126 14.8"></path>
+          </svg>
+          <span class="packet" id="p1"></span>
+        </div>
+      </div>
+
+      <div class="card-slot">
+        <div class="card" id="card">
+          <span class="ring" id="ring"></span>
+          <div class="card-row"><span class="sq">S</span><span class="lbl">slack approval</span></div>
+          <h4>Refund $380?</h4>
+          <p class="card-sub">Requested by the billing workflow</p>
+          <div class="btns">
+            <button class="btn btn-approve" id="btnApprove" tabindex="-1" aria-hidden="true">
+              <svg class="check" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3.5 8.5 L6.5 11.5 L12.5 4.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <span>Approve</span>
+            </button>
+            <button class="btn btn-reject" id="btnReject" tabindex="-1" aria-hidden="true">Reject</button>
+          </div>
+          <span class="ripple" id="ripple"></span>
+          <svg class="cursor" id="cursor" viewBox="0 0 20 20" aria-hidden="true">
+            <path d="M4 2 L4 16 L7.7 12.6 L10.1 17.8 L12.6 16.6 L10.2 11.6 L15 11.2 Z"
+                  fill="var(--ink)" stroke="var(--paper)" stroke-width="1.1" stroke-linejoin="round"/>
+          </svg>
+        </div>
+      </div>
+
+      <div class="link" id="link2">
+        <div class="link-inner">
+          <svg viewBox="0 0 138 22" preserveAspectRatio="none" aria-hidden="true">
+            <line id="l2" x1="0" y1="11" x2="131" y2="11"></line>
+            <path class="head" d="M126 7.2 L131.5 11 L126 14.8"></path>
+          </svg>
+          <span class="packet decision" id="p2"></span>
+        </div>
+      </div>
+
+      <div class="node" id="nodeC">
+        <div class="node-head"><span class="sq done">✓</span><span class="lbl">resume</span></div>
+        <div class="node-title">Resume by callback</div>
+        <div class="node-meta late" id="metaC">approved · steve · 14:32</div>
+        <span class="chip" id="chip">
+          <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2 6.3 L4.8 9 L10 3.2"/></svg>
+          signed decision receipt
+        </span>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* 9.6s loop — timings in ms */
+  var TOTAL = 9600;
+  var PLATFORMS = [
+    {sq:"n8", name:"n8n workflow"},
+    {sq:"M",  name:"make scenario"},
+    {sq:"Z",  name:"zapier zap"}
+  ];
+
+  var $ = function(id){ return document.getElementById(id); };
+  var fit=$("fit"), flow=$("flow"), nodeA=$("nodeA"), nodeC=$("nodeC"), card=$("card"),
+      ring=$("ring"), link1=$("link1"), link2=$("link2"), l1=$("l1"), l2=$("l2"),
+      p1=$("p1"), p2=$("p2"), waiting=$("waiting"), cursor=$("cursor"),
+      btnA=$("btnApprove"), btnR=$("btnReject"), ripple=$("ripple"),
+      metaC=$("metaC"), chip=$("chip"), platSq=$("platSq"), platName=$("platName");
+
+  /* scale the fixed-width composition into the available space */
+  var FLOW_W = 1040;
+  function layout(){
+    var stacked = window.innerWidth < 640;
+    fit.classList.toggle("stacked", stacked);
+    if(stacked){ flow.style.transform=""; fit.style.height=""; return; }
+    var s = Math.min(1, fit.clientWidth / FLOW_W);
+    flow.style.transform = "translateX(-50%) scale("+s+")";
+    fit.style.height = Math.round(flow.offsetHeight * s) + "px";
+  }
+  window.addEventListener("resize", layout);
+
+  function cl(el,n,on){ el.classList.toggle(n, !!on); }
+  function clamp01(x){ return x<0?0:(x>1?1:x); }
+  function easeInOut(x){ return x<.5 ? 4*x*x*x : 1-Math.pow(-2*x+2,3)/2; }
+  function easeOut(x){ return 1-Math.pow(1-x,3); }
+
+  var L=131;
+  function setLine(lineEl, linkEl, packet, prog, live){
+    lineEl.style.strokeDasharray=L;
+    lineEl.style.strokeDashoffset=(L*(1-prog)).toFixed(2);
+    cl(linkEl,"arrived", prog>.985);
+    packet.style.left=(prog*95).toFixed(2)+"%";
+    cl(packet,"on", live && prog>0.02 && prog<0.99);
+  }
+
+  var t=0, playing=true, last=0, loops=0, firedRing=-1, firedRip=-1;
+  var reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  function applyPlatform(){
+    var p=PLATFORMS[loops % PLATFORMS.length];
+    platSq.textContent=p.sq; platName.textContent=p.name;
+  }
+  applyPlatform();
+
+  function apply(t){
+    var out=function(d){ return t > 8700+d; };
+
+    /* 1 · trigger */
+    cl(nodeA,"on", t>=60);
+    cl(nodeA,"dim", t>=2200 && t<6700);
+    cl(nodeA,"out", out(0));
+
+    /* 2 · signal in transit */
+    var fade1 = t>8700 ? clamp01(1-(t-8760)/480) : 1;
+    setLine(l1, link1, p1, easeInOut(clamp01((t-700)/800))*fade1, t<8700);
+
+    /* 3 · notification lands */
+    cl(card,"on", t>=1500);
+    cl(card,"pending", t>=1560 && t<4460);
+    cl(card,"resolved", t>=4800 && t<6700);
+    cl(card,"out", out(140));
+    if(t>=1500 && t<1560 && firedRing!==loops){
+      ring.classList.remove("fire"); void ring.offsetWidth; ring.classList.add("fire"); firedRing=loops;
+    }
+    if(t<1400) firedRing=-1;
+
+    /* 4 · run suspended */
+    cl(waiting,"on", t>=2260 && t<3900);
+
+    /* 5 · human decides */
+    var visible = t>=3700 && t<4900;
+    cl(cursor,"on", visible);
+    if(visible){
+      var e=easeOut(clamp01((t-3700)/720));
+      var sx=88, sy=128, ex=25, ey=77;
+      cursor.style.left=(sx+(ex-sx)*e).toFixed(2)+"%";
+      cursor.style.top =(sy+(ey-sy)*e).toFixed(2)+"%";
+    }
+    cl(btnA,"hover", t>=4300 && t<4440);
+    cl(btnA,"press", t>=4440 && t<4530);
+    cl(btnA,"confirmed", t>=4530);
+    cl(btnR,"receded", t>=4460);
+    if(t>=4440 && t<4500 && firedRip!==loops){
+      ripple.style.left="26%"; ripple.style.top="79%";
+      ripple.style.color=getComputedStyle(document.documentElement).getPropertyValue("--green");
+      ripple.classList.remove("fire"); void ripple.offsetWidth; ripple.classList.add("fire"); firedRip=loops;
+    }
+    if(t<4300) firedRip=-1;
+
+    /* 6 · callback resumes */
+    var fade2 = t>8700 ? clamp01(1-(t-8820)/480) : 1;
+    setLine(l2, link2, p2, easeInOut(clamp01((t-4800)/750))*fade2, t<8700);
+
+    /* 7 · signed receipt */
+    cl(nodeC,"on", t>=5700);
+    cl(nodeC,"out", out(280));
+    cl(metaC,"on", t>=5900);
+    cl(chip,"on", t>=6120);
+    /* 8 · hold  6700–8700    9 · reset  8700–9600 */
+  }
+
+  function frame(now){
+    if(!last) last=now;
+    var dt=Math.min(now-last,64); last=now;
+    if(playing){
+      t+=dt;
+      if(t>=TOTAL){ t-=TOTAL; loops++; applyPlatform(); }
+      apply(t);
+    }
+    requestAnimationFrame(frame);
+  }
+
+  /* pause while off-screen */
+  if("IntersectionObserver" in window){
+    new IntersectionObserver(function(en){
+      en.forEach(function(e){ playing = e.isIntersecting && !reduced; });
+    },{threshold:.15}).observe(fit);
+  }
+
+  layout();
+  if(document.fonts && document.fonts.ready){ document.fonts.ready.then(layout); }
+
+  if(reduced){ playing=false; apply(7600); }
+  else { apply(0); }
+  requestAnimationFrame(frame);
+})();
+</script>
+</body></html>

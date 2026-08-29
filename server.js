@@ -215,7 +215,7 @@ app.use(express.urlencoded({ extended: false, verify: keepRaw }));
 app.use((req, res, next) => {
   res.set("X-Content-Type-Options", "nosniff");
   res.set("Referrer-Policy", "no-referrer");
-  res.set("X-Frame-Options", "DENY");
+  res.set("X-Frame-Options", req.path === "/approval-flow-motion.html" ? "SAMEORIGIN" : "DENY");
   if (req.path.startsWith("/a/") || req.path.startsWith("/admin/")) res.set("Cache-Control", "no-store");
   next();
 });
@@ -1006,7 +1006,9 @@ app.get("/demo/:id", (req, res) => {
 // ---------- 랜딩 ----------
 const fs = require("fs");
 const LANDING = fs.existsSync(__dirname + "/landing.html") ? fs.readFileSync(__dirname + "/landing.html", "utf8") : "<h1>askhuman</h1>";
+const FLOW_MOTION = fs.existsSync(__dirname + "/approval-flow-motion.html") ? fs.readFileSync(__dirname + "/approval-flow-motion.html", "utf8") : "";
 app.get("/", (_req, res) => res.type("html").send(LANDING.replaceAll("{{BASE_URL}}", BASE_URL)));
+app.get("/approval-flow-motion.html", (_req, res) => res.type("html").send(FLOW_MOTION));
 
 app.get("/health", (_req, res) => {
   const check = db.pragma("quick_check", { simple: true });
