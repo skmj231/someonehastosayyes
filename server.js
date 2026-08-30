@@ -1052,7 +1052,7 @@ app.post("/create-key", (req, res) => {
     tool,
     delivery,
     source: "self_service",
-    rateLimit: 60,
+    rateLimit: 600,
   });
   const installToken = delivery === "slack" ? issueSlackInstallToken(created.ref) : null;
   notifyOwner("A preview API key was created", [
@@ -1064,7 +1064,7 @@ app.post("/create-key", (req, res) => {
     fingerprint: created.hash.slice(0, 16),
     tool,
     delivery,
-    rate_limit_per_minute: 60,
+    rate_limit_per_minute: 600,
     slack_install_url: installToken ? `${BASE_URL}/slack/install?token=${installToken}` : null,
   });
 });
