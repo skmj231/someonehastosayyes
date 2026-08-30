@@ -57,6 +57,7 @@ async function run() {
     env: {
       ...process.env,
       PORT: String(API_PORT), BASE_URL: BASE, API_KEYS: "k1", ADMIN_SECRET: "adm",
+      ALLOW_DIRECT_ADMIN_KEYS: "true",
       DB_PATH: path.join(tmp, "test.db"), ALLOW_PRIVATE_CALLBACKS: "true",
       TIMEOUT_SWEEP_MS: "50", DELIVERY_SWEEP_MS: "50", CALLBACK_BACKOFF_SCALE: "0.001",
       SLACK_SIGNING_SECRET: "test-slack-secret",

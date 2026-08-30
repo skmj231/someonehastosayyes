@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Early access review</title>
+<style>
+  :root{--ink:#151815;--muted:#697069;--line:#e4e7e1;--soft:#f5f6f2;--green:#176b3a;--red:#9b2c24;--amber:#8a6200}
+  *{box-sizing:border-box}body{font:15px/1.5 system-ui,-apple-system,sans-serif;margin:0;color:var(--ink);background:#fbfcf9}
+  main{max-width:1080px;margin:auto;padding:44px 24px 80px}h1{font-size:34px;letter-spacing:-.03em;margin:0 0 8px}h2{font-size:20px;margin:46px 0 14px}.muted,.meta{color:var(--muted)}
+  .login{display:flex;gap:8px;margin:24px 0 10px}.login input{flex:1;max-width:460px}input,textarea,button{font:inherit}input,textarea{border:1px solid #cfd4cc;background:white;border-radius:8px;padding:11px 12px}button{border:1px solid var(--ink);background:white;border-radius:8px;padding:10px 13px;cursor:pointer;font-weight:650}button.primary{background:var(--ink);color:white}button.danger{color:var(--red);border-color:#d7aaa6}button:disabled{opacity:.4;cursor:not-allowed}
+  .summary{display:flex;gap:22px;color:var(--muted);margin:12px 0 4px}.list{display:grid;gap:12px}.card{background:white;border:1px solid var(--line);border-radius:12px;padding:18px}.top{display:flex;justify-content:space-between;gap:16px;align-items:flex-start}.title{font-size:17px;font-weight:750}.badge{font:700 12px/1 system-ui;padding:7px 9px;border-radius:999px;background:var(--soft);white-space:nowrap}.badge.low{color:var(--green)}.badge.review,.badge.high{color:var(--amber)}.badge.blocked{color:var(--red)}
+  .facts{display:flex;flex-wrap:wrap;gap:7px 16px;margin:12px 0;color:var(--muted);font-size:13px}.reasons{margin:10px 0 0;padding-left:20px}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}.note{min-width:260px;flex:1}.error{color:var(--red)}.ok{color:var(--green)}code{font-size:13px}.usage{display:grid;grid-template-columns:repeat(4,minmax(110px,1fr));gap:10px;margin-top:14px}.metric{background:var(--soft);padding:10px;border-radius:8px}.metric b{display:block;font-size:17px}.pending{margin-top:10px;font-size:13px}
+  @media(max-width:680px){main{padding:28px 16px}.top{display:block}.badge{display:inline-block;margin-top:8px}.usage{grid-template-columns:1fr 1fr}.login{align-items:stretch;flex-direction:column}.login input{max-width:none}}
+</style>
+<main>
+  <h1>Early access review</h1>
+  <p class="muted">Verify the person, inspect the signals, then issue one key. The administrator value stays only in this tab.</p>
+  <div class="login"><input id="secret" type="password" autocomplete="off" placeholder="Administrator value" aria-label="Administrator value"><button class="primary" id="load">Load review queue</button></div>
+  <p id="message" aria-live="polite"></p>
+  <section><h2>Requests</h2><div id="requests" class="list"></div></section>
+  <section><h2>Issued keys</h2><div id="keys" class="list"></div></section>
+</main>
+<script>
+const $=s=>document.querySelector(s), secret=$('#secret'), message=$('#message'), requests=$('#requests'), keys=$('#keys');
+const node=(tag,text,cls)=>{const n=document.createElement(tag);if(text!=null)n.textContent=text;if(cls)n.className=cls;return n};
+const headers=()=>({'x-admin-secret':secret.value,'content-type':'application/json'});
+async function api(url,options={}){const r=await fetch(url,{...options,headers:{...headers(),...(options.headers||{})}});let data={};try{data=await r.json()}catch{}if(!r.ok)throw new Error(data.error||data.detail||('HTTP '+r.status));return data}
+async function act(url,body,confirmText){if(confirmText&&!confirm(confirmText))return;message.className='';message.textContent='Working…';try{await api(url,{method:'POST',body:JSON.stringify(body||{})});await load()}catch(e){message.className='error';message.textContent=e.message}}
+function requestCard(r){const c=node('article',null,'card'),top=node('div',null,'top'),left=node('div'),title=node('div','#'+r.id+' · '+r.email,'title'),meta=node('div',r.tool+' · '+r.delivery+' · '+r.status+' · '+new Date(r.requested_at).toLocaleString(),'meta'),badge=node('span',r.risk.level+' risk','badge '+r.risk.level);left.append(title,meta);top.append(left,badge);c.append(top);
+  const reasons=node('ul',null,'reasons');for(const reason of r.risk.reasons)reasons.append(node('li',reason));c.append(reasons);
+  const f=node('div',null,'facts');for(const [k,v] of Object.entries(r.risk.facts))f.append(node('span',k.replaceAll('_',' ')+': '+v));c.append(f);
+  if(['pending_review','pending_verification','verification_delivery_failed'].includes(r.status)){const actions=node('div',null,'actions'),note=node('input');note.className='note';note.placeholder='Review note or rejection reason';
+    if(r.status==='pending_review'){const issue=node('button','Issue one key','primary');issue.disabled=!r.verified_at||r.risk.level==='blocked';issue.onclick=()=>act('/admin/key-requests/'+r.id+'/issue',{note:note.value},'Issue one API key to '+r.email+'?');actions.append(issue)}
+    if(r.status==='verification_delivery_failed'){const resend=node('button','Resend verification');resend.onclick=()=>act('/admin/key-requests/'+r.id+'/resend-verification',{},null);actions.append(resend)}
+    const reject=node('button','Reject','danger');reject.onclick=()=>act('/admin/key-requests/'+r.id+'/reject',{reason:note.value||'The request did not pass our early-access review.'},'Reject this request?');actions.append(note,reject);c.append(actions)}
+  if(r.status==='delivery_failed'){const retry=node('button','Retry key delivery','primary');retry.onclick=()=>act('/admin/key-requests/'+r.id+'/retry-delivery',{},null);const a=node('div',null,'actions');a.append(retry);c.append(a)}return c}
+function keyCard(k){const c=node('article',null,'card'),top=node('div',null,'top'),left=node('div'),title=node('div',(k.email||k.label||'Environment key')+' · '+k.fingerprint,'title'),meta=node('div',k.status+' · '+k.source+(k.tool?' · '+k.tool+' / '+k.delivery:'')+(k.slack?' · Slack '+(k.slack.team_name||k.slack.team_id):''),'meta'),badge=node('span',k.status,'badge '+(k.status==='active'?'low':'blocked'));left.append(title,meta);top.append(left,badge);c.append(top);
+  const usage=node('div',null,'usage');[['Month',k.approvals_month+'/'+(k.monthly_limit||'—')],['Email month',k.emails_month+'/'+(k.email_monthly_limit||'—')],['Pending',k.pending+'/'+(k.pending_limit||'—')],['Last hour',k.approvals_hour]].forEach(([a,b])=>{const m=node('div',null,'metric');m.append(node('b',b),node('span',a));usage.append(m)});c.append(usage);
+  if(k.delivery_failures_24h||k.callback_failures_24h)c.append(node('p','Last 24h: '+k.delivery_failures_24h+' notification failures · '+k.callback_failures_24h+' callback failures','error'));
+  if(k.revocable){const a=node('div',null,'actions'),revoke=node('button','Revoke immediately','danger');revoke.onclick=async()=>{if(!confirm('Revoke this key and cancel its pending approvals?'))return;message.textContent='Revoking…';try{await api('/admin/keys/'+k.fingerprint,{method:'DELETE'});await load()}catch(e){message.className='error';message.textContent=e.message}};a.append(revoke);c.append(a)}return c}
+async function load(){message.className='';message.textContent='Loading…';requests.replaceChildren();keys.replaceChildren();try{const [rq,ks]=await Promise.all([api('/admin/key-requests'),api('/admin/keys')]);rq.forEach(x=>requests.append(requestCard(x)));ks.forEach(x=>keys.append(keyCard(x)));if(!rq.length)requests.append(node('p','No requests yet.','muted'));if(!ks.length)keys.append(node('p','No keys yet.','muted'));message.className='ok';message.textContent=rq.length+' requests · '+ks.length+' keys'}catch(e){message.className='error';message.textContent=e.message}}
+$('#load').onclick=load;secret.addEventListener('keydown',e=>{if(e.key==='Enter')load()});
+</script>
+</html>

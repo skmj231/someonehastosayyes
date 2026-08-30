@@ -40,6 +40,19 @@ const DECISION_RETENTION_MS = Math.max(1, Number(process.env.DECISION_RETENTION_
 const DELIVERY_RETENTION_MS = Math.max(1, Number(process.env.DELIVERY_RETENTION_DAYS) || 30) * 86400e3;
 const RECEIPT_RETENTION_MS = Math.max(1, Number(process.env.RECEIPT_RETENTION_DAYS) || 365) * 86400e3;
 const RETENTION_SWEEP_MS = Math.max(1000, Number(process.env.RETENTION_SWEEP_MS) || 6 * 3600e3);
+const KEY_REQUEST_RETENTION_MS = Math.max(1, Number(process.env.KEY_REQUEST_RETENTION_DAYS) || 90) * 86400e3;
+const REVIEW_KEY_RATE_LIMIT = Math.max(1, Number(process.env.REVIEW_KEY_RATE_LIMIT) || 60);
+const KEY_MONTHLY_APPROVAL_LIMIT = Math.max(1, Number(process.env.KEY_MONTHLY_APPROVAL_LIMIT) || 1000);
+const KEY_MONTHLY_EMAIL_LIMIT = Math.max(1, Number(process.env.KEY_MONTHLY_EMAIL_LIMIT) || 300);
+const KEY_PENDING_LIMIT = Math.max(1, Number(process.env.KEY_PENDING_LIMIT) || 100);
+const GLOBAL_MONTHLY_APPROVAL_LIMIT = Math.max(1, Number(process.env.GLOBAL_MONTHLY_APPROVAL_LIMIT) || 10000);
+const GLOBAL_DAILY_EMAIL_LIMIT = Math.max(1, Number(process.env.GLOBAL_DAILY_EMAIL_LIMIT) || 90);
+const ALLOW_DIRECT_ADMIN_KEYS = process.env.ALLOW_DIRECT_ADMIN_KEYS === "true";
+const EMAIL_VERIFICATION_TTL_MS = Math.max(5, Number(process.env.EMAIL_VERIFICATION_TTL_MINUTES) || 30) * 60e3;
+const KEY_REVEAL_TTL_MS = Math.max(1, Number(process.env.KEY_REVEAL_TTL_HOURS) || 24) * 3600e3;
+const NEW_KEY_MONITOR_MS = 24 * 3600e3;
+const NEW_KEY_ALERT_APPROVALS_HOUR = Math.max(1, Number(process.env.NEW_KEY_ALERT_APPROVALS_HOUR) || 30);
+const KEY_MONITOR_SWEEP_MS = Math.max(50, Number(process.env.KEY_MONITOR_SWEEP_MS) || 60e3);
 
 function validateProductionConfig() {
   if (!IS_PRODUCTION) return;
@@ -171,6 +184,26 @@ CREATE TABLE IF NOT EXISTS key_requests (
   status TEXT NOT NULL DEFAULT 'pending',
   at INTEGER NOT NULL
 );
+CREATE TABLE IF NOT EXISTS key_reveals (
+  token_hash TEXT PRIMARY KEY,
+  key_ref TEXT NOT NULL,
+  request_id INTEGER,
+  secret_box TEXT NOT NULL,
+  expires_at INTEGER NOT NULL,
+  used_at INTEGER,
+  created_at INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS email_events (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  purpose TEXT NOT NULL,
+  reference TEXT,
+  api_key TEXT,
+  recipient_hash TEXT,
+  provider_id TEXT,
+  status TEXT NOT NULL,
+  at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_email_events_at ON email_events(at);
 `);
 
 // Existing SQLite files are migrated in place. The optional key lets an
@@ -190,11 +223,31 @@ if (!keyColumns.includes("status")) db.exec("ALTER TABLE keys ADD COLUMN status 
 if (!keyColumns.includes("last_used_at")) db.exec("ALTER TABLE keys ADD COLUMN last_used_at INTEGER");
 if (!keyColumns.includes("source")) db.exec("ALTER TABLE keys ADD COLUMN source TEXT NOT NULL DEFAULT 'admin'");
 if (!keyColumns.includes("rate_limit_per_minute")) db.exec("ALTER TABLE keys ADD COLUMN rate_limit_per_minute INTEGER NOT NULL DEFAULT 600");
+if (!keyColumns.includes("monthly_limit")) db.exec(`ALTER TABLE keys ADD COLUMN monthly_limit INTEGER NOT NULL DEFAULT ${KEY_MONTHLY_APPROVAL_LIMIT}`);
+if (!keyColumns.includes("email_monthly_limit")) db.exec(`ALTER TABLE keys ADD COLUMN email_monthly_limit INTEGER NOT NULL DEFAULT ${KEY_MONTHLY_EMAIL_LIMIT}`);
+if (!keyColumns.includes("pending_limit")) db.exec(`ALTER TABLE keys ADD COLUMN pending_limit INTEGER NOT NULL DEFAULT ${KEY_PENDING_LIMIT}`);
+if (!keyColumns.includes("activated_at")) db.exec("ALTER TABLE keys ADD COLUMN activated_at INTEGER");
+if (!keyColumns.includes("revoked_at")) db.exec("ALTER TABLE keys ADD COLUMN revoked_at INTEGER");
+if (!keyColumns.includes("revoke_reason")) db.exec("ALTER TABLE keys ADD COLUMN revoke_reason TEXT");
+if (!keyColumns.includes("quota_warned_month")) db.exec("ALTER TABLE keys ADD COLUMN quota_warned_month TEXT");
+if (!keyColumns.includes("monitor_alerted_at")) db.exec("ALTER TABLE keys ADD COLUMN monitor_alerted_at INTEGER");
+db.prepare("UPDATE keys SET activated_at=created_at WHERE activated_at IS NULL AND status='active'").run();
 db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_keys_hash ON keys(key_hash) WHERE key_hash IS NOT NULL");
 const keyRequestColumns = db.prepare("PRAGMA table_info(key_requests)").all().map((c) => c.name);
 if (!keyRequestColumns.includes("delivery")) db.exec("ALTER TABLE key_requests ADD COLUMN delivery TEXT");
 if (!keyRequestColumns.includes("status")) db.exec("ALTER TABLE key_requests ADD COLUMN status TEXT NOT NULL DEFAULT 'pending'");
+if (!keyRequestColumns.includes("verify_token_hash")) db.exec("ALTER TABLE key_requests ADD COLUMN verify_token_hash TEXT");
+if (!keyRequestColumns.includes("verification_expires_at")) db.exec("ALTER TABLE key_requests ADD COLUMN verification_expires_at INTEGER");
+if (!keyRequestColumns.includes("verification_sent_at")) db.exec("ALTER TABLE key_requests ADD COLUMN verification_sent_at INTEGER");
+if (!keyRequestColumns.includes("verified_at")) db.exec("ALTER TABLE key_requests ADD COLUMN verified_at INTEGER");
+if (!keyRequestColumns.includes("ip_hash")) db.exec("ALTER TABLE key_requests ADD COLUMN ip_hash TEXT");
+if (!keyRequestColumns.includes("risk_json")) db.exec("ALTER TABLE key_requests ADD COLUMN risk_json TEXT");
+if (!keyRequestColumns.includes("reviewed_at")) db.exec("ALTER TABLE key_requests ADD COLUMN reviewed_at INTEGER");
+if (!keyRequestColumns.includes("review_note")) db.exec("ALTER TABLE key_requests ADD COLUMN review_note TEXT");
+if (!keyRequestColumns.includes("issued_key_ref")) db.exec("ALTER TABLE key_requests ADD COLUMN issued_key_ref TEXT");
+if (!keyRequestColumns.includes("rejected_reason")) db.exec("ALTER TABLE key_requests ADD COLUMN rejected_reason TEXT");
 db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_approval_idempotency ON approvals(api_key, idempotency_key) WHERE idempotency_key IS NOT NULL");
+db.prepare("DELETE FROM ratelimit WHERE window_start<?").run(Date.now() - 2 * 86400e3);
 // A process can stop after claiming a notification but before recording the
 // provider response. Stable provider idempotency keys make replay safe.
 db.prepare("UPDATE notification_outbox SET state='queued', next_at=? WHERE state='sending'").run(Date.now());
@@ -248,6 +301,48 @@ const newId = () => "apr_" + crypto.randomBytes(8).toString("hex");
 const newToken = () => crypto.randomBytes(24).toString("base64url");
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const hashApiKey = (key) => crypto.createHash("sha256").update(String(key)).digest("hex");
+const privateHash = (purpose, value) => crypto.createHmac("sha256", SIGNING_SECRET).update(`${purpose}:${String(value).toLowerCase()}`).digest("hex");
+const monthStart = (t = now()) => { const d = new Date(t); return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1); };
+const nextMonthStart = (t = now()) => { const d = new Date(t); return Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1); };
+const dayStart = (t = now()) => { const d = new Date(t); return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()); };
+const nextDayStart = (t = now()) => dayStart(t) + 86400e3;
+const monthId = (t = now()) => new Date(t).toISOString().slice(0, 7);
+
+function encryptTemporarySecret(value) {
+  const key = crypto.createHash("sha256").update(`key-reveal:${SIGNING_SECRET}`).digest();
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv("aes-256-gcm", key, iv);
+  const encrypted = Buffer.concat([cipher.update(String(value), "utf8"), cipher.final()]);
+  return [iv, cipher.getAuthTag(), encrypted].map((x) => x.toString("base64url")).join(".");
+}
+
+function decryptTemporarySecret(box) {
+  const [iv, tag, encrypted] = String(box).split(".").map((x) => Buffer.from(x, "base64url"));
+  const key = crypto.createHash("sha256").update(`key-reveal:${SIGNING_SECRET}`).digest();
+  const decipher = crypto.createDecipheriv("aes-256-gcm", key, iv);
+  decipher.setAuthTag(tag);
+  return Buffer.concat([decipher.update(encrypted), decipher.final()]).toString("utf8");
+}
+
+function emailCountSince(since, apiKey = null, purpose = null) {
+  if (apiKey && purpose) return db.prepare("SELECT COUNT(*) c FROM email_events WHERE status='accepted' AND api_key=? AND purpose=? AND at>=?").get(apiKey, purpose, since).c;
+  if (apiKey) return db.prepare("SELECT COUNT(*) c FROM email_events WHERE status='accepted' AND api_key=? AND at>=?").get(apiKey, since).c;
+  if (purpose) return db.prepare("SELECT COUNT(*) c FROM email_events WHERE status='accepted' AND purpose=? AND at>=?").get(purpose, since).c;
+  return db.prepare("SELECT COUNT(*) c FROM email_events WHERE status='accepted' AND at>=?").get(since).c;
+}
+
+function approvalCountSince(since, apiKey = null) {
+  return apiKey
+    ? db.prepare("SELECT COUNT(*) c FROM approvals WHERE api_key=? AND created_at>=?").get(apiKey, since).c
+    : db.prepare("SELECT COUNT(*) c FROM approvals WHERE api_key<>? AND created_at>=?").get(DEMO_KEY, since).c;
+}
+
+function quotaResponse(res, name, used, limit, resetAt) {
+  return res.status(429).json({
+    error: `${name} reached`, limit, used,
+    reset_at: new Date(resetAt).toISOString(),
+  });
+}
 
 // Database keys are stored as a one-way hash. The stable internal reference is
 // used by approvals and Slack connections, so the original secret is never
@@ -273,20 +368,37 @@ function migrateStoredKeysToHashes() {
 }
 migrateStoredKeysToHashes();
 
-function createStoredKey({ label = "", email = null, tool = null, delivery = null, source = "admin", rateLimit = 600 } = {}) {
+function createStoredKey({
+  label = "", email = null, tool = null, delivery = null, source = "admin",
+  rateLimit = 600, status = "active", monthlyLimit = KEY_MONTHLY_APPROVAL_LIMIT,
+  emailMonthlyLimit = KEY_MONTHLY_EMAIL_LIMIT, pendingLimit = KEY_PENDING_LIMIT,
+} = {}) {
   const raw = "ah_" + crypto.randomBytes(24).toString("base64url");
   const hash = hashApiKey(raw);
   const ref = "key_" + hash.slice(0, 32);
-  db.prepare(`INSERT INTO keys (key,label,created_at,key_hash,email,tool,delivery,status,source,rate_limit_per_minute)
-    VALUES (?,?,?,?,?,?,?,'active',?,?)`).run(ref, String(label).slice(0, 200), now(), hash, email, tool, delivery, source, rateLimit);
+  const activatedAt = status === "active" ? now() : null;
+  db.prepare(`INSERT INTO keys (key,label,created_at,key_hash,email,tool,delivery,status,source,rate_limit_per_minute,monthly_limit,email_monthly_limit,pending_limit,activated_at)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(ref, String(label).slice(0, 200), now(), hash, email, tool, delivery, status, source, rateLimit, monthlyLimit, emailMonthlyLimit, pendingLimit, activatedAt);
   return { raw, ref, hash };
 }
 
 function resolveApiKey(raw) {
   if (!raw) return null;
-  if (API_KEYS.includes(raw)) return { ref: raw, limit: 600, source: "environment" };
-  const row = db.prepare("SELECT key,rate_limit_per_minute FROM keys WHERE key_hash=? AND status='active'").get(hashApiKey(raw));
-  return row ? { ref: row.key, limit: row.rate_limit_per_minute || 600, source: "database" } : null;
+  if (API_KEYS.includes(raw)) return {
+    ref: raw, limit: 600, monthlyLimit: GLOBAL_MONTHLY_APPROVAL_LIMIT,
+    emailMonthlyLimit: GLOBAL_MONTHLY_APPROVAL_LIMIT, pendingLimit: KEY_PENDING_LIMIT,
+    source: "environment",
+  };
+  const row = db.prepare(`SELECT key,rate_limit_per_minute,monthly_limit,email_monthly_limit,pending_limit
+    FROM keys WHERE key_hash=? AND status='active'`).get(hashApiKey(raw));
+  return row ? {
+    ref: row.key,
+    limit: row.rate_limit_per_minute || REVIEW_KEY_RATE_LIMIT,
+    monthlyLimit: row.monthly_limit || KEY_MONTHLY_APPROVAL_LIMIT,
+    emailMonthlyLimit: row.email_monthly_limit || KEY_MONTHLY_EMAIL_LIMIT,
+    pendingLimit: row.pending_limit || KEY_PENDING_LIMIT,
+    source: "database",
+  } : null;
 }
 
 // ---------- 인증 ----------
@@ -296,6 +408,9 @@ function auth(req, res, next) {
   if (!resolved) return res.status(401).json({ error: "invalid api key" });
   req.apiKey = resolved.ref;
   req.apiKeyLimit = resolved.limit;
+  req.apiKeyMonthlyLimit = resolved.monthlyLimit;
+  req.apiKeyEmailMonthlyLimit = resolved.emailMonthlyLimit;
+  req.apiKeyPendingLimit = resolved.pendingLimit;
   if (resolved.source === "database") db.prepare("UPDATE keys SET last_used_at=? WHERE key=?").run(now(), resolved.ref);
   next();
 }
@@ -307,7 +422,7 @@ function sameSecret(value, expected) {
 }
 
 function adminAuth(req, res, next) {
-  if (rateLimited("admin:" + ip(req), 30, 60e3)) return res.status(429).json({ error: "rate limited" });
+  if (rateLimited("admin:" + privateHash("admin-ip", ip(req)), 30, 60e3)) return res.status(429).json({ error: "rate limited" });
   if (!ADMIN_SECRET || !sameSecret(req.headers["x-admin-secret"], ADMIN_SECRET)) return res.status(401).json({ error: "unauthorized" });
   next();
 }
@@ -395,6 +510,18 @@ app.post("/v1/approvals", auth, asyncRoute(async (req, res) => {
   if (!["link", "email", "slack"].includes(channel)) return res.status(400).json({ error: "channel must be link|email|slack" });
   if (channel === "email" && !b.to) return res.status(400).json({ error: "to (email) required for channel=email" });
   if (channel === "slack" && !b.to) return res.status(400).json({ error: "to (slack channel id or user id) required for channel=slack" });
+  const keyMonthUsed = approvalCountSince(monthStart(), req.apiKey);
+  if (keyMonthUsed >= req.apiKeyMonthlyLimit) return quotaResponse(res, "monthly approval limit", keyMonthUsed, req.apiKeyMonthlyLimit, nextMonthStart());
+  const globalMonthUsed = approvalCountSince(monthStart());
+  if (globalMonthUsed >= GLOBAL_MONTHLY_APPROVAL_LIMIT) return quotaResponse(res, "hosted preview monthly capacity", globalMonthUsed, GLOBAL_MONTHLY_APPROVAL_LIMIT, nextMonthStart());
+  const pendingUsed = db.prepare("SELECT COUNT(*) c FROM approvals WHERE api_key=? AND status='pending'").get(req.apiKey).c;
+  if (pendingUsed >= req.apiKeyPendingLimit) return quotaResponse(res, "pending approval limit", pendingUsed, req.apiKeyPendingLimit, nextMonthStart());
+  if (channel === "email") {
+    const keyEmailUsed = emailCountSince(monthStart(), req.apiKey, "approval");
+    if (keyEmailUsed >= req.apiKeyEmailMonthlyLimit) return quotaResponse(res, "monthly approval email limit", keyEmailUsed, req.apiKeyEmailMonthlyLimit, nextMonthStart());
+    const globalEmailToday = emailCountSince(dayStart());
+    if (globalEmailToday >= GLOBAL_DAILY_EMAIL_LIMIT) return quotaResponse(res, "hosted email daily capacity", globalEmailToday, GLOBAL_DAILY_EMAIL_LIMIT, nextDayStart());
+  }
   let callbackUrl;
   try { callbackUrl = await validateCallbackUrl(b.callback_url); }
   catch (e) { return res.status(400).json({ error: e.message }); }
@@ -422,6 +549,16 @@ app.post("/v1/approvals", auth, asyncRoute(async (req, res) => {
   };
   db.prepare(`INSERT INTO approvals (id,token,api_key,question,context,approve_label,reject_label,callback_url,channel,recipient,timeout_at,default_on_timeout,status,idempotency_key,created_at)
     VALUES (@id,@token,@api_key,@question,@context,@approve_label,@reject_label,@callback_url,@channel,@recipient,@timeout_at,@default_on_timeout,@status,@idempotency_key,@created_at)`).run(a);
+
+  const remaining = Math.max(0, req.apiKeyMonthlyLimit - keyMonthUsed - 1);
+  res.set("X-Approval-Limit-Monthly", String(req.apiKeyMonthlyLimit));
+  res.set("X-Approval-Remaining-Monthly", String(remaining));
+  res.set("X-Approval-Limit-Reset", new Date(nextMonthStart()).toISOString());
+  if (remaining <= Math.ceil(req.apiKeyMonthlyLimit * 0.2) && req.apiKey.startsWith("key_")) {
+    const warningMonth = monthId();
+    const changed = db.prepare("UPDATE keys SET quota_warned_month=? WHERE key=? AND (quota_warned_month IS NULL OR quota_warned_month<>?)").run(warningMonth, req.apiKey, warningMonth);
+    if (changed.changes) notifyOwner("An API key is nearing its monthly approval limit", [{ type: "section", text: { type: "mrkdwn", text: `*Usage warning*\nKey ${keyFingerprintForRef(req.apiKey)} has ${remaining} of ${req.apiKeyMonthlyLimit} monthly approvals remaining.` } }]);
+  }
 
   if (channel === "email" || channel === "slack") {
     enqueueNotification(a);
@@ -683,7 +820,12 @@ function cleanupRetention() {
     const notificationAttempts = db.prepare("DELETE FROM notification_deliveries WHERE at<?").run(now() - DELIVERY_RETENTION_MS).changes;
     for (const { id } of old) purgeApproval(id, false);
     const receipts = db.prepare("DELETE FROM receipt_archive WHERE expires_at<?").run(now()).changes;
-    return { decisions: old.length, callback_attempts: callbackAttempts, notification_attempts: notificationAttempts, receipts };
+    const reveals = db.prepare("DELETE FROM key_reveals WHERE expires_at<? OR used_at IS NOT NULL").run(now()).changes;
+    const emailEvents = db.prepare("DELETE FROM email_events WHERE at<?").run(now() - 400 * 86400e3).changes;
+    const expiredVerifications = db.prepare("UPDATE key_requests SET status='verification_expired',verify_token_hash=NULL WHERE status IN ('pending_verification','verification_delivery_failed') AND verification_expires_at<?").run(now()).changes;
+    const keyRequests = db.prepare("DELETE FROM key_requests WHERE at<? AND status IN ('issued','rejected','verification_expired')").run(now() - KEY_REQUEST_RETENTION_MS).changes;
+    const rateBuckets = db.prepare("DELETE FROM ratelimit WHERE window_start<?").run(now() - 2 * 86400e3).changes;
+    return { decisions: old.length, callback_attempts: callbackAttempts, notification_attempts: notificationAttempts, receipts, key_reveals: reveals, email_events: emailEvents, expired_verifications: expiredVerifications, key_requests: keyRequests, rate_buckets: rateBuckets };
   })();
   if (Object.values(result).some(Boolean)) console.log("[retention]", JSON.stringify(result));
   return result;
@@ -755,22 +897,60 @@ async function deliverDueNotifications() {
 setInterval(() => deliverDueNotifications().catch(() => {}), DELIVERY_SWEEP_MS).unref();
 
 // ---------- 이메일 (Resend) ----------
+async function sendResendMessage({ to, subject, html, purpose, reference, apiKey = null, idempotencyKey }) {
+  if (!RESEND_API_KEY) { const e = new Error("RESEND_API_KEY not set"); e.status = 503; throw e; }
+  const already = db.prepare("SELECT provider_id FROM email_events WHERE purpose=? AND reference=? AND status='accepted' ORDER BY id DESC LIMIT 1").get(purpose, reference);
+  if (already) return { providerId: already.provider_id, status: 200, replayed: true };
+  const sentToday = emailCountSince(dayStart());
+  if (sentToday >= GLOBAL_DAILY_EMAIL_LIMIT) {
+    const e = new Error(`hosted email daily capacity reached (${GLOBAL_DAILY_EMAIL_LIMIT})`);
+    e.status = 429;
+    e.retryAfter = Math.max(1, Math.ceil((nextDayStart() - now()) / 1000));
+    throw e;
+  }
+  const recipientHash = privateHash("email", to);
+  let response;
+  try {
+    response = await fetch(RESEND_API_URL, {
+      method: "POST",
+      headers: { authorization: `Bearer ${RESEND_API_KEY}`, "content-type": "application/json", "idempotency-key": idempotencyKey },
+      body: JSON.stringify({ from: EMAIL_FROM, to, subject, html }),
+    });
+    const text = await response.text();
+    if (!response.ok) {
+      db.prepare("INSERT INTO email_events (purpose,reference,api_key,recipient_hash,status,at) VALUES (?,?,?,?,?,?)")
+        .run(purpose, reference, apiKey, recipientHash, `failed_${response.status}`, now());
+      const e = new Error(`resend ${response.status}: ${text}`);
+      e.status = response.status;
+      e.retryAfter = response.headers.get("retry-after");
+      throw e;
+    }
+    let body = {}; try { body = JSON.parse(text); } catch {}
+    db.prepare("INSERT INTO email_events (purpose,reference,api_key,recipient_hash,provider_id,status,at) VALUES (?,?,?,?,?,'accepted',?)")
+      .run(purpose, reference, apiKey, recipientHash, body.id || null, now());
+    return { providerId: body.id || null, status: response.status };
+  } catch (error) {
+    if (!response) db.prepare("INSERT INTO email_events (purpose,reference,api_key,recipient_hash,status,at) VALUES (?,?,?,?,?,?)")
+      .run(purpose, reference, apiKey, recipientHash, "network_failed", now());
+    throw error;
+  }
+}
+
 async function sendEmail(a) {
-  if (!RESEND_API_KEY) throw new Error("RESEND_API_KEY not set; approve_url still works");
   const url = `${BASE_URL}/a/${a.token}`;
   const ctx = a.context ? JSON.parse(a.context) : null;
   const html = `<p style="font-size:16px"><b>${esc(a.question)}</b></p>${ctx ? `<pre style="background:#f4f4f5;padding:12px">${esc(typeof ctx === "string" ? ctx : JSON.stringify(ctx, null, 2))}</pre>` : ""}
   <p><a href="${url}" style="display:inline-block;padding:12px 20px;background:#111;color:#fff;border-radius:8px;text-decoration:none">Open and decide</a></p>
   <p style="color:#666;font-size:13px">Answer by ${fmt(a.timeout_at)} UTC (about ${Math.round((a.timeout_at - now()) / 3600000)} hours from now)</p>`;
-  const r = await fetch(RESEND_API_URL, {
-    method: "POST",
-    headers: { authorization: `Bearer ${RESEND_API_KEY}`, "content-type": "application/json", "idempotency-key": `approval-email/${a.id}` },
-    body: JSON.stringify({ from: EMAIL_FROM, to: a.recipient, subject: `[Needs a yes] ${a.question.slice(0, 60)}`, html }),
+  return sendResendMessage({
+    to: a.recipient,
+    subject: `[Needs a yes] ${a.question.slice(0, 60)}`,
+    html,
+    purpose: "approval",
+    reference: a.id,
+    apiKey: a.api_key,
+    idempotencyKey: `approval-email/${a.id}`,
   });
-  const text = await r.text();
-  if (!r.ok) { const e = new Error(`resend ${r.status}: ${text}`); e.status = r.status; e.retryAfter = r.headers.get("retry-after"); throw e; }
-  let body = {}; try { body = JSON.parse(text); } catch {}
-  return { providerId: body.id || null, status: r.status };
 }
 
 // ---------- 슬랙 ----------
@@ -860,6 +1040,22 @@ async function notifyOwner(text, blocks) {
   catch (e) { console.warn("[notify]", e.message || e); }
 }
 
+function monitorNewKeys() {
+  const rows = db.prepare("SELECT * FROM keys WHERE status='active' AND activated_at>=? AND monitor_alerted_at IS NULL").all(now() - NEW_KEY_MONITOR_MS);
+  for (const row of rows) {
+    const usage = keyUsage(row.key);
+    const signals = [];
+    if (usage.approvals_hour >= NEW_KEY_ALERT_APPROVALS_HOUR) signals.push(`${usage.approvals_hour} approvals in the last hour`);
+    if (usage.pending >= Math.ceil((row.pending_limit || KEY_PENDING_LIMIT) * 0.8)) signals.push(`${usage.pending} pending approvals`);
+    if (usage.emails_month >= Math.ceil((row.email_monthly_limit || KEY_MONTHLY_EMAIL_LIMIT) * 0.8)) signals.push(`${usage.emails_month} approval emails this month`);
+    if (usage.delivery_failures_24h || usage.callback_failures_24h) signals.push(`${usage.delivery_failures_24h} notification and ${usage.callback_failures_24h} callback failures`);
+    if (!signals.length) continue;
+    db.prepare("UPDATE keys SET monitor_alerted_at=? WHERE key=? AND monitor_alerted_at IS NULL").run(now(), row.key);
+    notifyOwner("A new API key needs an operator check", [{ type: "section", text: { type: "mrkdwn", text: `*First-day usage alert*\n${row.email || row.label || keyFingerprint(row.key, row.key_hash)}\n• ${signals.join("\n• ")}` } }, { type: "context", elements: [{ type: "mrkdwn", text: "Review the key console and revoke immediately if this is not expected." }] }]);
+  }
+}
+setInterval(monitorNewKeys, KEY_MONITOR_SWEEP_MS).unref();
+
 function verifySlack(req) {
   if (!SLACK_SIGNING_SECRET) { console.warn("[slack] SLACK_SIGNING_SECRET is not configured"); return false; }
   const ts = req.headers["x-slack-request-timestamp"];
@@ -943,6 +1139,7 @@ app.post("/v1/slack/install-link", auth, (req, res) => {
 
 // ---------- 관리자: 키 발급 (재시작 없이) ----------
 app.post("/admin/keys", adminAuth, (req, res) => {
+  if (!ALLOW_DIRECT_ADMIN_KEYS) return res.status(403).json({ error: "Direct key creation is disabled in production. Issue a verified request from the review console." });
   const created = createStoredKey({ label: req.body?.label || "", source: "admin", rateLimit: 600 });
   const installToken = issueSlackInstallToken(created.ref);
   res.status(201).json({ key: created.raw, label: req.body?.label || "", slack_install_url: `${BASE_URL}/slack/install?token=${installToken}` });
@@ -951,26 +1148,29 @@ app.post("/admin/keys", adminAuth, (req, res) => {
 function keyFingerprint(key, storedHash = null) {
   return (storedHash || hashApiKey(key)).slice(0, 16);
 }
+function keyFingerprintForRef(key) {
+  const row = String(key).startsWith("key_") ? db.prepare("SELECT key_hash FROM keys WHERE key=?").get(key) : null;
+  return keyFingerprint(key, row?.key_hash || null);
+}
 
 function keyUsage(key) {
   const approvals = db.prepare("SELECT COUNT(*) c FROM approvals WHERE api_key=?").get(key).c;
   const pending = db.prepare("SELECT COUNT(*) c FROM approvals WHERE api_key=? AND status='pending'").get(key).c;
+  const approvals_month = approvalCountSince(monthStart(), key);
+  const approvals_hour = approvalCountSince(now() - 3600e3, key);
+  const emails_month = emailCountSince(monthStart(), key, "approval");
+  const delivery_failures_24h = db.prepare(`SELECT COUNT(*) c FROM notification_outbox n JOIN approvals a ON a.id=n.approval_id
+    WHERE a.api_key=? AND n.state='failed' AND n.created_at>=?`).get(key, now() - 86400e3).c;
+  const callback_failures_24h = db.prepare(`SELECT COUNT(*) c FROM outbox o JOIN approvals a ON a.id=o.approval_id
+    WHERE a.api_key=? AND o.state IN ('failed','endpoint_gone') AND o.created_at>=?`).get(key, now() - 86400e3).c;
   const pending_items = db.prepare("SELECT id,question,channel,created_at,timeout_at FROM approvals WHERE api_key=? AND status='pending' ORDER BY created_at").all(key);
   const slack = db.prepare("SELECT team_id,team_name,installed_at FROM slack_installs WHERE api_key=?").get(key);
-  return { approvals, pending, pending_items, slack: slack || null };
+  return { approvals, approvals_month, approvals_hour, emails_month, pending, delivery_failures_24h, callback_failures_24h, pending_items, slack: slack || null };
 }
 
 // 비밀값을 저장하지 않는 작은 운영 화면. 브라우저 메모리에서만 관리자 요청에 사용한다.
 app.get("/admin/key-console", (_req, res) => {
-  res.type("html").send(`<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Key inventory</title>
-  <style>body{font:16px/1.5 system-ui;margin:40px;max-width:900px;color:#171a17}input,button{font:inherit;padding:10px 12px}input{width:min(420px,70vw)}button{cursor:pointer}.row{padding:18px 0;border-top:1px solid #ddd}.meta{color:#5f675f;font-size:14px}.error{color:#a21d16}</style>
-  <h1>API key inventory</h1><p>The administrator value stays in this browser tab and is never saved.</p>
-  <input id="secret" type="password" autocomplete="off" aria-label="Administrator value"><button id="load">Load keys</button><p id="message"></p><div id="keys"></div>
-  <script>
-  const secret=document.querySelector('#secret'), keys=document.querySelector('#keys'), message=document.querySelector('#message');
-  document.querySelector('#load').onclick=load;
-  async function load(){message.textContent='Loading…';keys.replaceChildren();try{const r=await fetch('/admin/keys',{headers:{'x-admin-secret':secret.value}});const data=await r.json();if(!r.ok)throw new Error(data.error||('HTTP '+r.status));for(const k of data){const row=document.createElement('div');row.className='row';const title=document.createElement('strong');title.textContent=k.label||'(unlabelled key)';const meta=document.createElement('div');meta.className='meta';meta.textContent='fingerprint '+k.fingerprint+' · '+k.source+' · approvals '+k.approvals+' · pending '+k.pending+(k.slack?' · Slack '+(k.slack.team_name||k.slack.team_id):'');row.append(title,meta);for(const p of k.pending_items||[]){const item=document.createElement('div');item.textContent='Pending: '+p.id+' · '+p.question+' · '+new Date(p.created_at).toISOString()+(p.timeout_at?' · timeout '+new Date(p.timeout_at).toISOString():' ');const cancel=document.createElement('button');cancel.textContent='Cancel pending test';cancel.onclick=async()=>{const r=await fetch('/admin/approvals/'+encodeURIComponent(p.id)+'/cancel',{method:'POST',headers:{'x-admin-secret':secret.value}});if(!r.ok){const d=await r.json();throw new Error(d.error||('HTTP '+r.status))}await load()};item.append(' ',cancel);row.append(item)}keys.append(row)}message.textContent=data.length+' keys found.'}catch(e){message.className='error';message.textContent=e.message}}
-  </script></html>`);
+  res.type("html").send(require("fs").readFileSync(__dirname + "/admin-console.html", "utf8"));
 });
 
 app.post("/admin/approvals/:id/cancel", adminAuth, (req, res) => {
@@ -983,7 +1183,8 @@ app.post("/admin/approvals/:id/cancel", adminAuth, (req, res) => {
 
 // 원문 키를 노출하지 않는 운영용 목록. fingerprint로 사용처를 확인한다.
 app.get("/admin/keys", adminAuth, (_req, res) => {
-  const stored = db.prepare("SELECT key,key_hash,label,email,tool,delivery,status,source,created_at,last_used_at,rate_limit_per_minute FROM keys ORDER BY created_at").all().map(row => ({
+  const stored = db.prepare(`SELECT key,key_hash,label,email,tool,delivery,status,source,created_at,last_used_at,rate_limit_per_minute,
+    monthly_limit,email_monthly_limit,pending_limit,activated_at,revoked_at,revoke_reason,monitor_alerted_at FROM keys ORDER BY created_at DESC`).all().map(row => ({
     fingerprint: keyFingerprint(row.key, row.key_hash),
     label: row.label || "",
     email: row.email || null,
@@ -992,36 +1193,50 @@ app.get("/admin/keys", adminAuth, (_req, res) => {
     status: row.status,
     created_at: new Date(row.created_at).toISOString(),
     last_used_at: row.last_used_at ? new Date(row.last_used_at).toISOString() : null,
+    activated_at: row.activated_at ? new Date(row.activated_at).toISOString() : null,
+    revoked_at: row.revoked_at ? new Date(row.revoked_at).toISOString() : null,
+    monitor_alerted_at: row.monitor_alerted_at ? new Date(row.monitor_alerted_at).toISOString() : null,
+    revoke_reason: row.revoke_reason || null,
     source: row.source || "database",
     rate_limit_per_minute: row.rate_limit_per_minute || 600,
-    revocable: true,
+    monthly_limit: row.monthly_limit || KEY_MONTHLY_APPROVAL_LIMIT,
+    email_monthly_limit: row.email_monthly_limit || KEY_MONTHLY_EMAIL_LIMIT,
+    pending_limit: row.pending_limit || KEY_PENDING_LIMIT,
+    revocable: row.status === "active" || row.status === "pending_delivery",
     ...keyUsage(row.key)
   }));
   const configured = API_KEYS.map(key => ({
     fingerprint: keyFingerprint(key),
     label: "environment key",
     created_at: null,
+    status: "active",
     source: "environment",
+    rate_limit_per_minute: 600,
+    monthly_limit: GLOBAL_MONTHLY_APPROVAL_LIMIT,
+    email_monthly_limit: GLOBAL_MONTHLY_APPROVAL_LIMIT,
+    pending_limit: KEY_PENDING_LIMIT,
     revocable: false,
     ...keyUsage(key)
   }));
   res.json([...configured, ...stored]);
 });
 
-// 대기 중 승인이 있는 키는 실수로 폐기할 수 없다.
+// 즉시 폐기는 새 요청을 차단하고, 대기 중 승인을 취소하며, 이력은 보존한다.
 app.delete("/admin/keys/:fingerprint", adminAuth, (req, res) => {
-  const matches = db.prepare("SELECT key,key_hash,label FROM keys").all()
+  const matches = db.prepare("SELECT key,key_hash,label,status FROM keys").all()
     .filter(row => keyFingerprint(row.key, row.key_hash) === req.params.fingerprint);
   if (matches.length !== 1) return res.status(404).json({ error: "key not found" });
   const row = matches[0];
   const usage = keyUsage(row.key);
-  if (usage.pending > 0) return res.status(409).json({ error: "key has pending approvals", pending: usage.pending });
+  const pendingRows = db.prepare("SELECT * FROM approvals WHERE api_key=? AND status='pending'").all(row.key);
+  for (const approval of pendingRows) decide(approval, "canceled", "admin", null, "key revoked");
   db.transaction(() => {
     db.prepare("DELETE FROM slack_install_tokens WHERE api_key=?").run(row.key);
     db.prepare("DELETE FROM slack_installs WHERE api_key=?").run(row.key);
-    db.prepare("DELETE FROM keys WHERE key=?").run(row.key);
+    db.prepare("UPDATE keys SET status='revoked',revoked_at=?,revoke_reason=? WHERE key=?").run(now(), "revoked from admin console", row.key);
+    db.prepare("DELETE FROM key_reveals WHERE key_ref=?").run(row.key);
   })();
-  res.json({ revoked: true, fingerprint: req.params.fingerprint, label: row.label || "", historical_approvals_retained: usage.approvals });
+  res.json({ revoked: true, fingerprint: req.params.fingerprint, label: row.label || "", canceled_pending: pendingRows.length, historical_approvals_retained: usage.approvals });
 });
 // 서명 비밀키 내보내기 (한 번만 쓰고 Railway 환경변수 SIGNING_KEY에 넣는다. 그러면 볼륨이 날아가도 키는 산다)
 app.get("/admin/signing-key-export", adminAuth, (req, res) => {
@@ -1035,13 +1250,78 @@ app.get("/admin/backup", adminAuth, asyncRoute(async (req, res) => {
   res.download(tmp, `approvals-${new Date().toISOString().slice(0, 10)}.db`, () => { try { require("fs").unlinkSync(tmp); } catch {} });
 }));
 
-app.get("/admin/key-requests", adminAuth, (req, res) => {
-  res.json(db.prepare("SELECT * FROM key_requests ORDER BY at DESC LIMIT 200").all());
+const PUBLIC_EMAIL_DOMAINS = new Set(["gmail.com", "googlemail.com", "outlook.com", "hotmail.com", "live.com", "yahoo.com", "icloud.com", "proton.me", "protonmail.com"]);
+
+function riskForRequest(request) {
+  const reasons = [];
+  let level = "low";
+  const email = String(request.email || "").toLowerCase();
+  const domain = email.split("@")[1] || "";
+  const sameEmail = db.prepare("SELECT COUNT(*) c FROM key_requests WHERE lower(email)=? AND id<>?").get(email, request.id).c;
+  const sameIp = request.ip_hash ? db.prepare("SELECT COUNT(*) c FROM key_requests WHERE ip_hash=? AND id<>? AND at>=?").get(request.ip_hash, request.id, now() - 30 * 86400e3).c : 0;
+  const activeKeys = db.prepare("SELECT COUNT(*) c FROM keys WHERE lower(email)=? AND status='active'").get(email).c;
+  const revokedKeys = db.prepare("SELECT COUNT(*) c FROM keys WHERE lower(email)=? AND status='revoked'").get(email).c;
+  if (!request.verified_at) { level = "blocked"; reasons.push("Email has not been verified."); }
+  if (activeKeys > 0) { level = "blocked"; reasons.push("This email already has an active key."); }
+  if (sameIp >= 3) { level = "high"; reasons.push(`${sameIp + 1} requests came from the same network fingerprint in 30 days.`); }
+  else if (sameIp > 0 && level !== "blocked") { level = "review"; reasons.push(`${sameIp + 1} requests share the same network fingerprint.`); }
+  if (sameEmail > 0 && level === "low") { level = "review"; reasons.push(`${sameEmail} earlier request(s) used this email.`); }
+  if (PUBLIC_EMAIL_DOMAINS.has(domain) && level === "low") { level = "review"; reasons.push("Public email domain; this is allowed but merits a quick identity check."); }
+  if (revokedKeys > 0 && level !== "blocked") { level = "review"; reasons.push(`${revokedKeys} previously revoked key(s) are linked to this email.`); }
+  if (!reasons.length) reasons.push("Verified email, no duplicate key, and no repeated network fingerprint.");
+  return { level, reasons, facts: { same_email_requests: sameEmail, same_network_requests_30d: sameIp + 1, active_keys: activeKeys, revoked_keys: revokedKeys, public_email_domain: PUBLIC_EMAIL_DOMAINS.has(domain) } };
+}
+
+function requestView(row) {
+  const liveRisk = ["pending_verification", "verification_delivery_failed", "pending_review"].includes(row.status);
+  let risk;
+  try { risk = !liveRisk && row.risk_json ? JSON.parse(row.risk_json) : riskForRequest(row); }
+  catch { risk = riskForRequest(row); }
+  if (liveRisk && JSON.stringify(risk) !== row.risk_json) db.prepare("UPDATE key_requests SET risk_json=? WHERE id=?").run(JSON.stringify(risk), row.id);
+  return {
+    id: row.id, email: row.email, tool: row.tool, delivery: row.delivery, status: row.status,
+    requested_at: new Date(row.at).toISOString(),
+    verification_sent_at: row.verification_sent_at ? new Date(row.verification_sent_at).toISOString() : null,
+    verified_at: row.verified_at ? new Date(row.verified_at).toISOString() : null,
+    reviewed_at: row.reviewed_at ? new Date(row.reviewed_at).toISOString() : null,
+    review_note: row.review_note || null, rejected_reason: row.rejected_reason || null,
+    issued_key_fingerprint: row.issued_key_ref ? keyFingerprintForRef(row.issued_key_ref) : null,
+    risk,
+  };
+}
+
+async function sendVerificationEmail(request, rawToken, attempt = "initial") {
+  const url = `${BASE_URL}/verify-key-request/${rawToken}`;
+  const html = `<p><b>Verify your email to request an API key.</b></p>
+  <p>Tool: ${esc(request.tool)} · Default delivery: ${esc(request.delivery)}</p>
+  <p><a href="${url}" style="display:inline-block;padding:12px 20px;background:#111;color:#fff;border-radius:8px;text-decoration:none">Review and verify email</a></p>
+  <p style="color:#666;font-size:13px">Opening the link does not verify anything. You must confirm on the page. The link expires in 30 minutes.</p>`;
+  return sendResendMessage({ to: request.email, subject: "Verify your API key request", html, purpose: "key_verification", reference: `${request.id}:${attempt}`, idempotencyKey: `key-verification/${request.id}/${attempt}` });
+}
+
+function createKeyReveal(rawKey, keyRef, requestId) {
+  const token = newToken();
+  db.prepare("INSERT INTO key_reveals (token_hash,key_ref,request_id,secret_box,expires_at,created_at) VALUES (?,?,?,?,?,?)")
+    .run(hashApiKey(token), keyRef, requestId, encryptTemporarySecret(JSON.stringify({ key: rawKey, token })), now() + KEY_REVEAL_TTL_MS, now());
+  return token;
+}
+
+async function sendIssuedKeyEmail(request, keyRef, rawRevealToken) {
+  const url = `${BASE_URL}/receive-key/${rawRevealToken}`;
+  const html = `<p><b>Your someonehastosayyes API key is ready.</b></p>
+  <p>Your request for ${esc(request.tool)} with ${esc(request.delivery)} delivery was approved.</p>
+  <p><a href="${url}" style="display:inline-block;padding:12px 20px;background:#111;color:#fff;border-radius:8px;text-decoration:none">Receive API key</a></p>
+  <p style="color:#666;font-size:13px">The key is shown once. Opening this link alone does not reveal it. The link expires in 24 hours.</p>`;
+  return sendResendMessage({ to: request.email, subject: "Your API key is ready", html, purpose: "key_delivery", reference: String(request.id), apiKey: keyRef, idempotencyKey: `key-delivery/${request.id}` });
+}
+
+app.get("/admin/key-requests", adminAuth, (_req, res) => {
+  res.json(db.prepare("SELECT * FROM key_requests ORDER BY at DESC LIMIT 200").all().map(requestView));
 });
 
 // ---------- 수동 검토용 키 요청 (랜딩 폼) ----------
-app.post("/request-key", (req, res) => {
-  if (rateLimited("reqkey-ip:" + ip(req), 3, 24 * 3600e3)) return res.status(429).json({ error: "You have already sent several requests today. Try again tomorrow." });
+app.post("/request-key", asyncRoute(async (req, res) => {
+  if (rateLimited("reqkey-ip:" + privateHash("request-rate-ip", ip(req)), 3, 24 * 3600e3)) return res.status(429).json({ error: "You have already sent several requests today. Try again tomorrow." });
   const email = String(req.body.email || "").trim().slice(0, 200);
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return res.status(400).json({ error: "Enter a valid work email." });
   const tool = String(req.body.tool || "").toLowerCase();
@@ -1050,16 +1330,144 @@ app.post("/request-key", (req, res) => {
   if (!["slack", "email", "link"].includes(delivery)) return res.status(400).json({ error: "Choose a delivery method." });
   const emailBucket = hashApiKey(email.toLowerCase()).slice(0, 24);
   if (rateLimited("reqkey-email:" + emailBucket, 2, 24 * 3600e3)) return res.status(429).json({ error: "A request for this email is already waiting for review." });
-  const stored = db.prepare("INSERT INTO key_requests (email,tool,note,delivery,status,at) VALUES (?,?,NULL,?,'pending',?)").run(email, tool, delivery, now());
-  notifyOwner("An API key request is waiting for review", [
-    { type: "section", text: { type: "mrkdwn", text: `*API key request #${stored.lastInsertRowid}*\n${email} · ${tool} · ${delivery}` } },
-    { type: "context", elements: [{ type: "mrkdwn", text: "No key was created. Review the request before issuing one." }] },
-  ]);
+  const token = newToken();
+  const stored = db.prepare(`INSERT INTO key_requests
+    (email,tool,note,delivery,status,at,verify_token_hash,verification_expires_at,ip_hash)
+    VALUES (?,?,NULL,?,'pending_verification',?,?,?,?)`).run(email, tool, delivery, now(), hashApiKey(token), now() + EMAIL_VERIFICATION_TTL_MS, privateHash("request-ip", ip(req)));
+  const request = db.prepare("SELECT * FROM key_requests WHERE id=?").get(stored.lastInsertRowid);
+  try {
+    await sendVerificationEmail(request, token);
+    db.prepare("UPDATE key_requests SET verification_sent_at=? WHERE id=?").run(now(), request.id);
+  } catch (error) {
+    db.prepare("UPDATE key_requests SET status='verification_delivery_failed' WHERE id=?").run(request.id);
+    return res.status(503).json({ error: "We could not send the verification email. No key was created. Please try again later.", request_id: request.id });
+  }
   res.set("Cache-Control", "no-store").status(202).json({
     request_id: stored.lastInsertRowid,
-    status: "pending_review",
-    message: "Request received. No API key has been created yet.",
+    status: "pending_verification",
+    message: "Check your email and verify the request. No API key has been created yet.",
   });
+}));
+
+app.get("/verify-key-request/:token", (req, res) => {
+  const request = db.prepare("SELECT * FROM key_requests WHERE verify_token_hash=?").get(hashApiKey(req.params.token));
+  if (!request || request.verified_at) return res.status(410).send(page("Link unavailable", "<h1>This verification link is no longer available.</h1><p class='muted'>It may already have been used.</p>"));
+  if (request.verification_expires_at < now()) return res.status(410).send(page("Link expired", "<h1>This verification link expired.</h1><p class='muted'>Submit a fresh request from the landing page.</p>"));
+  res.send(page("Verify email", `<p class="eyebrow">${BRAND}</p><h1>Verify this API key request?</h1><p>${esc(request.email)}</p><p class="muted">${esc(request.tool)} · ${esc(request.delivery)}. Opening this page did not verify anything yet.</p><form method="post"><div class="row"><button class="yes" type="submit">Verify email</button></div></form>`));
+});
+
+app.post("/verify-key-request/:token", (req, res) => {
+  const tokenHash = hashApiKey(req.params.token);
+  const request = db.prepare("SELECT * FROM key_requests WHERE verify_token_hash=?").get(tokenHash);
+  if (!request || request.verified_at) return res.status(410).send(page("Link unavailable", "<h1>This verification link is no longer available.</h1>"));
+  if (request.verification_expires_at < now()) return res.status(410).send(page("Link expired", "<h1>This verification link expired.</h1>"));
+  const verifiedAt = now();
+  db.prepare("UPDATE key_requests SET status='pending_review',verified_at=?,verify_token_hash=NULL WHERE id=?").run(verifiedAt, request.id);
+  const fresh = db.prepare("SELECT * FROM key_requests WHERE id=?").get(request.id);
+  const risk = riskForRequest(fresh);
+  db.prepare("UPDATE key_requests SET risk_json=? WHERE id=?").run(JSON.stringify(risk), request.id);
+  notifyOwner("A verified API key request is waiting for review", [
+    { type: "section", text: { type: "mrkdwn", text: `*Verified API key request #${request.id}*\n${request.email} · ${request.tool} · ${request.delivery} · risk: ${risk.level}` } },
+    { type: "context", elements: [{ type: "mrkdwn", text: "No key was created. Issue or reject it from the administrator console." }] },
+  ]);
+  res.send(page("Email verified", `<p class="eyebrow">${BRAND}</p><h1>Email verified.</h1><p>Your request is now waiting for a human review. No API key has been created yet.</p><p class="muted">You can close this page.</p>`));
+});
+
+app.post("/admin/key-requests/:id/issue", adminAuth, asyncRoute(async (req, res) => {
+  const id = Number(req.params.id);
+  const request = db.prepare("SELECT * FROM key_requests WHERE id=?").get(id);
+  if (!request) return res.status(404).json({ error: "request not found" });
+  if (!request.verified_at) return res.status(409).json({ error: "email must be verified before a key can be issued" });
+  if (request.status !== "pending_review") return res.status(409).json({ error: `request is ${request.status}` });
+  const risk = riskForRequest(request);
+  if (risk.level === "blocked") return res.status(409).json({ error: risk.reasons.join(" "), risk });
+  const existingKey = db.prepare("SELECT key,key_hash,status FROM keys WHERE lower(email)=lower(?) AND status IN ('active','pending_delivery')").get(request.email);
+  if (existingKey) return res.status(409).json({ error: "this email already has an active or pending-delivery key", fingerprint: keyFingerprint(existingKey.key, existingKey.key_hash) });
+  const claimed = db.prepare("UPDATE key_requests SET status='issuing',reviewed_at=?,review_note=? WHERE id=? AND status='pending_review'")
+    .run(now(), String(req.body?.note || "Approved after manual review").slice(0, 500), id);
+  if (!claimed.changes) return res.status(409).json({ error: "request is already being processed" });
+  const created = createStoredKey({
+    label: request.email, email: request.email.toLowerCase(), tool: request.tool, delivery: request.delivery,
+    source: "reviewed", status: "pending_delivery", rateLimit: REVIEW_KEY_RATE_LIMIT,
+  });
+  const revealToken = createKeyReveal(created.raw, created.ref, id);
+  db.prepare("UPDATE key_requests SET issued_key_ref=? WHERE id=?").run(created.ref, id);
+  try {
+    await sendIssuedKeyEmail(request, created.ref, revealToken);
+    const activatedAt = now();
+    db.transaction(() => {
+      db.prepare("UPDATE keys SET status='active',activated_at=? WHERE key=?").run(activatedAt, created.ref);
+      db.prepare("UPDATE key_requests SET status='issued' WHERE id=?").run(id);
+    })();
+    return res.status(201).json({ issued: true, fingerprint: keyFingerprint(created.ref, created.hash), email: request.email, reveal_expires_at: new Date(now() + KEY_REVEAL_TTL_MS).toISOString() });
+  } catch (error) {
+    db.prepare("UPDATE key_requests SET status='delivery_failed' WHERE id=?").run(id);
+    return res.status(502).json({ error: "The key was created but its email could not be delivered. It is not active. Use Retry delivery.", detail: String(error.message || error) });
+  }
+}));
+
+app.post("/admin/key-requests/:id/resend-verification", adminAuth, asyncRoute(async (req, res) => {
+  const id = Number(req.params.id);
+  const request = db.prepare("SELECT * FROM key_requests WHERE id=?").get(id);
+  if (!request || !["pending_verification", "verification_delivery_failed"].includes(request.status)) return res.status(409).json({ error: "request is not waiting for email verification" });
+  const token = newToken();
+  const attempt = String(now());
+  db.prepare("UPDATE key_requests SET status='pending_verification',verify_token_hash=?,verification_expires_at=? WHERE id=?")
+    .run(hashApiKey(token), now() + EMAIL_VERIFICATION_TTL_MS, id);
+  try {
+    await sendVerificationEmail(request, token, attempt);
+    db.prepare("UPDATE key_requests SET verification_sent_at=? WHERE id=?").run(now(), id);
+    res.json({ sent: true, request_id: id });
+  } catch (error) {
+    db.prepare("UPDATE key_requests SET status='verification_delivery_failed' WHERE id=?").run(id);
+    res.status(502).json({ error: "verification email still could not be delivered", detail: String(error.message || error) });
+  }
+}));
+
+app.post("/admin/key-requests/:id/retry-delivery", adminAuth, asyncRoute(async (req, res) => {
+  const id = Number(req.params.id);
+  const request = db.prepare("SELECT * FROM key_requests WHERE id=?").get(id);
+  if (!request || request.status !== "delivery_failed" || !request.issued_key_ref) return res.status(409).json({ error: "request does not have a failed key delivery" });
+  const reveal = db.prepare("SELECT * FROM key_reveals WHERE request_id=? AND used_at IS NULL ORDER BY created_at DESC LIMIT 1").get(id);
+  if (!reveal || reveal.expires_at < now()) return res.status(410).json({ error: "the temporary key envelope expired; revoke this pending key and issue a fresh one" });
+  const secret = JSON.parse(decryptTemporarySecret(reveal.secret_box));
+  await sendIssuedKeyEmail(request, request.issued_key_ref, secret.token);
+  db.transaction(() => {
+    db.prepare("UPDATE keys SET status='active',activated_at=? WHERE key=?").run(now(), request.issued_key_ref);
+    db.prepare("UPDATE key_requests SET status='issued' WHERE id=?").run(id);
+  })();
+  res.json({ delivered: true, fingerprint: keyFingerprintForRef(request.issued_key_ref) });
+}));
+
+app.post("/admin/key-requests/:id/reject", adminAuth, asyncRoute(async (req, res) => {
+  const id = Number(req.params.id);
+  const request = db.prepare("SELECT * FROM key_requests WHERE id=?").get(id);
+  if (!request) return res.status(404).json({ error: "request not found" });
+  if (!["pending_review", "pending_verification", "verification_delivery_failed"].includes(request.status)) return res.status(409).json({ error: `request is ${request.status}` });
+  const reason = String(req.body?.reason || "The request did not pass our early-access review.").slice(0, 500);
+  db.prepare("UPDATE key_requests SET status='rejected',reviewed_at=?,rejected_reason=?,verify_token_hash=NULL WHERE id=?").run(now(), reason, id);
+  if (request.verified_at) {
+    const html = `<p><b>Your API key request was not approved.</b></p><p>${esc(reason)}</p><p style="color:#666;font-size:13px">No API key was created.</p>`;
+    try { await sendResendMessage({ to: request.email, subject: "Update on your API key request", html, purpose: "key_rejection", reference: String(id), idempotencyKey: `key-rejection/${id}` }); } catch (error) { console.warn("[key-rejection-email]", error.message || error); }
+  }
+  res.json({ rejected: true, request_id: id });
+}));
+
+app.get("/receive-key/:token", (req, res) => {
+  const reveal = db.prepare("SELECT * FROM key_reveals WHERE token_hash=? AND used_at IS NULL").get(hashApiKey(req.params.token));
+  if (!reveal || reveal.expires_at < now()) return res.status(410).send(page("Key link unavailable", "<h1>This key link is no longer available.</h1><p class='muted'>It may have expired or already been used. Contact the operator to revoke and reissue it.</p>"));
+  res.send(page("Receive API key", `<p class="eyebrow">${BRAND}</p><h1>Receive your API key?</h1><p>The key will be shown once on the next screen.</p><p class="muted">Opening this page did not reveal the key. Store it in your password manager or automation credential field.</p><form method="post"><div class="row"><button class="yes" type="submit">Show API key once</button></div></form>`));
+});
+
+app.post("/receive-key/:token", (req, res) => {
+  const tokenHash = hashApiKey(req.params.token);
+  const reveal = db.prepare("SELECT * FROM key_reveals WHERE token_hash=? AND used_at IS NULL").get(tokenHash);
+  if (!reveal || reveal.expires_at < now()) return res.status(410).send(page("Key link unavailable", "<h1>This key link is no longer available.</h1>"));
+  const secret = JSON.parse(decryptTemporarySecret(reveal.secret_box));
+  db.prepare("DELETE FROM key_reveals WHERE token_hash=?").run(tokenHash);
+  db.prepare("UPDATE keys SET status='active',activated_at=COALESCE(activated_at,?) WHERE key=? AND status='pending_delivery'").run(now(), reveal.key_ref);
+  const installToken = issueSlackInstallToken(reveal.key_ref);
+  res.set("Cache-Control", "no-store").send(page("API key", `<p class="eyebrow">${BRAND}</p><h1>Your API key.</h1><pre>${esc(secret.key)}</pre><p><b>Copy it now.</b> We cannot show it again because only its one-way fingerprint remains after this page.</p><p class="muted">Hosted preview limits: ${REVIEW_KEY_RATE_LIMIT}/minute · ${KEY_MONTHLY_APPROVAL_LIMIT}/month · ${KEY_MONTHLY_EMAIL_LIMIT} approval emails/month · ${KEY_PENDING_LIMIT} pending.</p><p><a href="${BASE_URL}/slack/install?token=${installToken}">Connect Slack →</a></p>`));
 });
 
 // The previous public auto-issuance endpoint stays closed even if an old page is cached.
@@ -1067,7 +1475,7 @@ app.post("/create-key", (_req, res) => res.status(403).json({ error: "Automatic 
 
 // ---------- 데모: 랜딩에서 실제 승인 링크를 만들어 보여줌 ----------
 app.post("/demo", (req, res) => {
-  if (rateLimited("demo:" + ip(req), 20, 3600e3)) return res.status(429).json({ error: "too many demo requests from this address; try again in an hour" });
+  if (rateLimited("demo:" + privateHash("demo-ip", ip(req)), 20, 3600e3)) return res.status(429).json({ error: "too many demo requests from this address; try again in an hour" });
   const a = {
     id: newId(), token: newToken(), api_key: DEMO_KEY,
     question: String(req.body.question || "Refund order A-1 for $380?").slice(0, 200),

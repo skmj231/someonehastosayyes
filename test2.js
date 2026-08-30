@@ -2,9 +2,11 @@
 const { spawn } = require("child_process");
 const fs = require("fs");
 const path = require("path");
+const http = require("http");
 const tmp = fs.mkdtempSync("/tmp/someonehastosayyes-test2-");
 const dbPath = path.join(tmp, "test.db");
-const srv = spawn("node", ["server.js"], { env: { ...process.env, PORT: 3997, BASE_URL: "http://localhost:3997", API_KEYS: "k1", DB_PATH: dbPath, SIGNING_SECRET: "s", ADMIN_SECRET: "adm" }, stdio: "inherit" });
+const mail = http.createServer((req,res)=>{req.resume();req.on("end",()=>{res.writeHead(200,{"content-type":"application/json"});res.end('{"id":"email_test"}')})}).listen(3993,"127.0.0.1");
+const srv = spawn("node", ["server.js"], { env: { ...process.env, PORT: 3997, BASE_URL: "http://localhost:3997", API_KEYS: "k1", DB_PATH: dbPath, SIGNING_SECRET: "s", ADMIN_SECRET: "adm", ALLOW_DIRECT_ADMIN_KEYS: "true", RESEND_API_KEY: "re_test", RESEND_API_URL: "http://127.0.0.1:3993/emails", EMAIL_FROM: "test@example.com" }, stdio: "inherit" });
 const sleep = (ms) => new Promise(r=>setTimeout(r,ms));
 (async () => {
   await sleep(700);
@@ -27,5 +29,5 @@ const sleep = (ms) => new Promise(r=>setTimeout(r,ms));
   r = await fetch(B + "/create-key", { method:"POST", headers:{ "content-type":"application/json" }, body:JSON.stringify({ email:"b@b.co", tool:"n8n", delivery:"link" }) });
   console.log("public auto-issuance blocked", r.status);
   r = await fetch(B + "/slack/install?key=" + k.key); console.log("slack install without client id →", r.status);
-  srv.kill(); fs.rmSync(tmp, { recursive:true, force:true }); process.exit(0);
-})().catch(e=>{ console.error(e); srv.kill(); fs.rmSync(tmp, { recursive:true, force:true }); process.exit(1); });
+  srv.kill(); mail.close(); fs.rmSync(tmp, { recursive:true, force:true }); process.exit(0);
+})().catch(e=>{ console.error(e); srv.kill(); mail.close(); fs.rmSync(tmp, { recursive:true, force:true }); process.exit(1); });
