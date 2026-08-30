@@ -1,6 +1,10 @@
-// 추가 기능 점검: 키 발급 → 승인 생성, 데모, 키 요청, 공개 데모 자격증명 차단, 랜딩
+// 추가 기능 점검: 관리자/셀프서비스 키 발급 → 승인 생성, 데모, 랜딩
 const { spawn } = require("child_process");
-const srv = spawn("node", ["server.js"], { env: { ...process.env, PORT: 3997, BASE_URL: "http://localhost:3997", API_KEYS: "k1", DB_PATH: "/tmp/t2.db", SIGNING_SECRET: "s", ADMIN_SECRET: "adm" }, stdio: "inherit" });
+const fs = require("fs");
+const path = require("path");
+const tmp = fs.mkdtempSync("/tmp/someonehastosayyes-test2-");
+const dbPath = path.join(tmp, "test.db");
+const srv = spawn("node", ["server.js"], { env: { ...process.env, PORT: 3997, BASE_URL: "http://localhost:3997", API_KEYS: "k1", DB_PATH: dbPath, SIGNING_SECRET: "s", ADMIN_SECRET: "adm" }, stdio: "inherit" });
 const sleep = (ms) => new Promise(r=>setTimeout(r,ms));
 (async () => {
   await sleep(700);
@@ -16,9 +20,11 @@ const sleep = (ms) => new Promise(r=>setTimeout(r,ms));
   const d = await r.json(); console.log("demo create", r.status, !!d.approve_url);
   await fetch(d.approve_url, { method:"POST", headers:{ "content-type":"application/x-www-form-urlencoded" }, body:"decision=approved&name=visitor" });
   const s = await (await fetch(d.status_url)).json(); console.log("demo status", s.status, s.decided_by, s.callback);
-  r = await fetch(B + "/request-key", { method:"POST", headers:{ "content-type":"application/x-www-form-urlencoded" }, body:"email=a%40b.co&tool=n8n&note=refunds" });
-  console.log("key request", r.status);
-  const kr = await (await fetch(B + "/admin/key-requests", { headers:{ "x-admin-secret":"adm" } })).json(); console.log("key requests stored", kr.length, kr[0]?.email);
+  r = await fetch(B + "/create-key", { method:"POST", headers:{ "content-type":"application/json" }, body:JSON.stringify({ email:"a@b.co", tool:"n8n", delivery:"link" }) });
+  const self = await r.json(); console.log("self-service key", r.status, self.key.startsWith("ah_"), self.tool, self.delivery);
+  r = await fetch(B + "/v1/approvals", { method:"POST", headers:{ "content-type":"application/json", authorization:"Bearer "+self.key }, body: JSON.stringify({ question:"first self-service approval" }) });
+  console.log("self-service key works", r.status);
+  const bytes = fs.readFileSync(dbPath); console.log("self-service secret not stored", !bytes.includes(Buffer.from(self.key)));
   r = await fetch(B + "/slack/install?key=" + k.key); console.log("slack install without client id →", r.status);
-  srv.kill(); process.exit(0);
-})().catch(e=>{ console.error(e); srv.kill(); process.exit(1); });
+  srv.kill(); fs.rmSync(tmp, { recursive:true, force:true }); process.exit(0);
+})().catch(e=>{ console.error(e); srv.kill(); fs.rmSync(tmp, { recursive:true, force:true }); process.exit(1); });

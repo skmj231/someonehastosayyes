@@ -92,7 +92,15 @@ CREATE INDEX IF NOT EXISTS idx_pending ON approvals(status, timeout_at);
 CREATE TABLE IF NOT EXISTS keys (
   key TEXT PRIMARY KEY,
   label TEXT,
-  created_at INTEGER NOT NULL
+  created_at INTEGER NOT NULL,
+  key_hash TEXT,
+  email TEXT,
+  tool TEXT,
+  delivery TEXT,
+  status TEXT NOT NULL DEFAULT 'active',
+  last_used_at INTEGER,
+  source TEXT NOT NULL DEFAULT 'admin',
+  rate_limit_per_minute INTEGER NOT NULL DEFAULT 600
 );
 CREATE TABLE IF NOT EXISTS slack_installs (
   api_key TEXT PRIMARY KEY,
@@ -171,6 +179,16 @@ if (!db.prepare("PRAGMA table_info(approvals)").all().some((c) => c.name === "id
 if (!db.prepare("PRAGMA table_info(notification_outbox)").all().some((c) => c.name === "purpose")) {
   db.exec("ALTER TABLE notification_outbox ADD COLUMN purpose TEXT NOT NULL DEFAULT 'initial'");
 }
+const keyColumns = db.prepare("PRAGMA table_info(keys)").all().map((c) => c.name);
+if (!keyColumns.includes("key_hash")) db.exec("ALTER TABLE keys ADD COLUMN key_hash TEXT");
+if (!keyColumns.includes("email")) db.exec("ALTER TABLE keys ADD COLUMN email TEXT");
+if (!keyColumns.includes("tool")) db.exec("ALTER TABLE keys ADD COLUMN tool TEXT");
+if (!keyColumns.includes("delivery")) db.exec("ALTER TABLE keys ADD COLUMN delivery TEXT");
+if (!keyColumns.includes("status")) db.exec("ALTER TABLE keys ADD COLUMN status TEXT NOT NULL DEFAULT 'active'");
+if (!keyColumns.includes("last_used_at")) db.exec("ALTER TABLE keys ADD COLUMN last_used_at INTEGER");
+if (!keyColumns.includes("source")) db.exec("ALTER TABLE keys ADD COLUMN source TEXT NOT NULL DEFAULT 'admin'");
+if (!keyColumns.includes("rate_limit_per_minute")) db.exec("ALTER TABLE keys ADD COLUMN rate_limit_per_minute INTEGER NOT NULL DEFAULT 600");
+db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_keys_hash ON keys(key_hash) WHERE key_hash IS NOT NULL");
 db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_approval_idempotency ON approvals(api_key, idempotency_key) WHERE idempotency_key IS NOT NULL");
 // A process can stop after claiming a notification but before recording the
 // provider response. Stable provider idempotency keys make replay safe.
@@ -224,13 +242,56 @@ const now = () => Date.now();
 const newId = () => "apr_" + crypto.randomBytes(8).toString("hex");
 const newToken = () => crypto.randomBytes(24).toString("base64url");
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const hashApiKey = (key) => crypto.createHash("sha256").update(String(key)).digest("hex");
+
+// Database keys are stored as a one-way hash. The stable internal reference is
+// used by approvals and Slack connections, so the original secret is never
+// needed again after it is shown to the user.
+function migrateStoredKeysToHashes() {
+  const legacy = db.prepare("SELECT key FROM keys WHERE key_hash IS NULL").all();
+  if (!legacy.length) return;
+  db.transaction(() => {
+    for (const row of legacy) {
+      const raw = row.key;
+      const hash = hashApiKey(raw);
+      const ref = "key_" + hash.slice(0, 32);
+      db.prepare("UPDATE approvals SET api_key=? WHERE api_key=?").run(ref, raw);
+      db.prepare("UPDATE receipt_archive SET api_key=? WHERE api_key=?").run(ref, raw);
+      db.prepare("UPDATE slack_installs SET api_key=? WHERE api_key=?").run(ref, raw);
+      db.prepare("UPDATE slack_install_tokens SET api_key=? WHERE api_key=?").run(ref, raw);
+      db.prepare("UPDATE keys SET key=?,key_hash=? WHERE key=?").run(ref, hash, raw);
+    }
+  })();
+  db.pragma("wal_checkpoint(TRUNCATE)");
+  db.exec("VACUUM");
+  console.log(`[keys] migrated ${legacy.length} stored key(s) to one-way hashes`);
+}
+migrateStoredKeysToHashes();
+
+function createStoredKey({ label = "", email = null, tool = null, delivery = null, source = "admin", rateLimit = 600 } = {}) {
+  const raw = "ah_" + crypto.randomBytes(24).toString("base64url");
+  const hash = hashApiKey(raw);
+  const ref = "key_" + hash.slice(0, 32);
+  db.prepare(`INSERT INTO keys (key,label,created_at,key_hash,email,tool,delivery,status,source,rate_limit_per_minute)
+    VALUES (?,?,?,?,?,?,?,'active',?,?)`).run(ref, String(label).slice(0, 200), now(), hash, email, tool, delivery, source, rateLimit);
+  return { raw, ref, hash };
+}
+
+function resolveApiKey(raw) {
+  if (!raw) return null;
+  if (API_KEYS.includes(raw)) return { ref: raw, limit: 600, source: "environment" };
+  const row = db.prepare("SELECT key,rate_limit_per_minute FROM keys WHERE key_hash=? AND status='active'").get(hashApiKey(raw));
+  return row ? { ref: row.key, limit: row.rate_limit_per_minute || 600, source: "database" } : null;
+}
 
 // ---------- 인증 ----------
 function auth(req, res, next) {
-  const key = (req.headers.authorization || "").replace(/^Bearer\s+/i, "") || req.headers["x-api-key"];
-  const ok = key && (API_KEYS.includes(key) || db.prepare("SELECT 1 FROM keys WHERE key=?").get(key));
-  if (!ok) return res.status(401).json({ error: "invalid api key" });
-  req.apiKey = key;
+  const raw = (req.headers.authorization || "").replace(/^Bearer\s+/i, "") || req.headers["x-api-key"];
+  const resolved = resolveApiKey(raw);
+  if (!resolved) return res.status(401).json({ error: "invalid api key" });
+  req.apiKey = resolved.ref;
+  req.apiKeyLimit = resolved.limit;
+  if (resolved.source === "database") db.prepare("UPDATE keys SET last_used_at=? WHERE key=?").run(now(), resolved.ref);
   next();
 }
 
@@ -319,7 +380,8 @@ app.post("/v1/approvals", auth, asyncRoute(async (req, res) => {
     const existing = db.prepare("SELECT * FROM approvals WHERE api_key=? AND idempotency_key=?").get(req.apiKey, idem);
     if (existing) return res.set("Idempotent-Replayed", "true").status(200).json(publicView(existing));
   }
-  if (rateLimited("create:" + req.apiKey, 600, 60e3)) return res.status(429).json({ error: "rate limit: 600 approvals per minute per key" });
+  const perMinute = req.apiKeyLimit || 600;
+  if (rateLimited("create:" + req.apiKey, perMinute, 60e3)) return res.status(429).json({ error: `rate limit: ${perMinute} approvals per minute per key` });
   const b = req.body || {};
   if (!b.question || typeof b.question !== "string" || !b.question.trim()) return res.status(400).json({ error: "question (non-empty string) required" });
   if (b.question.length > 500) return res.status(400).json({ error: "question must be 500 characters or fewer" });
@@ -838,9 +900,9 @@ app.get("/slack/install", (req, res) => {
   if (!SLACK_CLIENT_ID) return res.status(503).send(page("Slack not configured", "<p>SLACK_CLIENT_ID is not set on this server.</p>"));
   const key = String(req.query.key || "");
   if (key) {
-    const known = API_KEYS.includes(key) || db.prepare("SELECT 1 FROM keys WHERE key=?").get(key);
-    if (!known) return res.status(401).send(page("Unknown key", "<p>That install link is not valid.</p>"));
-    return res.redirect(303, `/slack/install?token=${issueSlackInstallToken(key)}`);
+    const resolved = resolveApiKey(key);
+    if (!resolved) return res.status(401).send(page("Unknown key", "<p>That install link is not valid.</p>"));
+    return res.redirect(303, `/slack/install?token=${issueSlackInstallToken(resolved.ref)}`);
   }
   const token = String(req.query.token || "");
   const install = db.prepare("SELECT * FROM slack_install_tokens WHERE token=? AND used_at IS NULL AND expires_at>?").get(token, now());
@@ -876,14 +938,13 @@ app.post("/v1/slack/install-link", auth, (req, res) => {
 
 // ---------- 관리자: 키 발급 (재시작 없이) ----------
 app.post("/admin/keys", adminAuth, (req, res) => {
-  const key = "ah_" + crypto.randomBytes(16).toString("base64url");
-  db.prepare("INSERT INTO keys (key,label,created_at) VALUES (?,?,?)").run(key, String(req.body?.label || ""), now());
-  const installToken = issueSlackInstallToken(key);
-  res.status(201).json({ key, label: req.body?.label || "", slack_install_url: `${BASE_URL}/slack/install?token=${installToken}` });
+  const created = createStoredKey({ label: req.body?.label || "", source: "admin", rateLimit: 600 });
+  const installToken = issueSlackInstallToken(created.ref);
+  res.status(201).json({ key: created.raw, label: req.body?.label || "", slack_install_url: `${BASE_URL}/slack/install?token=${installToken}` });
 });
 
-function keyFingerprint(key) {
-  return crypto.createHash("sha256").update(key).digest("hex").slice(0, 16);
+function keyFingerprint(key, storedHash = null) {
+  return (storedHash || hashApiKey(key)).slice(0, 16);
 }
 
 function keyUsage(key) {
@@ -917,11 +978,17 @@ app.post("/admin/approvals/:id/cancel", adminAuth, (req, res) => {
 
 // 원문 키를 노출하지 않는 운영용 목록. fingerprint로 사용처를 확인한다.
 app.get("/admin/keys", adminAuth, (_req, res) => {
-  const stored = db.prepare("SELECT key,label,created_at FROM keys ORDER BY created_at").all().map(row => ({
-    fingerprint: keyFingerprint(row.key),
+  const stored = db.prepare("SELECT key,key_hash,label,email,tool,delivery,status,source,created_at,last_used_at,rate_limit_per_minute FROM keys ORDER BY created_at").all().map(row => ({
+    fingerprint: keyFingerprint(row.key, row.key_hash),
     label: row.label || "",
+    email: row.email || null,
+    tool: row.tool || null,
+    delivery: row.delivery || null,
+    status: row.status,
     created_at: new Date(row.created_at).toISOString(),
-    source: "database",
+    last_used_at: row.last_used_at ? new Date(row.last_used_at).toISOString() : null,
+    source: row.source || "database",
+    rate_limit_per_minute: row.rate_limit_per_minute || 600,
     revocable: true,
     ...keyUsage(row.key)
   }));
@@ -938,8 +1005,8 @@ app.get("/admin/keys", adminAuth, (_req, res) => {
 
 // 대기 중 승인이 있는 키는 실수로 폐기할 수 없다.
 app.delete("/admin/keys/:fingerprint", adminAuth, (req, res) => {
-  const matches = db.prepare("SELECT key,label FROM keys").all()
-    .filter(row => keyFingerprint(row.key) === req.params.fingerprint);
+  const matches = db.prepare("SELECT key,key_hash,label FROM keys").all()
+    .filter(row => keyFingerprint(row.key, row.key_hash) === req.params.fingerprint);
   if (matches.length !== 1) return res.status(404).json({ error: "key not found" });
   const row = matches[0];
   const usage = keyUsage(row.key);
@@ -967,21 +1034,43 @@ app.get("/admin/key-requests", adminAuth, (req, res) => {
   res.json(db.prepare("SELECT * FROM key_requests ORDER BY at DESC LIMIT 200").all());
 });
 
-// ---------- 키 요청 (랜딩 폼) ----------
-app.post("/request-key", (req, res) => {
-  if (rateLimited("reqkey:" + ip(req), 5, 3600e3)) return res.status(429).send(page("Slow down", "<p class=\"muted\">Too many requests from this address. Try again in an hour.</p>"));
+// ---------- 셀프서비스 키 발급 (랜딩 폼) ----------
+app.post("/create-key", (req, res) => {
+  if (rateLimited("createkey-ip:" + ip(req), 3, 24 * 3600e3)) return res.status(429).json({ error: "You have created several preview keys today. Try again tomorrow or contact us." });
   const email = String(req.body.email || "").trim().slice(0, 200);
-  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return res.status(400).send(page("Check the email", "<p>That doesn't look like an email address. Go back and try again.</p>"));
-  const stored = db.prepare("INSERT INTO key_requests (email,tool,note,at) VALUES (?,?,?,?)").run(email, String(req.body.tool || "").slice(0, 40), String(req.body.note || "").slice(0, 500), now());
-  console.log(`[key-request] stored request ${stored.lastInsertRowid}`);
-  const tool = String(req.body.tool || "-"), note = String(req.body.note || "").slice(0, 300);
-  notifyOwner(`New key request: ${email}`, [
-    { type: "section", text: { type: "mrkdwn", text: `*New key request*\n${email} · ${tool}` } },
-    ...(note ? [{ type: "section", text: { type: "mrkdwn", text: `> ${note.replace(/\n/g, " ")}` } }] : []),
-    { type: "context", elements: [{ type: "mrkdwn", text: "Issue a key with POST /admin/keys, then reply by hand." }] },
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return res.status(400).json({ error: "Enter a valid work email." });
+  const tool = String(req.body.tool || "").toLowerCase();
+  const delivery = String(req.body.delivery || "").toLowerCase();
+  if (!["n8n", "make", "zapier", "api"].includes(tool)) return res.status(400).json({ error: "Choose an automation tool." });
+  if (!["slack", "email", "link"].includes(delivery)) return res.status(400).json({ error: "Choose a delivery method." });
+  const emailBucket = hashApiKey(email.toLowerCase()).slice(0, 24);
+  if (rateLimited("createkey-email:" + emailBucket, 2, 24 * 3600e3)) return res.status(429).json({ error: "This email already has preview keys. Use the key you created or try again tomorrow." });
+
+  const created = createStoredKey({
+    label: `${email} · ${tool} · ${delivery}`,
+    email,
+    tool,
+    delivery,
+    source: "self_service",
+    rateLimit: 60,
+  });
+  const installToken = delivery === "slack" ? issueSlackInstallToken(created.ref) : null;
+  notifyOwner("A preview API key was created", [
+    { type: "section", text: { type: "mrkdwn", text: `*New preview key*\n${email} · ${tool} · ${delivery}` } },
+    { type: "context", elements: [{ type: "mrkdwn", text: `Fingerprint ${created.hash.slice(0, 16)} · secret not copied` }] },
   ]);
-  res.send(page("Request received", `<h1>Got it</h1><p>A key goes out to <b>${esc(email)}</b> by hand, usually within a few hours. It comes with a Slack connect link.</p><p><a href="/">Back</a></p>`));
+  res.set("Cache-Control", "no-store").status(201).json({
+    key: created.raw,
+    fingerprint: created.hash.slice(0, 16),
+    tool,
+    delivery,
+    rate_limit_per_minute: 60,
+    slack_install_url: installToken ? `${BASE_URL}/slack/install?token=${installToken}` : null,
+  });
 });
+
+// Old bookmarks remain understandable instead of silently collecting manual requests.
+app.post("/request-key", (_req, res) => res.status(410).send(page("Key requests changed", "<h1>Keys are now created on the site</h1><p><a href=\"/#request\">Create your API key</a></p>")));
 
 // ---------- 데모: 랜딩에서 실제 승인 링크를 만들어 보여줌 ----------
 app.post("/demo", (req, res) => {
