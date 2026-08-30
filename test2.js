@@ -1,4 +1,4 @@
-// 추가 기능 점검: 관리자/셀프서비스 키 발급 → 승인 생성, 데모, 랜딩
+// 추가 기능 점검: 관리자 키 발급 → 승인 생성, 수동 요청, 데모, 랜딩
 const { spawn } = require("child_process");
 const fs = require("fs");
 const path = require("path");
@@ -20,11 +20,12 @@ const sleep = (ms) => new Promise(r=>setTimeout(r,ms));
   const d = await r.json(); console.log("demo create", r.status, !!d.approve_url);
   await fetch(d.approve_url, { method:"POST", headers:{ "content-type":"application/x-www-form-urlencoded" }, body:"decision=approved&name=visitor" });
   const s = await (await fetch(d.status_url)).json(); console.log("demo status", s.status, s.decided_by, s.callback);
-  r = await fetch(B + "/create-key", { method:"POST", headers:{ "content-type":"application/json" }, body:JSON.stringify({ email:"a@b.co", tool:"n8n", delivery:"link" }) });
-  const self = await r.json(); console.log("self-service key", r.status, self.key.startsWith("ah_"), self.tool, self.delivery);
-  r = await fetch(B + "/v1/approvals", { method:"POST", headers:{ "content-type":"application/json", authorization:"Bearer "+self.key }, body: JSON.stringify({ question:"first self-service approval" }) });
-  console.log("self-service key works", r.status);
-  const bytes = fs.readFileSync(dbPath); console.log("self-service secret not stored", !bytes.includes(Buffer.from(self.key)));
+  r = await fetch(B + "/request-key", { method:"POST", headers:{ "content-type":"application/json" }, body:JSON.stringify({ email:"a@b.co", tool:"n8n", delivery:"link" }) });
+  const request = await r.json(); console.log("manual request queued", r.status, request.status, !!request.request_id);
+  const queued = await (await fetch(B + "/admin/key-requests", { headers:{ "x-admin-secret":"adm" } })).json();
+  console.log("request visible to admin", queued[0]?.email, queued[0]?.tool, queued[0]?.delivery, queued[0]?.status);
+  r = await fetch(B + "/create-key", { method:"POST", headers:{ "content-type":"application/json" }, body:JSON.stringify({ email:"b@b.co", tool:"n8n", delivery:"link" }) });
+  console.log("public auto-issuance blocked", r.status);
   r = await fetch(B + "/slack/install?key=" + k.key); console.log("slack install without client id →", r.status);
   srv.kill(); fs.rmSync(tmp, { recursive:true, force:true }); process.exit(0);
 })().catch(e=>{ console.error(e); srv.kill(); fs.rmSync(tmp, { recursive:true, force:true }); process.exit(1); });

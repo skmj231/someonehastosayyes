@@ -167,6 +167,8 @@ CREATE TABLE IF NOT EXISTS key_requests (
   email TEXT NOT NULL,
   tool TEXT,
   note TEXT,
+  delivery TEXT,
+  status TEXT NOT NULL DEFAULT 'pending',
   at INTEGER NOT NULL
 );
 `);
@@ -189,6 +191,9 @@ if (!keyColumns.includes("last_used_at")) db.exec("ALTER TABLE keys ADD COLUMN l
 if (!keyColumns.includes("source")) db.exec("ALTER TABLE keys ADD COLUMN source TEXT NOT NULL DEFAULT 'admin'");
 if (!keyColumns.includes("rate_limit_per_minute")) db.exec("ALTER TABLE keys ADD COLUMN rate_limit_per_minute INTEGER NOT NULL DEFAULT 600");
 db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_keys_hash ON keys(key_hash) WHERE key_hash IS NOT NULL");
+const keyRequestColumns = db.prepare("PRAGMA table_info(key_requests)").all().map((c) => c.name);
+if (!keyRequestColumns.includes("delivery")) db.exec("ALTER TABLE key_requests ADD COLUMN delivery TEXT");
+if (!keyRequestColumns.includes("status")) db.exec("ALTER TABLE key_requests ADD COLUMN status TEXT NOT NULL DEFAULT 'pending'");
 db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_approval_idempotency ON approvals(api_key, idempotency_key) WHERE idempotency_key IS NOT NULL");
 // A process can stop after claiming a notification but before recording the
 // provider response. Stable provider idempotency keys make replay safe.
@@ -1034,9 +1039,9 @@ app.get("/admin/key-requests", adminAuth, (req, res) => {
   res.json(db.prepare("SELECT * FROM key_requests ORDER BY at DESC LIMIT 200").all());
 });
 
-// ---------- 셀프서비스 키 발급 (랜딩 폼) ----------
-app.post("/create-key", (req, res) => {
-  if (rateLimited("createkey-ip:" + ip(req), 3, 24 * 3600e3)) return res.status(429).json({ error: "You have created several preview keys today. Try again tomorrow or contact us." });
+// ---------- 수동 검토용 키 요청 (랜딩 폼) ----------
+app.post("/request-key", (req, res) => {
+  if (rateLimited("reqkey-ip:" + ip(req), 3, 24 * 3600e3)) return res.status(429).json({ error: "You have already sent several requests today. Try again tomorrow." });
   const email = String(req.body.email || "").trim().slice(0, 200);
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return res.status(400).json({ error: "Enter a valid work email." });
   const tool = String(req.body.tool || "").toLowerCase();
@@ -1044,33 +1049,21 @@ app.post("/create-key", (req, res) => {
   if (!["n8n", "make", "zapier", "api"].includes(tool)) return res.status(400).json({ error: "Choose an automation tool." });
   if (!["slack", "email", "link"].includes(delivery)) return res.status(400).json({ error: "Choose a delivery method." });
   const emailBucket = hashApiKey(email.toLowerCase()).slice(0, 24);
-  if (rateLimited("createkey-email:" + emailBucket, 2, 24 * 3600e3)) return res.status(429).json({ error: "This email already has preview keys. Use the key you created or try again tomorrow." });
-
-  const created = createStoredKey({
-    label: `${email} · ${tool} · ${delivery}`,
-    email,
-    tool,
-    delivery,
-    source: "self_service",
-    rateLimit: 600,
-  });
-  const installToken = delivery === "slack" ? issueSlackInstallToken(created.ref) : null;
-  notifyOwner("A preview API key was created", [
-    { type: "section", text: { type: "mrkdwn", text: `*New preview key*\n${email} · ${tool} · ${delivery}` } },
-    { type: "context", elements: [{ type: "mrkdwn", text: `Fingerprint ${created.hash.slice(0, 16)} · secret not copied` }] },
+  if (rateLimited("reqkey-email:" + emailBucket, 2, 24 * 3600e3)) return res.status(429).json({ error: "A request for this email is already waiting for review." });
+  const stored = db.prepare("INSERT INTO key_requests (email,tool,note,delivery,status,at) VALUES (?,?,NULL,?,'pending',?)").run(email, tool, delivery, now());
+  notifyOwner("An API key request is waiting for review", [
+    { type: "section", text: { type: "mrkdwn", text: `*API key request #${stored.lastInsertRowid}*\n${email} · ${tool} · ${delivery}` } },
+    { type: "context", elements: [{ type: "mrkdwn", text: "No key was created. Review the request before issuing one." }] },
   ]);
-  res.set("Cache-Control", "no-store").status(201).json({
-    key: created.raw,
-    fingerprint: created.hash.slice(0, 16),
-    tool,
-    delivery,
-    rate_limit_per_minute: 600,
-    slack_install_url: installToken ? `${BASE_URL}/slack/install?token=${installToken}` : null,
+  res.set("Cache-Control", "no-store").status(202).json({
+    request_id: stored.lastInsertRowid,
+    status: "pending_review",
+    message: "Request received. No API key has been created yet.",
   });
 });
 
-// Old bookmarks remain understandable instead of silently collecting manual requests.
-app.post("/request-key", (_req, res) => res.status(410).send(page("Key requests changed", "<h1>Keys are now created on the site</h1><p><a href=\"/#request\">Create your API key</a></p>")));
+// The previous public auto-issuance endpoint stays closed even if an old page is cached.
+app.post("/create-key", (_req, res) => res.status(403).json({ error: "Automatic key creation is disabled. Submit a request for review." }));
 
 // ---------- 데모: 랜딩에서 실제 승인 링크를 만들어 보여줌 ----------
 app.post("/demo", (req, res) => {
