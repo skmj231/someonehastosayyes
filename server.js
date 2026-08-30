@@ -1500,8 +1500,12 @@ app.get("/demo/:id", (req, res) => {
 const fs = require("fs");
 const LANDING = fs.existsSync(__dirname + "/landing.html") ? fs.readFileSync(__dirname + "/landing.html", "utf8") : "<h1>askhuman</h1>";
 const FLOW_MOTION = fs.existsSync(__dirname + "/approval-flow-motion.html") ? fs.readFileSync(__dirname + "/approval-flow-motion.html", "utf8") : "";
+const N8N_EMAIL_STARTER = __dirname + "/examples/n8n-email-approval-starter.json";
+const N8N_SLACK_STARTER = __dirname + "/examples/n8n-approval-demo.json";
 app.get("/", (_req, res) => res.type("html").send(LANDING.replaceAll("{{BASE_URL}}", BASE_URL)));
 app.get("/approval-flow-motion.html", (_req, res) => res.type("html").send(FLOW_MOTION));
+app.get("/starters/n8n-email-approval.json", (_req, res) => res.download(N8N_EMAIL_STARTER, "someonehastosayyes-n8n-email-starter.json"));
+app.get("/starters/n8n-slack-approval.json", (_req, res) => res.download(N8N_SLACK_STARTER, "someonehastosayyes-n8n-slack-starter.json"));
 
 app.get("/health", (_req, res) => {
   const check = db.pragma("quick_check", { simple: true });

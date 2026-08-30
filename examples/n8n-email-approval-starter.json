@@ -1,0 +1,95 @@
+{
+  "name": "someonehastosayyes — easiest email approval starter",
+  "nodes": [
+    {
+      "parameters": {},
+      "name": "Start a test",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://someonehastosayyes.com/v1/approvals",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "Bearer PASTE_YOUR_API_KEY" },
+            { "name": "Idempotency-Key", "value": "={{ $execution.id }}" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  question: 'Approve this test?',\n  context: { source: 'n8n starter' },\n  approve_label: 'Approve',\n  reject_label: 'Reject',\n  channel: 'email',\n  to: 'YOUR_APPROVER_EMAIL',\n  callback_url: $execution.resumeUrl,\n  timeout_minutes: 60,\n  default_on_timeout: 'rejected'\n}) }}",
+        "options": {}
+      },
+      "name": "1. Paste key and email here",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [240, 0]
+    },
+    {
+      "parameters": {
+        "resume": "webhook",
+        "httpMethod": "POST",
+        "limitWaitTime": true,
+        "resumeAmount": 65,
+        "resumeUnit": "minutes",
+        "options": {}
+      },
+      "name": "2. Wait for the answer",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [500, 0],
+      "webhookId": "7d1ac9b3-3471-43fb-b33c-ef1158000001"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose" },
+          "conditions": [
+            {
+              "id": "approved-condition",
+              "leftValue": "={{ $json.body.approved }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "true", "singleValue": true }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "3. Was it approved?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [760, 0]
+    },
+    {
+      "parameters": {},
+      "name": "Put the approved action here",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [1020, -120]
+    },
+    {
+      "parameters": {},
+      "name": "Put the rejected action here",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [1020, 120]
+    }
+  ],
+  "connections": {
+    "Start a test": { "main": [[{ "node": "1. Paste key and email here", "type": "main", "index": 0 }]] },
+    "1. Paste key and email here": { "main": [[{ "node": "2. Wait for the answer", "type": "main", "index": 0 }]] },
+    "2. Wait for the answer": { "main": [[{ "node": "3. Was it approved?", "type": "main", "index": 0 }]] },
+    "3. Was it approved?": {
+      "main": [
+        [{ "node": "Put the approved action here", "type": "main", "index": 0 }],
+        [{ "node": "Put the rejected action here", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": { "executionOrder": "v1" }
+}
