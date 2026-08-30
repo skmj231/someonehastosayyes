@@ -24,6 +24,7 @@
 | KEY_PENDING_LIMIT | 키별 동시 대기 승인 한도. 기본 100 |
 | GLOBAL_MONTHLY_APPROVAL_LIMIT | 전체 월 승인 안전 한도. 기본 10000 |
 | GLOBAL_DAILY_EMAIL_LIMIT | 전체 일 이메일 안전 한도. 기본 90 |
+| GLOBAL_DAILY_KEY_REQUEST_LIMIT | 전체 일 키 요청 안전 한도. 기본 120 |
 
 관리형 서비스는 안전을 위해 HTTPS 공개 콜백만 허용합니다. 사내망에서 직접 self-host하며 로컬 n8n 주소로 콜백해야 할 때만 `ALLOW_PRIVATE_CALLBACKS=true`를 명시적으로 설정하세요.
 

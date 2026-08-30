@@ -47,6 +47,7 @@ const KEY_MONTHLY_EMAIL_LIMIT = Math.max(1, Number(process.env.KEY_MONTHLY_EMAIL
 const KEY_PENDING_LIMIT = Math.max(1, Number(process.env.KEY_PENDING_LIMIT) || 100);
 const GLOBAL_MONTHLY_APPROVAL_LIMIT = Math.max(1, Number(process.env.GLOBAL_MONTHLY_APPROVAL_LIMIT) || 10000);
 const GLOBAL_DAILY_EMAIL_LIMIT = Math.max(1, Number(process.env.GLOBAL_DAILY_EMAIL_LIMIT) || 90);
+const GLOBAL_DAILY_KEY_REQUEST_LIMIT = Math.max(1, Number(process.env.GLOBAL_DAILY_KEY_REQUEST_LIMIT) || 120);
 const ALLOW_DIRECT_ADMIN_KEYS = process.env.ALLOW_DIRECT_ADMIN_KEYS === "true";
 const EMAIL_VERIFICATION_TTL_MS = Math.max(5, Number(process.env.EMAIL_VERIFICATION_TTL_MINUTES) || 30) * 60e3;
 const KEY_REVEAL_TTL_MS = Math.max(1, Number(process.env.KEY_REVEAL_TTL_HOURS) || 24) * 3600e3;
@@ -1321,6 +1322,8 @@ app.get("/admin/key-requests", adminAuth, (_req, res) => {
 
 // ---------- 수동 검토용 키 요청 (랜딩 폼) ----------
 app.post("/request-key", asyncRoute(async (req, res) => {
+  const requestsToday = db.prepare("SELECT COUNT(*) c FROM key_requests WHERE at>=?").get(dayStart()).c;
+  if (requestsToday >= GLOBAL_DAILY_KEY_REQUEST_LIMIT) return quotaResponse(res, "hosted key request daily capacity", requestsToday, GLOBAL_DAILY_KEY_REQUEST_LIMIT, nextDayStart());
   if (rateLimited("reqkey-ip:" + privateHash("request-rate-ip", ip(req)), 3, 24 * 3600e3)) return res.status(429).json({ error: "You have already sent several requests today. Try again tomorrow." });
   const email = String(req.body.email || "").trim().slice(0, 200);
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return res.status(400).json({ error: "Enter a valid work email." });
@@ -1508,6 +1511,8 @@ app.get("/health", (_req, res) => {
     pending: db.prepare("SELECT COUNT(*) c FROM approvals WHERE status='pending'").get().c,
     callbacks_queued: db.prepare("SELECT COUNT(*) c FROM outbox WHERE state='queued'").get().c,
     notifications_queued: db.prepare("SELECT COUNT(*) c FROM notification_outbox WHERE state IN ('queued','sending')").get().c,
+    email_verification_configured: Boolean(RESEND_API_KEY && EMAIL_FROM),
+    manual_review_configured: ADMIN_SECRET.length >= 24,
   });
 });
 

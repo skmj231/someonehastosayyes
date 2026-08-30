@@ -58,7 +58,10 @@ async function run() {
   child.stderr.on("data", (d) => { stderr += d; });
   await waitForServer();
 
-  let r = await fetch(BASE + "/request-key", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: "owner@example.org", tool: "n8n", delivery: "email" }) });
+  let r = await fetch(BASE + "/admin/keys", { method: "POST", headers: adminHeaders, body: JSON.stringify({ label: "bypass" }) });
+  assert.equal(r.status, 403, "direct admin issuance must stay closed by default");
+
+  r = await fetch(BASE + "/request-key", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: "owner@example.org", tool: "n8n", delivery: "email" }) });
   const requested = await r.json();
   assert.equal(r.status, 202);
   assert.equal(requested.status, "pending_verification");
