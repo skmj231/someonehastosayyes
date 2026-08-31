@@ -1170,6 +1170,7 @@ function keyUsage(key) {
 }
 
 // 비밀값을 저장하지 않는 작은 운영 화면. 브라우저 메모리에서만 관리자 요청에 사용한다.
+app.get("/admin", (_req, res) => res.redirect(302, "/admin/key-console"));
 app.get("/admin/key-console", (_req, res) => {
   res.type("html").send(require("fs").readFileSync(__dirname + "/admin-console.html", "utf8"));
 });

@@ -68,6 +68,10 @@ async function run() {
   child.stderr.on("data", (d) => { childErr += d; });
   await waitForServer();
 
+  let adminPage = await fetch(BASE + "/admin", { redirect: "manual" });
+  assert.equal(adminPage.status, 302, "/admin must lead to the operator console");
+  assert.equal(adminPage.headers.get("location"), "/admin/key-console");
+
   let r = await fetch(BASE + "/v1/approvals", { method: "POST", headers: { ...headers, authorization: "Bearer demo" }, body: JSON.stringify({ question: "x" }) });
   assert.equal(r.status, 401, "public demo credential must not authorize the API");
 
