@@ -17,7 +17,10 @@
 | DB_PATH | /data/someonehastosayyes.db |
 | NODE_ENV | production |
 | RESEND_API_KEY, EMAIL_FROM | 이메일 채널 쓸 때 |
+| ADMIN_NOTIFY_EMAIL | 새 키 요청을 즉시 받을 운영자 이메일. 설정하면 접수·이메일 인증 완료 때 알림 |
 | SLACK_CLIENT_ID, SLACK_CLIENT_SECRET, SLACK_SIGNING_SECRET | 슬랙 채널 쓸 때 (아래) |
+| NOTIFY_SLACK_CHANNEL | 운영자 알림을 받을 Slack 채널 ID. 이메일 알림만 쓰면 생략 |
+| NOTIFY_SLACK_KEY | 위 채널에 연결된 키. 비우면 API_KEYS의 첫 번째 키 사용 |
 | REVIEW_KEY_RATE_LIMIT | 검토 발급 키의 분당 승인 한도. 기본 60 |
 | KEY_MONTHLY_APPROVAL_LIMIT | 키별 월 승인 한도. 기본 1000 |
 | KEY_MONTHLY_EMAIL_LIMIT | 키별 월 승인 이메일 한도. 기본 300 |
@@ -40,11 +43,13 @@
 
 ## 키 발급 (수동 검토)
 1. 사용자가 랜딩 폼을 제출합니다.
-2. 사용자가 이메일의 **Verify email** 버튼을 누릅니다. 이메일 보안 스캐너가 링크를 열기만 해서는 인증되지 않습니다.
-3. 운영자는 `https://<도메인>/admin/key-console`을 열고 `ADMIN_SECRET`을 입력합니다.
-4. 이메일 인증 여부, 같은 이메일·네트워크 요청, 기존·폐기 키를 확인합니다.
-5. **Issue one key** 또는 **Reject**를 누릅니다.
-6. 승인되면 사용자는 이메일의 24시간 링크에서 키를 한 번만 확인합니다.
+2. 운영자는 `ADMIN_NOTIFY_EMAIL` 또는 Slack으로 접수 알림을 즉시 받습니다.
+3. 사용자가 이메일의 **Verify email** 버튼을 누릅니다. 이메일 보안 스캐너가 링크를 열기만 해서는 인증되지 않습니다.
+4. 사용자가 인증을 마치면 운영자에게 검토 가능 알림이 한 번 더 갑니다.
+5. 운영자는 `https://<도메인>/admin`을 열고 `ADMIN_SECRET`을 입력합니다.
+6. 이메일 인증 여부, 같은 이메일·네트워크 요청, 기존·폐기 키를 확인합니다.
+7. **Issue one key** 또는 **Reject**를 누릅니다.
+8. 승인되면 사용자는 이메일의 24시간 링크에서 키를 한 번만 확인합니다.
 
 직접 발급 API는 기본적으로 닫혀 있습니다. 로컬 복구 작업에만 `ALLOW_DIRECT_ADMIN_KEYS=true`를 잠시 설정하고, 끝나면 제거하세요.
 

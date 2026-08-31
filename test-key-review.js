@@ -47,6 +47,7 @@ async function run() {
       PORT: String(APP_PORT), BASE_URL: BASE, DB_PATH: path.join(tmp, "test.db"),
       API_KEYS: "operator-key", ADMIN_SECRET: "adm", SIGNING_SECRET: "x".repeat(40),
       RESEND_API_KEY: "re_test", RESEND_API_URL: MAIL + "/emails", EMAIL_FROM: "test@example.com",
+      ADMIN_NOTIFY_EMAIL: "operator@example.net",
       REVIEW_KEY_RATE_LIMIT: "10", KEY_MONTHLY_APPROVAL_LIMIT: "3", KEY_MONTHLY_EMAIL_LIMIT: "1",
       KEY_PENDING_LIMIT: "5", GLOBAL_MONTHLY_APPROVAL_LIMIT: "50", GLOBAL_DAILY_EMAIL_LIMIT: "20",
       NEW_KEY_ALERT_APPROVALS_HOUR: "2", KEY_MONITOR_SWEEP_MS: "50",
@@ -65,8 +66,15 @@ async function run() {
   const requested = await r.json();
   assert.equal(r.status, 202);
   assert.equal(requested.status, "pending_verification");
-  assert.equal(messages.length, 1);
-  const verifyUrl = urlFrom(messages[0].body.html, "verify-key-request");
+  assert.equal(messages.length, 2, "requester verification and immediate operator alert must both be sent");
+  const verificationMessage = messages.find((message) => message.body.subject === "Verify your API key request");
+  const receivedAlert = messages.find((message) => message.body.subject.includes("received and waiting"));
+  assert.ok(receivedAlert);
+  assert.equal(receivedAlert.body.to, "operator@example.net");
+  const verifyUrl = urlFrom(verificationMessage.body.html, "verify-key-request");
+
+  r = await fetch(BASE + "/admin/notification-status", { headers: adminHeaders });
+  assert.deepEqual(await r.json(), { email: true, slack: false, ready: true });
 
   r = await fetch(verifyUrl);
   assert.equal(r.status, 200, "scanner GET must only show a confirmation page");
@@ -79,12 +87,13 @@ async function run() {
   queue = await (await fetch(BASE + "/admin/key-requests", { headers: adminHeaders })).json();
   assert.equal(queue[0].status, "pending_review");
   assert.ok(queue[0].verified_at);
+  assert.ok(messages.find((message) => message.body.subject.includes("ready for review")), "operator must receive a second alert after verification");
 
   r = await fetch(BASE + `/admin/key-requests/${requested.request_id}/issue`, { method: "POST", headers: adminHeaders, body: JSON.stringify({ note: "Known tester" }) });
   const issued = await r.json();
   assert.equal(r.status, 201, JSON.stringify(issued));
-  assert.equal(messages.length, 2);
-  const receiveUrl = urlFrom(messages[1].body.html, "receive-key");
+  const keyDeliveryMessage = messages.find((message) => message.body.subject === "Your API key is ready");
+  const receiveUrl = urlFrom(keyDeliveryMessage.body.html, "receive-key");
   r = await fetch(receiveUrl);
   assert.equal(r.status, 200, "scanner GET must not reveal or consume the key");
   r = await fetch(receiveUrl, { method: "POST" });

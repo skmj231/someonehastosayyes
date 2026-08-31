@@ -24,6 +24,7 @@ const SLACK_SIGNING_SECRET = process.env.SLACK_SIGNING_SECRET || "";
 const SLACK_CLIENT_ID = process.env.SLACK_CLIENT_ID || "";
 const SLACK_CLIENT_SECRET = process.env.SLACK_CLIENT_SECRET || "";
 const ADMIN_SECRET = process.env.ADMIN_SECRET || "";
+const ADMIN_NOTIFY_EMAIL = String(process.env.ADMIN_NOTIFY_EMAIL || "").trim();
 const NOTIFY_SLACK_CHANNEL = process.env.NOTIFY_SLACK_CHANNEL || "";
 const NOTIFY_SLACK_KEY = process.env.NOTIFY_SLACK_KEY || (process.env.API_KEYS || "").split(",")[0].trim();
 const DEMO_KEY = "demo";
@@ -1041,6 +1042,40 @@ async function notifyOwner(text, blocks) {
   catch (e) { console.warn("[notify]", e.message || e); }
 }
 
+function operatorNotificationStatus() {
+  return {
+    email: Boolean(ADMIN_NOTIFY_EMAIL && RESEND_API_KEY && EMAIL_FROM),
+    slack: Boolean(NOTIFY_SLACK_CHANNEL && slackTokenFor(NOTIFY_SLACK_KEY)),
+  };
+}
+
+async function notifyKeyRequestOperator(request, stage, risk = null) {
+  const status = operatorNotificationStatus();
+  const stageText = {
+    received: "received and waiting for email verification",
+    verified: "email verified and ready for review",
+    verification_failed: "received, but the verification email failed",
+  }[stage] || stage;
+  const title = `API key request #${request.id}: ${stageText}`;
+  const details = `${request.email} · ${request.tool || "unknown tool"} · ${request.delivery || "unknown delivery"}${risk ? ` · risk: ${risk.level}` : ""}`;
+  const tasks = [];
+  if (status.slack) tasks.push(notifyOwner(title, [
+    { type: "section", text: { type: "mrkdwn", text: `*${title}*\n${details}` } },
+    { type: "context", elements: [{ type: "mrkdwn", text: `Open ${BASE_URL}/admin to review. No key has been created.` }] },
+  ]));
+  if (status.email) {
+    const html = `<p><b>${esc(title)}</b></p><p>${esc(details)}</p><p><a href="${BASE_URL}/admin" style="display:inline-block;padding:12px 20px;background:#111;color:#fff;border-radius:8px;text-decoration:none">Open administrator console</a></p><p style="color:#666;font-size:13px">No API key has been created. Verify the request before issuing anything.</p>`;
+    tasks.push(sendResendMessage({ to: ADMIN_NOTIFY_EMAIL, subject: title, html, purpose: "operator_key_request", reference: `${request.id}:${stage}`, idempotencyKey: `operator-key-request/${request.id}/${stage}` }));
+  }
+  if (!tasks.length) {
+    console.warn(`[operator-notify] no notification channel configured for key request ${request.id}`);
+    return false;
+  }
+  const results = await Promise.allSettled(tasks);
+  for (const result of results) if (result.status === "rejected") console.warn("[operator-notify]", result.reason?.message || result.reason);
+  return results.some((result) => result.status === "fulfilled");
+}
+
 function monitorNewKeys() {
   const rows = db.prepare("SELECT * FROM keys WHERE status='active' AND activated_at>=? AND monitor_alerted_at IS NULL").all(now() - NEW_KEY_MONITOR_MS);
   for (const row of rows) {
@@ -1275,7 +1310,7 @@ function riskForRequest(request) {
 }
 
 function requestView(row) {
-  const liveRisk = ["pending_verification", "verification_delivery_failed", "pending_review"].includes(row.status);
+  const liveRisk = ["pending", "pending_verification", "verification_delivery_failed", "verification_expired", "pending_review"].includes(row.status);
   let risk;
   try { risk = !liveRisk && row.risk_json ? JSON.parse(row.risk_json) : riskForRequest(row); }
   catch { risk = riskForRequest(row); }
@@ -1321,6 +1356,11 @@ app.get("/admin/key-requests", adminAuth, (_req, res) => {
   res.json(db.prepare("SELECT * FROM key_requests ORDER BY at DESC LIMIT 200").all().map(requestView));
 });
 
+app.get("/admin/notification-status", adminAuth, (_req, res) => {
+  const status = operatorNotificationStatus();
+  res.json({ ...status, ready: status.email || status.slack });
+});
+
 // ---------- 수동 검토용 키 요청 (랜딩 폼) ----------
 app.post("/request-key", asyncRoute(async (req, res) => {
   const requestsToday = db.prepare("SELECT COUNT(*) c FROM key_requests WHERE at>=?").get(dayStart()).c;
@@ -1344,8 +1384,10 @@ app.post("/request-key", asyncRoute(async (req, res) => {
     db.prepare("UPDATE key_requests SET verification_sent_at=? WHERE id=?").run(now(), request.id);
   } catch (error) {
     db.prepare("UPDATE key_requests SET status='verification_delivery_failed' WHERE id=?").run(request.id);
+    await notifyKeyRequestOperator(request, "verification_failed");
     return res.status(503).json({ error: "We could not send the verification email. No key was created. Please try again later.", request_id: request.id });
   }
+  await notifyKeyRequestOperator(request, "received");
   res.set("Cache-Control", "no-store").status(202).json({
     request_id: stored.lastInsertRowid,
     status: "pending_verification",
@@ -1360,7 +1402,7 @@ app.get("/verify-key-request/:token", (req, res) => {
   res.send(page("Verify email", `<p class="eyebrow">${BRAND}</p><h1>Verify this API key request?</h1><p>${esc(request.email)}</p><p class="muted">${esc(request.tool)} · ${esc(request.delivery)}. Opening this page did not verify anything yet.</p><form method="post"><div class="row"><button class="yes" type="submit">Verify email</button></div></form>`));
 });
 
-app.post("/verify-key-request/:token", (req, res) => {
+app.post("/verify-key-request/:token", asyncRoute(async (req, res) => {
   const tokenHash = hashApiKey(req.params.token);
   const request = db.prepare("SELECT * FROM key_requests WHERE verify_token_hash=?").get(tokenHash);
   if (!request || request.verified_at) return res.status(410).send(page("Link unavailable", "<h1>This verification link is no longer available.</h1>"));
@@ -1370,12 +1412,9 @@ app.post("/verify-key-request/:token", (req, res) => {
   const fresh = db.prepare("SELECT * FROM key_requests WHERE id=?").get(request.id);
   const risk = riskForRequest(fresh);
   db.prepare("UPDATE key_requests SET risk_json=? WHERE id=?").run(JSON.stringify(risk), request.id);
-  notifyOwner("A verified API key request is waiting for review", [
-    { type: "section", text: { type: "mrkdwn", text: `*Verified API key request #${request.id}*\n${request.email} · ${request.tool} · ${request.delivery} · risk: ${risk.level}` } },
-    { type: "context", elements: [{ type: "mrkdwn", text: "No key was created. Issue or reject it from the administrator console." }] },
-  ]);
+  await notifyKeyRequestOperator(fresh, "verified", risk);
   res.send(page("Email verified", `<p class="eyebrow">${BRAND}</p><h1>Email verified.</h1><p>Your request is now waiting for a human review. No API key has been created yet.</p><p class="muted">You can close this page.</p>`));
-});
+}));
 
 app.post("/admin/key-requests/:id/issue", adminAuth, asyncRoute(async (req, res) => {
   const id = Number(req.params.id);
@@ -1413,7 +1452,7 @@ app.post("/admin/key-requests/:id/issue", adminAuth, asyncRoute(async (req, res)
 app.post("/admin/key-requests/:id/resend-verification", adminAuth, asyncRoute(async (req, res) => {
   const id = Number(req.params.id);
   const request = db.prepare("SELECT * FROM key_requests WHERE id=?").get(id);
-  if (!request || !["pending_verification", "verification_delivery_failed"].includes(request.status)) return res.status(409).json({ error: "request is not waiting for email verification" });
+  if (!request || !["pending", "pending_verification", "verification_delivery_failed", "verification_expired"].includes(request.status)) return res.status(409).json({ error: "request is not waiting for email verification" });
   const token = newToken();
   const attempt = String(now());
   db.prepare("UPDATE key_requests SET status='pending_verification',verify_token_hash=?,verification_expires_at=? WHERE id=?")
@@ -1447,7 +1486,7 @@ app.post("/admin/key-requests/:id/reject", adminAuth, asyncRoute(async (req, res
   const id = Number(req.params.id);
   const request = db.prepare("SELECT * FROM key_requests WHERE id=?").get(id);
   if (!request) return res.status(404).json({ error: "request not found" });
-  if (!["pending_review", "pending_verification", "verification_delivery_failed"].includes(request.status)) return res.status(409).json({ error: `request is ${request.status}` });
+  if (!["pending", "pending_review", "pending_verification", "verification_delivery_failed", "verification_expired"].includes(request.status)) return res.status(409).json({ error: `request is ${request.status}` });
   const reason = String(req.body?.reason || "The request did not pass our early-access review.").slice(0, 500);
   db.prepare("UPDATE key_requests SET status='rejected',reviewed_at=?,rejected_reason=?,verify_token_hash=NULL WHERE id=?").run(now(), reason, id);
   if (request.verified_at) {
