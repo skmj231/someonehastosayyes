@@ -352,7 +352,7 @@ app.use(express.urlencoded({ extended: false, verify: keepRaw }));
 app.use((req, res, next) => {
   res.set("X-Content-Type-Options", "nosniff");
   res.set("Referrer-Policy", "no-referrer");
-  res.set("X-Frame-Options", "DENY");
+  res.set("X-Frame-Options", req.path === "/approval-flow-motion.html" ? "SAMEORIGIN" : "DENY");
   if (req.path.startsWith("/a/") || req.path.startsWith("/admin")) res.set("Cache-Control", "no-store");
   if (req.path.startsWith("/admin")) res.set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; script-src 'self'; connect-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'");
   next();
@@ -1634,6 +1634,18 @@ app.get("/demo/:id", (req, res) => {
 // ---------- 랜딩 ----------
 const fs = require("fs");
 const LANDING = fs.existsSync(__dirname + "/landing.html") ? fs.readFileSync(__dirname + "/landing.html", "utf8") : "<h1>askhuman</h1>";
+const PUBLIC_FILES = new Map([
+  ["/approval-flow-motion.html", "approval-flow-motion.html"],
+  ["/trust", "trust.html"],
+  ["/status", "status.html"],
+  ["/relay", "relay.html"],
+  ["/starters/n8n-email-approval.json", "examples/n8n-email-approval-starter.json"],
+  ["/starters/n8n-slack-approval.json", "examples/n8n-approval-demo.json"],
+]);
+app.get([...PUBLIC_FILES.keys()], (req, res, next) => {
+  res.set("Cache-Control", "public, max-age=300");
+  res.sendFile(__dirname + "/" + PUBLIC_FILES.get(req.path), (error) => error ? next(error) : undefined);
+});
 app.get("/", (_req, res) => res.type("html").send(LANDING.replaceAll("{{BASE_URL}}", BASE_URL)));
 
 app.get("/health", (_req, res) => {

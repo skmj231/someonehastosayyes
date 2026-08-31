@@ -68,6 +68,22 @@ async function run() {
   child.stderr.on("data", (d) => { childErr += d; });
   await waitForServer();
 
+  const publicFiles = [
+    ["/approval-flow-motion.html", "Approval Flow Motion"],
+    ["/trust", "Trust"],
+    ["/status", "Status"],
+    ["/relay", "Relay"],
+    ["/starters/n8n-email-approval.json", "someonehastosayyes"],
+    ["/starters/n8n-slack-approval.json", "someonehastosayyes"],
+  ];
+  for (const [publicPath, expected] of publicFiles) {
+    const publicResponse = await fetch(BASE + publicPath);
+    assert.equal(publicResponse.status, 200, `${publicPath} must be served`);
+    assert.match(await publicResponse.text(), new RegExp(expected, "i"));
+  }
+  const motionResponse = await fetch(BASE + "/approval-flow-motion.html");
+  assert.equal(motionResponse.headers.get("x-frame-options"), "SAMEORIGIN", "the product-flow iframe must be visible only on this site");
+
   let r = await fetch(BASE + "/v1/approvals", { method: "POST", headers: { ...headers, authorization: "Bearer demo" }, body: JSON.stringify({ question: "x" }) });
   assert.equal(r.status, 401, "public demo credential must not authorize the API");
 
