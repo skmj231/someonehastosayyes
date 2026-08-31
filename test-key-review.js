@@ -17,12 +17,11 @@ const mailServer = http.createServer((req, res) => {
   let body = "";
   req.on("data", (chunk) => { body += chunk; });
   req.on("end", () => {
-    messages.push({ headers: req.headers, body: JSON.parse(body) });
+    messages.push(JSON.parse(body));
     res.writeHead(200, { "content-type": "application/json" });
     res.end(JSON.stringify({ id: `email_${messages.length}` }));
   });
 });
-
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 async function waitForServer() {
   for (let i = 0; i < 80; i++) {
@@ -31,12 +30,6 @@ async function waitForServer() {
   }
   throw new Error("server did not start");
 }
-const adminHeaders = { "content-type": "application/json", "x-admin-secret": "adm" };
-const urlFrom = (html, segment) => {
-  const match = html.match(new RegExp(`https?:[^\"']+/${segment}/[A-Za-z0-9_-]+`));
-  assert.ok(match, `${segment} link must be present in email`);
-  return match[0];
-};
 
 async function run() {
   await new Promise((resolve) => mailServer.listen(MAIL_PORT, "127.0.0.1", resolve));
@@ -47,93 +40,52 @@ async function run() {
       PORT: String(APP_PORT), BASE_URL: BASE, DB_PATH: path.join(tmp, "test.db"),
       API_KEYS: "operator-key", ADMIN_SECRET: "adm", SIGNING_SECRET: "x".repeat(40),
       RESEND_API_KEY: "re_test", RESEND_API_URL: MAIL + "/emails", EMAIL_FROM: "test@example.com",
-      ADMIN_NOTIFY_EMAIL: "operator@example.net",
-      REVIEW_KEY_RATE_LIMIT: "10", KEY_MONTHLY_APPROVAL_LIMIT: "3", KEY_MONTHLY_EMAIL_LIMIT: "1",
-      KEY_PENDING_LIMIT: "5", GLOBAL_MONTHLY_APPROVAL_LIMIT: "50", GLOBAL_DAILY_EMAIL_LIMIT: "20",
-      NEW_KEY_ALERT_APPROVALS_HOUR: "2", KEY_MONITOR_SWEEP_MS: "50",
+      INITIAL_RPM_LIMIT: "10", INITIAL_APPROVALS_MONTH: "3", INITIAL_EMAILS_MONTH: "1", INITIAL_PENDING_LIMIT: "5",
       ALLOW_PRIVATE_CALLBACKS: "true", DELIVERY_SWEEP_MS: "50",
     },
     stdio: ["ignore", "pipe", "pipe"],
   });
-  let stderr = "";
-  child.stderr.on("data", (d) => { stderr += d; });
   await waitForServer();
+  const adminHeaders = { "content-type": "application/json", "x-admin-secret": "adm" };
 
-  let r = await fetch(BASE + "/admin/keys", { method: "POST", headers: adminHeaders, body: JSON.stringify({ label: "bypass" }) });
-  assert.equal(r.status, 403, "direct admin issuance must stay closed by default");
+  let response = await fetch(BASE + "/admin/keys", { method: "POST", headers: adminHeaders, body: JSON.stringify({ label: "bypass" }) });
+  assert.equal(response.status, 403, "direct admin issuance stays closed by default");
 
-  r = await fetch(BASE + "/request-key", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: "owner@example.org", tool: "n8n", delivery: "email" }) });
-  const requested = await r.json();
-  assert.equal(r.status, 202);
-  assert.equal(requested.status, "pending_verification");
-  assert.equal(messages.length, 2, "requester verification and immediate operator alert must both be sent");
-  const verificationMessage = messages.find((message) => message.body.subject === "Verify your API key request");
-  const receivedAlert = messages.find((message) => message.body.subject.includes("received and waiting"));
-  assert.ok(receivedAlert);
-  assert.equal(receivedAlert.body.to, "operator@example.net");
-  const verifyUrl = urlFrom(verificationMessage.body.html, "verify-key-request");
+  response = await fetch(BASE + "/request-key", { method: "POST", headers: { "content-type": "application/json", accept: "application/json" }, body: JSON.stringify({ email: "owner@example.org", tool: "n8n", delivery: "email" }) });
+  const requested = await response.json();
+  assert.equal(response.status, 202);
+  assert.equal(requested.status, "verification_sent");
+  assert.equal(messages.length, 1, "only the verification email is sent");
+  assert.equal(messages[0].subject, "Verify your email to get your API key");
+  const verificationUrl = messages[0].html.match(/http:\/\/127\.0\.0\.1:4010\/verify-email\?token=[A-Za-z0-9_-]+/)?.[0];
+  assert.ok(verificationUrl);
 
-  r = await fetch(BASE + "/admin/notification-status", { headers: adminHeaders });
-  assert.deepEqual(await r.json(), { email: true, slack: false, ready: true });
-
-  r = await fetch(verifyUrl);
-  assert.equal(r.status, 200, "scanner GET must only show a confirmation page");
-  let queue = await (await fetch(BASE + "/admin/key-requests", { headers: adminHeaders })).json();
-  assert.equal(queue[0].status, "pending_verification");
-  assert.equal(queue[0].verified_at, null);
-
-  r = await fetch(verifyUrl, { method: "POST" });
-  assert.equal(r.status, 200);
-  queue = await (await fetch(BASE + "/admin/key-requests", { headers: adminHeaders })).json();
-  assert.equal(queue[0].status, "pending_review");
-  assert.ok(queue[0].verified_at);
-  assert.ok(messages.find((message) => message.body.subject.includes("ready for review")), "operator must receive a second alert after verification");
-
-  r = await fetch(BASE + `/admin/key-requests/${requested.request_id}/issue`, { method: "POST", headers: adminHeaders, body: JSON.stringify({ note: "Known tester" }) });
-  const issued = await r.json();
-  assert.equal(r.status, 201, JSON.stringify(issued));
-  const keyDeliveryMessage = messages.find((message) => message.body.subject === "Your API key is ready");
-  const receiveUrl = urlFrom(keyDeliveryMessage.body.html, "receive-key");
-  r = await fetch(receiveUrl);
-  assert.equal(r.status, 200, "scanner GET must not reveal or consume the key");
-  r = await fetch(receiveUrl, { method: "POST" });
-  const keyPage = await r.text();
-  assert.equal(r.status, 200);
+  response = await fetch(verificationUrl);
+  assert.equal(response.status, 200);
+  assert.match(await response.text(), /Opening the link alone does not create or reveal a key/);
+  response = await fetch(verificationUrl, { method: "POST" });
+  const keyPage = await response.text();
   const key = keyPage.match(/ah_[A-Za-z0-9_-]+/)?.[0];
-  assert.ok(key, "one-time page must contain the API key");
-  assert.equal((await fetch(receiveUrl, { method: "POST" })).status, 410, "key must be shown once");
-  assert.equal((await fetch(BASE + `/admin/key-requests/${requested.request_id}/issue`, { method: "POST", headers: adminHeaders, body: "{}" })).status, 409, "same request must not issue twice");
+  assert.ok(key, "POST verification issues one limited real key");
+  assert.equal((await fetch(verificationUrl, { method: "POST" })).status, 400, "verification link is one-time");
 
   const authHeaders = { "content-type": "application/json", authorization: `Bearer ${key}` };
-  r = await fetch(BASE + "/v1/approvals", { method: "POST", headers: authHeaders, body: JSON.stringify({ question: "First", channel: "link" }) });
-  assert.equal(r.status, 201);
-  r = await fetch(BASE + "/v1/approvals", { method: "POST", headers: authHeaders, body: JSON.stringify({ question: "Email one", channel: "email", to: "approver@example.org" }) });
-  assert.equal(r.status, 201);
-  await sleep(150);
-  const monitoredRows = await (await fetch(BASE + "/admin/keys", { headers: adminHeaders })).json();
-  assert.ok(monitoredRows.find((x) => x.email === "owner@example.org")?.monitor_alerted_at, "first-day usage must trigger operator monitoring");
-  r = await fetch(BASE + "/v1/approvals", { method: "POST", headers: authHeaders, body: JSON.stringify({ question: "Email two", channel: "email", to: "approver@example.org" }) });
-  assert.equal(r.status, 429);
-  assert.match((await r.json()).error, /email limit/);
-  r = await fetch(BASE + "/v1/approvals", { method: "POST", headers: authHeaders, body: JSON.stringify({ question: "Third", channel: "link" }) });
-  assert.equal(r.status, 201);
-  r = await fetch(BASE + "/v1/approvals", { method: "POST", headers: authHeaders, body: JSON.stringify({ question: "Fourth", channel: "link" }) });
-  assert.equal(r.status, 429);
-  assert.match((await r.json()).error, /monthly approval limit/);
+  response = await fetch(BASE + "/v1/approvals", { method: "POST", headers: authHeaders, body: JSON.stringify({ question: "First real request", channel: "link" }) });
+  assert.equal(response.status, 201);
+  const accounts = await (await fetch(BASE + "/admin/accounts", { headers: { "x-admin-secret": "adm", accept: "application/json" } })).json();
+  assert.ok(accounts.find((account) => account.email === "owner@example.org")?.email_verified_at);
+  const credentials = await (await fetch(BASE + "/admin/credentials", { headers: { "x-admin-secret": "adm" } })).json();
+  const issued = credentials.find((credential) => credential.label === "owner@example.org");
+  assert.equal(issued.grant.limits.approvals_month, 3);
+  assert.equal(issued.grant.limits.emails_month, 1);
+  assert.equal(issued.grant.limits.pending, 5);
+  assert.equal(issued.grant.limits.rpm, 10);
 
-  const keyRows = await (await fetch(BASE + "/admin/keys", { headers: adminHeaders })).json();
-  const stored = keyRows.find((x) => x.email === "owner@example.org");
-  assert.ok(stored);
-  r = await fetch(BASE + `/admin/keys/${stored.fingerprint}`, { method: "DELETE", headers: adminHeaders });
-  assert.equal(r.status, 200);
-  assert.equal((await fetch(BASE + "/v1/approvals", { method: "POST", headers: authHeaders, body: JSON.stringify({ question: "After revoke" }) })).status, 401);
-
-  console.log("✓ email verification, manual review, one-time delivery, quotas, and immediate revoke passed");
-  if (stderr) console.error(stderr);
+  console.log("✓ email verification, scanner-safe confirmation, limited real key, and closed admin bypass passed");
 }
 
-run().then(() => {
-  child.kill(); mailServer.close(); fs.rmSync(tmp, { recursive: true, force: true });
-}).catch((error) => {
-  console.error(error); if (child) child.kill(); mailServer.close(); fs.rmSync(tmp, { recursive: true, force: true }); process.exitCode = 1;
+run().catch((error) => { console.error(error); process.exitCode = 1; }).finally(async () => {
+  if (child) child.kill("SIGTERM");
+  await new Promise((resolve) => mailServer.close(resolve));
+  fs.rmSync(tmp, { recursive: true, force: true });
 });

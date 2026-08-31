@@ -193,20 +193,31 @@ resend.com 가입 → 도메인 인증 → API 키를 `RESEND_API_KEY`에. 메�
 
 ```bash
 npm test   # 생성 → GET 비결정 → POST 승인 → 콜백 → 멱등성 → 타임아웃, 약 35초
-npm run test:key-review   # 이메일 인증 → 수동 검토 → 1회 키 수령 → 한도 → 즉시 폐기
+npm run test:key-review   # 이메일 인증 → 제한된 실제 키 자동 발급 → 기본 한도 확인
 npm run test:reliability   # 중복 생성·동시 클릭·재시도·취소·서명·보안 경계, 약 2초
+npm run test:recovery      # 이메일·Slack 장애/재시작/중복 방지와 보관·삭제
+npm run test:callback-restart # 콜백 전송 직전·전송 중 재시작 복구
+npm run test:tenant-isolation # 고객 내용이 운영자 Slack으로 유출되지 않는지 확인
+npm run test:key-migration # 기존 평문 키를 해시 키 구조로 안전하게 이전
+npm run test:load          # 500건 생성/조회, 멱등성 경쟁, 속도 제한
 ```
 
 ## 관리자
 
-`/admin/key-console`에서 랜딩 폼 요청을 검토합니다. 흐름은 이메일 인증 → 설명 가능한 위험 신호 확인 → 발급 또는 거절입니다. 발급된 키는 사용자 이메일의 24시간짜리 링크에서 한 번만 보이고, DB에는 키 해시만 남습니다. 운영자도 키 원문을 볼 필요가 없습니다.
+랜딩의 `Ready to install`에서 이메일을 확인하면 작은 한도가 붙은 **실제 API 키**가 바로 발급됩니다. 별도 가짜 sandbox는 없습니다. 기본값은 분당 10건, 월 승인 50건, 월 승인 이메일 30건, 동시 대기 10건, 콜백 도메인 3개이며 환경변수로 조정할 수 있습니다. 키 원문은 발급 화면에서만 보이고 DB에는 해시만 남습니다.
 
-검토 발급 키의 기본 Hosted preview 한도는 분당 60건, 월 승인 1,000건, 월 승인 이메일 300건, 동시 대기 100건입니다. 한도는 새 승인 생성만 막고 이미 생성된 승인·결정·콜백 처리는 계속됩니다. 발급 후 첫 24시간에는 급격한 승인 생성, 대기 증가, 이메일 증가, 전달 실패를 감시하고 운영 화면에서 즉시 폐기할 수 있습니다.
+더 큰 한도나 권한은 별도 access request로 받고, 관리자가 Identity confidence / Intended use / Requested blast radius / Behavioral history 네 축을 보고 `APPROVE`, `APPROVE_WITH_LIMITS`, `REQUEST_INFO`, `DENY` 중 하나로 결정합니다. 근거와 결과는 감사 기록에 남습니다.
+
+운영 화면은 `/admin`, `/admin/key-requests`, `/admin/accounts`, `/admin/traffic`, `/admin/reliability`, `/admin/incidents`, `/admin/costs`로 나뉩니다. 키는 한도·권한 수정, 제한, 정지, 복구, 교체, 폐기가 가능하고 hard delete는 노출하지 않습니다. 잘못 발급한 키는 `ISSUED_BY_MISTAKE` 사유로 폐기합니다.
+
+위험 감시는 요청·이메일·대기·오류·잘못된 요청·새 콜백 도메인·다중 IP·한도 우회·비용 증가 등을 최근 평소 사용량과 함께 봅니다. 상태는 `NORMAL → WATCH → THROTTLED → SUSPENDED → REVOKED`이며, 비싼 이메일 기능부터 줄이고 이미 결정된 콜백은 최대한 보존합니다. HIGH/CRITICAL 사건만 운영자 Slack으로 즉시 알리고, 상세 내용과 조치는 Admin incident를 기준으로 합니다.
+
+비용 화면은 요청 시점의 Estimated Cost와 관리자가 입력한 provider Actual/Reconciled Cost를 분리합니다. 청구서 자동 수집이나 공급자 API 주기 조회는 운영비와 복잡도를 늘리므로 현재는 연결하지 않습니다. 실제 청구액은 `/admin/costs/reconcile`에 수동 입력합니다.
 
 `POST /admin/keys` 직접 발급은 기본적으로 닫혀 있습니다. 복구나 로컬 개발에서 정말 필요할 때만 `ALLOW_DIRECT_ADMIN_KEYS=true`를 명시합니다.
 
 ## 아직 안 하는 것 (일부러)
 
 - 그룹 라우팅·승격, 중복 제거, 묶음 발송 — 첫 10팀이 실제로 겪는지 확인 후
-- 다중 테넌트 대시보드 — API 키별 조회로 충분
+- 공급자 청구서 자동 수집 — 추정 비용은 실시간 계산하고 실제 청구액은 수동 대조
 - 카카오 채널 — 대행사 등록 비용 확인 후

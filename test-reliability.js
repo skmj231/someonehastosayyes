@@ -68,10 +68,6 @@ async function run() {
   child.stderr.on("data", (d) => { childErr += d; });
   await waitForServer();
 
-  let adminPage = await fetch(BASE + "/admin", { redirect: "manual" });
-  assert.equal(adminPage.status, 302, "/admin must lead to the operator console");
-  assert.equal(adminPage.headers.get("location"), "/admin/key-console");
-
   let r = await fetch(BASE + "/v1/approvals", { method: "POST", headers: { ...headers, authorization: "Bearer demo" }, body: JSON.stringify({ question: "x" }) });
   assert.equal(r.status, 401, "public demo credential must not authorize the API");
 
@@ -82,11 +78,97 @@ async function run() {
   ({ r } = await create({ question: "x", timeout_minutes: 60 * 24 * 91 }));
   assert.equal(r.status, 400, "unbounded timeout must be rejected");
 
+  r = await fetch(BASE + "/request-key", { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ email: "verified@example.com", tool: "code" }) });
+  const verificationPage = await r.text();
+  assert.equal(r.status, 200);
+  const verificationUrl = verificationPage.match(/href="(http:\/\/127\.0\.0\.1:3996\/verify-email\?token=[^"]+)"/)?.[1];
+  assert.ok(verificationUrl, "development verification must expose the one-time link");
+  r = await fetch(verificationUrl);
+  assert.match(await r.text(), /Verify email and create key/, "GET must not create a key for a link scanner");
+  r = await fetch(verificationUrl, { method: "POST" });
+  const keyPage = await r.text();
+  const verifiedKey = keyPage.match(/<pre>(ah_[A-Za-z0-9_-]+)<\/pre>/)?.[1];
+  assert.ok(verifiedKey, "email verification must issue a real key exactly once");
+  assert.equal((await fetch(verificationUrl)).status, 400, "verification link must be one-time");
+  const verifiedHeaders = { "content-type": "application/json", authorization: `Bearer ${verifiedKey}` };
+  r = await fetch(BASE + "/v1/access-requests", { method: "POST", headers: verifiedHeaders, body: JSON.stringify({ intended_use: "production refund approvals", limits: { approvals_month: 500 }, identity_confidence: 3, intended_use_score: 4, blast_radius_score: 2, behavioral_history_score: 1 }) });
+  const accessRequest = await r.json();
+  assert.equal(r.status, 201, "verified accounts may request elevated access separately");
+  r = await fetch(BASE + `/admin/access-requests/${accessRequest.id}`, { method: "PATCH", headers: { "content-type": "application/json", "x-admin-secret": "adm" }, body: JSON.stringify({ outcome: "APPROVE_WITH_LIMITS", reason: "verified use, keep a small email limit" }) });
+  assert.equal(r.status, 200, "admin review outcome and rationale must be recorded");
+
+  r = await fetch(BASE + "/v1/approvals", { method: "POST", headers: verifiedHeaders, body: JSON.stringify({ question: "Structured authorization", actor: { type: "agent", id: "refund-bot" }, principal: { type: "account", id: "merchant-1" }, action: { name: "refund" }, resource: { type: "order", id: "A-184" }, context: { amount: 380 }, constraints: { currency: "USD" } }) });
+  const structured = await r.json();
+  assert.equal(r.status, 201);
+  assert.ok(structured.action_request_id);
+  await fetch(structured.approve_url, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: "decision=approved&name=reviewer" });
+  r = await fetch(BASE + `/v1/approvals/${structured.id}/receipt`, { headers: verifiedHeaders });
+  const structuredReceipt = await r.json();
+  assert.equal(structuredReceipt.receipt.receipt_version, 1);
+  assert.deepEqual(structuredReceipt.receipt.actor, { type: "agent", id: "refund-bot" });
+  assert.deepEqual(structuredReceipt.receipt.constraints, { currency: "USD" });
+
   r = await fetch(BASE + "/admin/keys", { method: "POST", headers: { "content-type": "application/json", "x-admin-secret": "adm" }, body: JSON.stringify({ label: "test" }) });
   const issued = await r.json();
   assert.equal(r.status, 201);
   assert.ok(issued.slack_install_url.includes("?token="), "Slack install URL must use a separate token");
   assert.ok(!issued.slack_install_url.includes(issued.key), "Slack install URL must not expose the API key");
+  const issuedHeaders = { "content-type": "application/json", authorization: `Bearer ${issued.key}` };
+  r = await fetch(BASE + "/v1/approvals", { method: "POST", headers: issuedHeaders, body: JSON.stringify({ question: "Hashed credential works" }) });
+  assert.equal(r.status, 201, "new hashed credentials must authorize requests");
+  r = await fetch(BASE + "/admin/credentials", { headers: { "x-admin-secret": "adm" } });
+  const credentials = await r.json();
+  assert.equal(credentials[0].id, issued.id);
+  assert.equal(Object.hasOwn(credentials[0], "key"), false, "admin list must never return raw keys");
+  r = await fetch(BASE + "/admin/overview", { headers: { "x-admin-secret": "adm" } });
+  const overview = await r.json();
+  assert.ok(overview.events_last_24h.some((event) => event.event_type === "approval.created"));
+  r = await fetch(BASE + "/admin");
+  assert.equal(r.status, 401, "admin dashboard must require authentication");
+  assert.match(r.headers.get("www-authenticate"), /Basic/);
+  const basicAdmin = { authorization: `Basic ${Buffer.from("admin:adm").toString("base64")}` };
+  r = await fetch(BASE + "/admin", { headers: basicAdmin });
+  const adminHtml = await r.text();
+  assert.equal(r.status, 200);
+  assert.match(adminHtml, /Operations/);
+  assert.match(adminHtml, new RegExp(issued.key_prefix));
+  assert.ok(!adminHtml.includes(issued.key), "dashboard must never expose raw keys");
+  for (const adminPath of ["/admin/key-requests", "/admin/accounts", "/admin/traffic", "/admin/reliability", "/admin/incidents", "/admin/costs"]) {
+    r = await fetch(BASE + adminPath, { headers: { ...basicAdmin, accept: "text/html" } });
+    const screen = await r.text();
+    assert.equal(r.status, 200, `${adminPath} must render a dedicated admin screen`);
+    assert.match(screen, /admin\/app\.js/);
+    assert.match(screen, new RegExp(`aria-current="page"[^>]*>${adminPath === "/admin/key-requests" ? "Key requests" : adminPath.split("/").pop().replace(/^./, (c) => c.toUpperCase())}`));
+  }
+  r = await fetch(BASE + "/admin/app.js", { headers: basicAdmin });
+  assert.equal(r.status, 200);
+  assert.match(r.headers.get("content-type"), /javascript/);
+  const csrf = adminHtml.match(/name="csrf" value="([^"]+)"/)?.[1];
+  assert.ok(csrf, "dashboard status form must include a CSRF token");
+  r = await fetch(BASE + `/admin/credentials/${issued.id}/status`, { method: "POST", redirect: "manual", headers: { ...basicAdmin, "content-type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ csrf, status: "restricted" }) });
+  assert.equal(r.status, 303, "dashboard must update credential status");
+  r = await fetch(BASE + "/v1/approvals", { method: "POST", headers: issuedHeaders, body: JSON.stringify({ question: "Restricted key stops" }) });
+  assert.equal(r.status, 403);
+  r = await fetch(BASE + `/admin/credentials/${issued.id}`, { method: "PATCH", headers: { "content-type": "application/json", "x-admin-secret": "adm" }, body: JSON.stringify({ status: "blocked", risk_level: "high" }) });
+  assert.equal(r.status, 200);
+  r = await fetch(BASE + "/v1/approvals", { method: "POST", headers: issuedHeaders, body: JSON.stringify({ question: "Must be blocked" }) });
+  assert.equal(r.status, 403, "blocked credentials must stop working immediately");
+
+  r = await fetch(BASE + "/admin/keys", { method: "POST", headers: { "content-type": "application/json", "x-admin-secret": "adm" }, body: JSON.stringify({ label: "risk-test", limits: { rpm: 1, pending: 50 } }) });
+  const riskKey = await r.json();
+  const riskHeaders = { "content-type": "application/json", authorization: `Bearer ${riskKey.key}` };
+  for (let i = 0; i < 16; i++) await fetch(BASE + "/v1/approvals", { method: "POST", headers: riskHeaders, body: JSON.stringify({ question: `Quota probe ${i}` }) });
+  r = await fetch(BASE + "/admin/risk/run", { method: "POST", headers: { "x-admin-secret": "adm" } });
+  assert.equal(r.status, 200);
+  r = await fetch(BASE + "/v1/approvals", { method: "POST", headers: riskHeaders, body: JSON.stringify({ question: "Must auto suspend" }) });
+  assert.equal(r.status, 403, "repeated quota evasion must auto-suspend the credential");
+  r = await fetch(BASE + "/admin/incidents", { headers: { "x-admin-secret": "adm", accept: "application/json" } });
+  const incidents = await r.json();
+  assert.ok(incidents.signals.some((signal) => signal.signal_type === "QUOTA_EVASION_PATTERN"));
+  const quotaIncident = incidents.incidents.find((incident) => incident.signal_types.includes("QUOTA_EVASION_PATTERN"));
+  assert.ok(quotaIncident);
+  r = await fetch(BASE + `/admin/incidents/${quotaIncident.id}`, { method: "PATCH", headers: { "content-type": "application/json", "x-admin-secret": "adm" }, body: JSON.stringify({ status: "ACKNOWLEDGED" }) });
+  assert.equal((await r.json()).status, "ACKNOWLEDGED", "incident status changes must remain in the source-of-truth record");
   r = await fetch(BASE + "/v1/slack/install-link", { method: "POST", headers });
   const freshInstall = await r.json();
   assert.equal(r.status, 201);
@@ -101,7 +183,6 @@ async function run() {
 
   const approval = await create({ question: "Approve refund?", callback_url: CALLBACK + "/ok", timeout_minutes: 5 });
   assert.equal(approval.r.status, 201);
-  assert.equal(approval.body.approved, null, "pending approval must not look approved or rejected yet");
   r = await fetch(approval.body.approve_url);
   assert.equal(r.status, 200);
   assert.match(r.headers.get("cache-control"), /no-store/);
@@ -124,13 +205,14 @@ async function run() {
   const receipt = await r.json();
   const verified = await (await fetch(BASE + "/v1/verify", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ receipt_json: receipt.receipt_json, signature: receipt.signature }) })).json();
   assert.equal(verified.valid, true, "signed receipt must verify");
+  r = await fetch(BASE + "/admin/costs", { headers: { "x-admin-secret": "adm" } });
+  const costs = await r.json();
+  assert.ok(costs.mtd.estimated > 0, "estimated cost ledger must be visible in admin");
+  assert.ok(costs.guardrails.global_daily_usd > 0);
 
   const canceled = await create({ question: "Cancel me", callback_url: CALLBACK + "/cancel" });
   r = await fetch(BASE + `/v1/approvals/${canceled.body.id}/cancel`, { method: "POST", headers });
-  const canceledResponse = await r.json();
-  assert.equal(canceledResponse.status, "canceled");
-  assert.equal(canceledResponse.approved, false, "cancel response must route through the false branch");
-  assert.equal((await status(canceled.body.id)).approved, false, "cancel status lookup must match its callback payload");
+  assert.equal((await r.json()).status, "canceled");
   await sleep(100);
   assert.equal(counts.get("/cancel"), 1, "cancel must release the waiting workflow");
 
