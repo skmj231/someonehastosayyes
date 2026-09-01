@@ -94,8 +94,43 @@ async function run() {
   const enrichedRequest = keyRequests.find((item) => item.id === requested.request_id);
   assert.ok(enrichedRequest.email_verified_at, "triage must show email verification evidence");
   assert.equal(enrichedRequest.credentials[0].id, issued.id, "triage must show the issued credential without exposing its secret");
+  assert.equal(enrichedRequest.credential_id, issued.id, "the verified request must be linked directly to its key");
+  assert.equal(enrichedRequest.credentials[0].approvals_created, 1, "triage must retain attributed usage evidence");
 
-  console.log("✓ email verification, scanner-safe confirmation, limited real key, and closed admin bypass passed");
+  response = await fetch(BASE + `/admin/key-requests/${keyRequest.id}/management`, { method: "PATCH", headers: adminHeaders, body: JSON.stringify({ action: "SUSPEND", reason_code: "ABUSE_SUSPECTED" }) });
+  assert.equal(response.status, 400, "a management reason is required");
+  response = await fetch(BASE + `/admin/key-requests/${keyRequest.id}/management`, { method: "PATCH", headers: adminHeaders, body: JSON.stringify({ action: "SUSPEND", reason_code: "ABUSE_SUSPECTED", reason: "Unexpected request spike under investigation" }) });
+  let managed = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(managed.request.management_state, "SUSPENDED");
+  assert.equal(managed.request.credentials[0].status, "suspended");
+  assert.equal((await fetch(BASE + "/v1/approvals", { method: "POST", headers: authHeaders, body: JSON.stringify({ question: "Blocked during investigation", channel: "link" }) })).status, 403, "suspended keys cannot create requests");
+
+  response = await fetch(BASE + `/admin/key-requests/${keyRequest.id}/management`, { method: "PATCH", headers: adminHeaders, body: JSON.stringify({ action: "RESTORE", reason_code: "INVESTIGATION_CLEARED", reason: "Owner confirmed the traffic" }) });
+  managed = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(managed.request.credentials[0].status, "active");
+  assert.equal((await fetch(BASE + "/v1/approvals", { method: "POST", headers: authHeaders, body: JSON.stringify({ question: "Works after restore", channel: "link" }) })).status, 201);
+
+  response = await fetch(BASE + `/admin/key-requests/${keyRequest.id}/management`, { method: "PATCH", headers: adminHeaders, body: JSON.stringify({ action: "DELETE", reason_code: "ABUSE_CONFIRMED", reason: "Confirmed automated abuse" }) });
+  managed = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(managed.request.management_state, "DELETED");
+  assert.equal(managed.request.credentials[0].status, "revoked", "deleting the request must revoke the linked key atomically");
+  assert.equal(managed.usage_history_preserved, true);
+  assert.equal((await fetch(BASE + "/v1/approvals", { method: "POST", headers: authHeaders, body: JSON.stringify({ question: "Cannot use a deleted key", channel: "link" }) })).status, 403);
+  keyRequests = await (await fetch(BASE + "/admin/key-requests", { headers: adminHeaders })).json();
+  assert.equal(keyRequests.some((item) => item.id === keyRequest.id), false, "deleted requests leave the active queue");
+  keyRequests = await (await fetch(BASE + "/admin/key-requests?include_deleted=1", { headers: adminHeaders })).json();
+  const archivedRequest = keyRequests.find((item) => item.id === keyRequest.id);
+  assert.equal(archivedRequest.credentials[0].approvals_created, 2, "archived requests keep usage for follow-up");
+  response = await fetch(BASE + `/admin/credentials/${issued.id}`, { method: "PATCH", headers: adminHeaders, body: JSON.stringify({ status: "active", risk_level: "low" }) });
+  assert.equal(response.status, 409, "permanently deleted keys cannot be restored");
+  response = await fetch(BASE + "/request-key", { method: "POST", headers: { "content-type": "application/json", accept: "application/json" }, body: JSON.stringify({ email: "owner@example.org", tool: "n8n" }) });
+  assert.equal(response.status, 403, "confirmed abuse blocks automatic reissuance");
+  assert.equal(messages.length, 1, "blocked accounts receive no new verification email");
+
+  console.log("✓ verified issuance, atomic request/key control, permanent abuse revocation, and retained usage passed");
 }
 
 run().catch((error) => { console.error(error); process.exitCode = 1; }).finally(async () => {

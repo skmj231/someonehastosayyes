@@ -165,7 +165,7 @@ async function run() {
   assert.equal(r.status, 303, "dashboard must update credential status");
   r = await fetch(BASE + "/v1/approvals", { method: "POST", headers: issuedHeaders, body: JSON.stringify({ question: "Restricted key stops" }) });
   assert.equal(r.status, 403);
-  r = await fetch(BASE + `/admin/credentials/${issued.id}`, { method: "PATCH", headers: { "content-type": "application/json", "x-admin-secret": "adm" }, body: JSON.stringify({ status: "blocked", risk_level: "high" }) });
+  r = await fetch(BASE + `/admin/credentials/${issued.id}`, { method: "PATCH", headers: { "content-type": "application/json", "x-admin-secret": "adm" }, body: JSON.stringify({ status: "blocked", risk_level: "high", revoke_reason_code: "ABUSE_CONFIRMED", revoke_reason: "Reliability test block" }) });
   assert.equal(r.status, 200);
   r = await fetch(BASE + "/v1/approvals", { method: "POST", headers: issuedHeaders, body: JSON.stringify({ question: "Must be blocked" }) });
   assert.equal(r.status, 403, "blocked credentials must stop working immediately");

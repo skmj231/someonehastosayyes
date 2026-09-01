@@ -287,7 +287,16 @@ if (!keyRequestColumns.includes("classification")) db.exec("ALTER TABLE key_requ
 if (!keyRequestColumns.includes("classification_reason")) db.exec("ALTER TABLE key_requests ADD COLUMN classification_reason TEXT");
 if (!keyRequestColumns.includes("classified_at")) db.exec("ALTER TABLE key_requests ADD COLUMN classified_at INTEGER");
 if (!keyRequestColumns.includes("classified_by")) db.exec("ALTER TABLE key_requests ADD COLUMN classified_by TEXT");
+if (!keyRequestColumns.includes("credential_id")) db.exec("ALTER TABLE key_requests ADD COLUMN credential_id TEXT");
+if (!keyRequestColumns.includes("management_state")) db.exec("ALTER TABLE key_requests ADD COLUMN management_state TEXT NOT NULL DEFAULT 'ACTIVE'");
+if (!keyRequestColumns.includes("management_reason_code")) db.exec("ALTER TABLE key_requests ADD COLUMN management_reason_code TEXT");
+if (!keyRequestColumns.includes("management_reason")) db.exec("ALTER TABLE key_requests ADD COLUMN management_reason TEXT");
+if (!keyRequestColumns.includes("managed_at")) db.exec("ALTER TABLE key_requests ADD COLUMN managed_at INTEGER");
+if (!keyRequestColumns.includes("managed_by")) db.exec("ALTER TABLE key_requests ADD COLUMN managed_by TEXT");
 db.exec("CREATE INDEX IF NOT EXISTS idx_key_requests_classification ON key_requests(classification, at)");
+db.exec("CREATE INDEX IF NOT EXISTS idx_key_requests_management ON key_requests(management_state, at)");
+const verificationTokenColumns = db.prepare("PRAGMA table_info(verification_tokens)").all().map((column) => column.name);
+if (!verificationTokenColumns.includes("request_id")) db.exec("ALTER TABLE verification_tokens ADD COLUMN request_id INTEGER");
 
 // 오래된 DB의 평문 키를 한 번만 해시로 바꾸고 새 credential/grant 구조에 연결한다.
 const legacyKeyColumns = db.prepare("PRAGMA table_info(keys)").all().map((column) => column.name);
@@ -1435,6 +1444,12 @@ app.patch("/admin/credentials/:id", adminAuth, (req, res) => {
   const risk = req.body?.risk_level ?? current.risk_level;
   if (!["active", "restricted", "throttled", "suspended", "revoked", "blocked"].includes(status)) return res.status(400).json({ error: "status must be active|restricted|throttled|suspended|revoked" });
   if (!["low", "medium", "high", "critical"].includes(risk)) return res.status(400).json({ error: "risk_level must be low|medium|high|critical" });
+  if (current.status === "revoked" && status !== "revoked") return res.status(409).json({ error: "revoked credentials cannot be restored" });
+  const actionReason = String(req.body?.revoke_reason || "").trim().slice(0, 1000);
+  const actionReasonCode = String(req.body?.revoke_reason_code || "").toUpperCase();
+  const allowedActionReasons = ["", "ABUSE_SUSPECTED", "ABUSE_CONFIRMED", "NO_LONGER_NEEDED", "ISSUED_BY_MISTAKE", "INTERNAL_TEST_CLEANUP"];
+  if (!allowedActionReasons.includes(actionReasonCode)) return res.status(400).json({ error: "invalid revoke_reason_code" });
+  if (["suspended", "revoked", "blocked"].includes(status) && !actionReason) return res.status(400).json({ error: "a reason is required when suspending or deleting a credential" });
   const grant = grantFor(current.id);
   const capabilities = Array.isArray(req.body?.capabilities) ? req.body.capabilities : grant.capabilities;
   const limits = req.body?.limits && typeof req.body.limits === "object" ? { ...grant.limits, ...req.body.limits } : grant.limits;
@@ -1447,15 +1462,18 @@ app.patch("/admin/credentials/:id", adminAuth, (req, res) => {
   const riskState = req.body?.risk_state || ({ active: "NORMAL", restricted: "WATCH", throttled: "THROTTLED", suspended: "SUSPENDED", revoked: "REVOKED", blocked: "REVOKED" }[status]);
   if (!["NORMAL", "WATCH", "THROTTLED", "SUSPENDED", "REVOKED"].includes(riskState)) return res.status(400).json({ error: "invalid risk_state" });
   db.prepare("UPDATE api_credentials SET status=?,risk_level=? WHERE id=?").run(status, risk, current.id);
+  const storedReason = actionReason ? `${actionReasonCode ? actionReasonCode + ": " : ""}${actionReason}` : null;
   db.prepare("UPDATE credential_grants SET capabilities=?,limits_json=?,risk_state=?,updated_at=?,revoked_at=CASE WHEN ?='REVOKED' THEN ? ELSE revoked_at END,revoke_reason=COALESCE(?,revoke_reason) WHERE credential_id=?")
-    .run(JSON.stringify(capabilities), JSON.stringify(limits), riskState, now(), riskState, now(), req.body?.revoke_reason || null, current.id);
-  recordEvent("credential.updated", { credentialId: current.id, subjectType: "credential", subjectId: current.id, outcome: status, metadata: { risk_level: risk } });
+    .run(JSON.stringify(capabilities), JSON.stringify(limits), riskState, now(), riskState, now(), storedReason, current.id);
+  if (riskState === "REVOKED" && actionReasonCode === "ABUSE_CONFIRMED" && grant.account_id) db.prepare("UPDATE accounts SET status='blocked' WHERE id=?").run(grant.account_id);
+  recordEvent(riskState === "REVOKED" ? "credential.admin_deleted" : "credential.updated", { credentialId: current.id, subjectType: "credential", subjectId: current.id, outcome: status, metadata: { risk_level: risk, reason_code: actionReasonCode || null, reason: actionReason || null } });
   res.json({ ...db.prepare("SELECT id,key_prefix,label,status,risk_level,plan,created_at,last_used_at,expires_at FROM api_credentials WHERE id=?").get(current.id), grant: grantFor(current.id) });
 });
 
 app.post("/admin/credentials/:id/rotate", adminAuth, (req, res) => {
   const current = db.prepare("SELECT * FROM api_credentials WHERE id=?").get(req.params.id);
   if (!current) return res.status(404).json({ error: "credential not found" });
+  if (current.status === "revoked") return res.status(409).json({ error: "revoked credentials cannot be rotated" });
   const grant = grantFor(current.id);
   const next = issueCredential({ accountId: grant.account_id, label: current.label, plan: current.plan, capabilities: grant.capabilities, limits: grant.limits });
   db.prepare("UPDATE api_credentials SET status='revoked' WHERE id=?").run(current.id);
@@ -1554,23 +1572,33 @@ app.get("/admin/backup", adminAuth, asyncRoute(async (req, res) => {
   res.download(tmp, `approvals-${new Date().toISOString().slice(0, 10)}.db`, () => { try { require("fs").unlinkSync(tmp); } catch {} });
 }));
 
+const keyRequestAccountByEmail = db.prepare("SELECT * FROM accounts WHERE lower(email)=lower(?)");
+const keyRequestCredentials = db.prepare(`SELECT c.id,c.key_prefix,c.label,c.status,c.plan,c.last_used_at,g.risk_state,g.revoked_at,g.revoke_reason
+    FROM api_credentials c LEFT JOIN credential_grants g ON g.credential_id=c.id
+    WHERE c.id=COALESCE(?, '') OR g.account_id=COALESCE(?, '') OR lower(c.label)=lower(?) OR lower(c.label) LIKE lower(?)
+    ORDER BY c.created_at DESC`);
+const keyRequestUsage = db.prepare(`SELECT COALESCE(SUM(approvals_created),0) approvals_created,COALESCE(SUM(decisions),0) decisions,
+    COALESCE(SUM(callback_attempts),0) callback_attempts,COALESCE(SUM(callback_failures),0) callback_failures FROM daily_usage WHERE credential_id=?`);
+
+function keyRequestEvidence(request) {
+  const account = keyRequestAccountByEmail.get(request.email);
+  const credentials = keyRequestCredentials.all(request.credential_id || null, account?.id || null, request.email, `${request.email} · %`)
+    .map((credential) => ({ ...credential, ...keyRequestUsage.get(credential.id) }));
+  return {
+    ...request,
+    classification: request.classification || "UNCLASSIFIED",
+    management_state: request.management_state || "ACTIVE",
+    account_id: account?.id || null,
+    account_status: account?.status || null,
+    email_verified_at: account?.email_verified_at || request.verified_at || null,
+    credentials,
+  };
+}
+
 app.get("/admin/key-requests", adminAuth, (req, res) => {
-  const requests = db.prepare("SELECT * FROM key_requests ORDER BY at DESC LIMIT 200").all();
-  const accountByEmail = db.prepare("SELECT * FROM accounts WHERE lower(email)=lower(?)");
-  const credentialsForAccount = db.prepare(`SELECT c.id,c.key_prefix,c.label,c.status,c.plan,c.last_used_at,g.risk_state,g.revoked_at,g.revoke_reason
-    FROM credential_grants g JOIN api_credentials c ON c.id=g.credential_id
-    WHERE g.account_id=? ORDER BY c.created_at DESC`);
-  res.json(requests.map((request) => {
-    const account = accountByEmail.get(request.email);
-    const credentials = account ? credentialsForAccount.all(account.id) : [];
-    return {
-      ...request,
-      classification: request.classification || "UNCLASSIFIED",
-      account_id: account?.id || null,
-      email_verified_at: account?.email_verified_at || request.verified_at || null,
-      credentials,
-    };
-  }));
+  const includeDeleted = String(req.query.include_deleted || "") === "1";
+  const requests = db.prepare(`SELECT * FROM key_requests ${includeDeleted ? "" : "WHERE COALESCE(management_state,'ACTIVE')<>'DELETED'"} ORDER BY at DESC LIMIT 200`).all();
+  res.json(requests.map(keyRequestEvidence));
 });
 
 app.patch("/admin/key-requests/:id/classification", adminAuth, (req, res) => {
@@ -1587,6 +1615,50 @@ app.patch("/admin/key-requests/:id/classification", adminAuth, (req, res) => {
     .run(classification === "UNCLASSIFIED" ? null : classification, reason || null, classifiedAt, classifiedBy, request.id);
   recordEvent("key_request.classified", { subjectType: "key_request", subjectId: String(request.id), outcome: classification, metadata: { reason, classified_by: classifiedBy } });
   res.json({ ...db.prepare("SELECT * FROM key_requests WHERE id=?").get(request.id), classification });
+});
+
+app.patch("/admin/key-requests/:id/management", adminAuth, (req, res) => {
+  const request = db.prepare("SELECT * FROM key_requests WHERE id=?").get(req.params.id);
+  if (!request) return res.status(404).json({ error: "key request not found" });
+  const action = String(req.body?.action || "").toUpperCase();
+  if (!["SUSPEND", "RESTORE", "DELETE"].includes(action)) return res.status(400).json({ error: "action must be SUSPEND|RESTORE|DELETE" });
+  const reasonCode = String(req.body?.reason_code || "").toUpperCase();
+  const allowedReasons = ["ABUSE_SUSPECTED", "ABUSE_CONFIRMED", "NO_LONGER_NEEDED", "ISSUED_BY_MISTAKE", "INTERNAL_TEST_CLEANUP", "INVESTIGATION_CLEARED"];
+  if (!allowedReasons.includes(reasonCode)) return res.status(400).json({ error: "invalid management reason code" });
+  const reason = String(req.body?.reason || "").trim().slice(0, 2000);
+  if (!reason) return res.status(400).json({ error: "management reason required" });
+  const evidence = keyRequestEvidence(request);
+  if (action === "RESTORE" && evidence.management_state === "DELETED") return res.status(409).json({ error: "deleted requests and revoked keys cannot be restored" });
+  const affected = [];
+  const managedAt = now();
+  db.transaction(() => {
+    for (const credential of evidence.credentials) {
+      if (action === "SUSPEND" && credential.status !== "revoked") {
+        db.prepare("UPDATE api_credentials SET status='suspended',risk_level='critical' WHERE id=?").run(credential.id);
+        db.prepare("UPDATE credential_grants SET risk_state='SUSPENDED',updated_at=?,revoke_reason=? WHERE credential_id=? AND risk_state<>'REVOKED'").run(managedAt, reasonCode, credential.id);
+        recordEvent("credential.admin_suspended", { credentialId: credential.id, subjectType: "key_request", subjectId: String(request.id), outcome: "suspended", metadata: { reason_code: reasonCode, reason } });
+        affected.push(credential.id);
+      }
+      if (action === "RESTORE" && credential.status === "suspended") {
+        db.prepare("UPDATE api_credentials SET status='active',risk_level='low' WHERE id=?").run(credential.id);
+        db.prepare("UPDATE credential_grants SET risk_state='NORMAL',updated_at=?,revoke_reason=NULL WHERE credential_id=? AND risk_state='SUSPENDED'").run(managedAt, credential.id);
+        recordEvent("credential.admin_restored", { credentialId: credential.id, subjectType: "key_request", subjectId: String(request.id), outcome: "active", metadata: { reason_code: reasonCode, reason } });
+        affected.push(credential.id);
+      }
+      if (action === "DELETE" && credential.status !== "revoked") {
+        db.prepare("UPDATE api_credentials SET status='revoked',risk_level='critical' WHERE id=?").run(credential.id);
+        db.prepare("UPDATE credential_grants SET risk_state='REVOKED',updated_at=?,revoked_at=COALESCE(revoked_at,?),revoke_reason=? WHERE credential_id=?").run(managedAt, managedAt, reasonCode, credential.id);
+        recordEvent("credential.admin_deleted", { credentialId: credential.id, subjectType: "key_request", subjectId: String(request.id), outcome: "revoked", metadata: { reason_code: reasonCode, reason } });
+        affected.push(credential.id);
+      }
+    }
+    const nextState = action === "SUSPEND" ? "SUSPENDED" : action === "DELETE" ? "DELETED" : "ACTIVE";
+    db.prepare("UPDATE key_requests SET management_state=?,management_reason_code=?,management_reason=?,managed_at=?,managed_by='admin' WHERE id=?")
+      .run(nextState, reasonCode, reason, managedAt, request.id);
+    if (action === "DELETE" && reasonCode === "ABUSE_CONFIRMED" && evidence.account_id) db.prepare("UPDATE accounts SET status='blocked' WHERE id=?").run(evidence.account_id);
+    recordEvent(`key_request.${action.toLowerCase()}`, { subjectType: "key_request", subjectId: String(request.id), outcome: nextState, metadata: { reason_code: reasonCode, reason, affected_credentials: affected.length } });
+  })();
+  res.json({ request: keyRequestEvidence(db.prepare("SELECT * FROM key_requests WHERE id=?").get(request.id)), affected_credentials: affected, usage_history_preserved: true });
 });
 
 // ---------- 키 요청 (랜딩 폼) ----------
@@ -1617,9 +1689,15 @@ app.post("/request-key", asyncRoute(async (req, res) => {
     db.prepare("INSERT INTO account_milestones (account_id,updated_at) VALUES (?,?)").run(id, now());
     account = db.prepare("SELECT * FROM accounts WHERE id=?").get(id);
   }
+  if (account.status === "blocked") {
+    db.prepare("UPDATE key_requests SET management_state='DELETED',management_reason_code='ABUSE_CONFIRMED',management_reason='Blocked account attempted to request another key',managed_at=?,managed_by='system' WHERE id=?")
+      .run(now(), Number(stored.lastInsertRowid));
+    recordEvent("key_request.blocked_reissue", { subjectType: "account", subjectId: account.id, outcome: "blocked", metadata: { request_id: Number(stored.lastInsertRowid) } });
+    return wantsJson ? res.status(403).json({ error: "This account cannot request a new key." }) : res.status(403).send(page("Request blocked", "<p>This account cannot request a new key.</p>"));
+  }
   const rawToken = crypto.randomBytes(32).toString("base64url");
-  db.prepare("INSERT INTO verification_tokens (token_hash,account_id,expires_at,created_at) VALUES (?,?,?,?)")
-    .run(credentialHash(rawToken), account.id, now() + 30 * 60 * 1000, now());
+  db.prepare("INSERT INTO verification_tokens (token_hash,account_id,expires_at,created_at,request_id) VALUES (?,?,?,?,?)")
+    .run(credentialHash(rawToken), account.id, now() + 30 * 60 * 1000, now(), Number(stored.lastInsertRowid));
   const verificationUrl = `${BASE_URL}/verify-email?token=${encodeURIComponent(rawToken)}`;
   const sent = await sendVerificationEmail(email, verificationUrl);
   recordEvent("key_request.verification_sent", { subjectType: "account", subjectId: account.id, outcome: sent ? "sent" : "development_logged", metadata: { request_id: Number(stored.lastInsertRowid) } });
@@ -1631,6 +1709,8 @@ app.get("/verify-email", (req, res) => {
   const tokenHash = credentialHash(String(req.query.token || ""));
   const token = db.prepare("SELECT * FROM verification_tokens WHERE token_hash=? AND used_at IS NULL AND expires_at>?").get(tokenHash, now());
   if (!token) return res.status(400).send(page("Link expired", "<h1>This link is no longer valid.</h1><p>Request a fresh key from the home page.</p>"));
+  const account = db.prepare("SELECT * FROM accounts WHERE id=?").get(token.account_id);
+  if (!account || account.status === "blocked") return res.status(403).send(page("Request blocked", "<h1>This account cannot create another key.</h1>"));
   res.send(page("Confirm your email", `<p class="eyebrow">Email verification</p><h1>Create my limited API key</h1><p>Press the button to confirm this email. Opening the link alone does not create or reveal a key.</p><form method="post"><button>Verify email and create key</button></form>`));
 });
 
@@ -1639,12 +1719,14 @@ app.post("/verify-email", (req, res) => {
   const token = db.prepare("SELECT * FROM verification_tokens WHERE token_hash=? AND used_at IS NULL AND expires_at>?").get(tokenHash, now());
   if (!token) return res.status(400).send(page("Link expired", "<h1>This link is no longer valid.</h1><p>Request a fresh key from the home page.</p>"));
   const account = db.prepare("SELECT * FROM accounts WHERE id=?").get(token.account_id);
+  if (!account || account.status === "blocked") return res.status(403).send(page("Request blocked", "<h1>This account cannot create another key.</h1>"));
   let issued;
   db.transaction(() => {
     const used = db.prepare("UPDATE verification_tokens SET used_at=? WHERE token_hash=? AND used_at IS NULL").run(now(), tokenHash);
     if (used.changes !== 1) throw new Error("verification token already used");
     db.prepare("UPDATE accounts SET email_verified_at=COALESCE(email_verified_at,?) WHERE id=?").run(now(), account.id);
     issued = issueCredential({ accountId: account.id, label: account.email, plan: "verified_limited" });
+    if (token.request_id) db.prepare("UPDATE key_requests SET credential_id=? WHERE id=?").run(issued.id, token.request_id);
   })();
   const installToken = issueSlackInstallToken(issued.id);
   res.send(page("Your API key", `<p class="eyebrow">Email verified</p><h1>Your real API key is ready.</h1><pre>${esc(issued.key)}</pre><p>Copy it now. For safety, it cannot be shown again.</p><p><a href="${esc(`${BASE_URL}/slack/install?token=${installToken}`)}">Connect Slack</a></p><pre>${esc(JSON.stringify(issued.limits, null, 2))}</pre><p class="muted">This key uses the real API with small safety limits. Higher-volume access requires review.</p>`));
