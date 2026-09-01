@@ -1361,17 +1361,84 @@ function issueCredential({ accountId = null, label = "", plan = "verified_limite
 function adminOverviewData() {
   const since = now() - 24 * 3600 * 1000;
   const counts = Object.fromEntries(db.prepare("SELECT status, COUNT(*) c FROM approvals GROUP BY status").all().map((r) => [r.status, r.c]));
+  const activationFunnel = Object.fromEntries(db.prepare("SELECT event_name,COUNT(DISTINCT COALESCE(account_id,credential_id)) c FROM analytics_events GROUP BY event_name").all().map((r) => [r.event_name, r.c]));
+  const callbacksFailed = db.prepare("SELECT COUNT(*) c FROM outbox WHERE state='failed'").get().c;
+  const callbacksRetrying = db.prepare("SELECT COUNT(*) c FROM outbox WHERE state='queued'").get().c;
+  const incidentsOpen = db.prepare("SELECT COUNT(*) c FROM incidents WHERE status='OPEN'").get().c;
+  const pendingReviews = db.prepare("SELECT COUNT(*) c FROM access_requests WHERE status='PENDING'").get().c;
+  const estimatedCostToday = db.prepare("SELECT COALESCE(SUM(estimated_usd),0) c FROM cost_ledger WHERE at>=?").get(new Date().setHours(0,0,0,0)).c;
+  const requestSummary = db.prepare(`SELECT COUNT(*) total,
+    COALESCE(SUM(CASE WHEN COALESCE(classification,'UNCLASSIFIED')='UNCLASSIFIED' THEN 1 ELSE 0 END),0) unclassified,
+    COALESCE(SUM(CASE WHEN classification='VALID_REQUEST' THEN 1 ELSE 0 END),0) valid,
+    COALESCE(SUM(CASE WHEN classification='INTERNAL_TEST' THEN 1 ELSE 0 END),0) internal_tests,
+    COALESCE(SUM(CASE WHEN classification='PROMOTIONAL_SPAM' THEN 1 ELSE 0 END),0) promotional
+    FROM key_requests WHERE COALESCE(management_state,'ACTIVE')<>'DELETED'`).get();
+  requestSummary.valid_unverified = db.prepare(`SELECT COUNT(*) c FROM key_requests kr LEFT JOIN accounts a ON lower(a.email)=lower(kr.email)
+    WHERE kr.classification='VALID_REQUEST' AND COALESCE(kr.management_state,'ACTIVE')<>'DELETED' AND a.email_verified_at IS NULL`).get().c;
+  const credentialSummary = db.prepare(`SELECT COUNT(*) total,
+    COALESCE(SUM(CASE WHEN status='active' AND risk_level='low' THEN 1 ELSE 0 END),0) healthy,
+    COALESCE(SUM(CASE WHEN status IN ('restricted','throttled','suspended') OR (status='active' AND risk_level<>'low') THEN 1 ELSE 0 END),0) attention,
+    COALESCE(SUM(CASE WHEN status IN ('revoked','blocked') THEN 1 ELSE 0 END),0) closed
+    FROM api_credentials`).get();
+  const protectedActions = Object.values(counts).reduce((sum, value) => sum + Number(value || 0), 0);
+  const briefingItems = [];
+  const addBriefing = (level, title, detail, recommendation, href, actionLabel) => briefingItems.push({ level, title, detail, recommendation, href, action_label: actionLabel });
+
+  if (incidentsOpen || callbacksFailed) {
+    addBriefing("critical", "운영 문제를 바로 확인해야 합니다.", `미해결 사고 ${incidentsOpen}건, 영구 실패 콜백 ${callbacksFailed}건이 있습니다.`, "Incidents에서 원인을 확인하고, Reliability에서 실패한 전달을 조사하세요.", incidentsOpen ? "/admin/incidents" : "/admin/reliability", "문제 확인");
+  } else if (callbacksRetrying || credentialSummary.attention || Number(counts.pending || 0)) {
+    addBriefing("warning", "긴급 장애는 없지만 확인할 운영 항목이 있습니다.", `재시도 중 콜백 ${callbacksRetrying}건, 제한 또는 정지된 키 ${credentialSummary.attention}개, 대기 중 승인 ${Number(counts.pending || 0)}건입니다.`, "가장 큰 숫자가 있는 섹션부터 확인하세요. 원인이 명확하지 않으면 키를 먼저 Suspend하는 것이 안전합니다.", callbacksRetrying ? "/admin/reliability" : credentialSummary.attention ? "/admin/accounts" : "/admin/traffic", "운영 항목 확인");
+  } else {
+    addBriefing("good", "서비스 운영은 안정적입니다.", `미해결 사고와 콜백 재시도가 없고, 현재 추가 조사가 필요한 API Key도 없습니다. 폐기 완료된 키 ${credentialSummary.closed}개는 조치 대상에서 제외했습니다.`, "긴급 조치는 없습니다. 아래 고객 요청과 활성화 기회만 확인하세요.", "/admin/reliability", "안정성 보기");
+  }
+
+  if (requestSummary.unclassified || pendingReviews) {
+    addBriefing("warning", "새 요청을 분류하거나 검토해야 합니다.", `미분류 요청 ${requestSummary.unclassified}건, 사용량 확대 검토 ${pendingReviews}건이 남아 있습니다.`, "Key requests에서 실제 요청인지 먼저 분류하고, 고용량 요청은 근거를 확인한 뒤 제한과 함께 승인하세요.", "/admin/key-requests", "요청 검토");
+  } else if (requestSummary.valid_unverified) {
+    addBriefing("opportunity", "실제 사용 가능성이 있는 요청이 인증을 기다리고 있습니다.", `유효 요청 ${requestSummary.valid}건 중 ${requestSummary.valid_unverified}건은 아직 이메일 인증과 API Key 발급이 완료되지 않았습니다.`, "지금은 키를 수동 발급하지 말고 인증 완료 여부를 지켜보세요. 인증되면 Accounts에서 실제 사용 전환을 확인하세요.", "/admin/key-requests", "유효 요청 보기");
+  } else if (requestSummary.valid) {
+    addBriefing("good", "유효 요청이 정리되어 있습니다.", `현재 유효 요청 ${requestSummary.valid}건, 내부 테스트 ${requestSummary.internal_tests}건, 광고성 제출 ${requestSummary.promotional}건입니다.`, "유효 요청이 실제 API 사용으로 이어지는지 Accounts의 최초 사용 시점을 확인하세요.", "/admin/key-requests", "요청 현황 보기");
+  } else {
+    addBriefing("info", "새로운 유효 요청은 아직 없습니다.", `현재 활성 요청 ${requestSummary.total}건 중 실제 사용 후보로 분류된 요청이 없습니다.`, "광고성·테스트 요청은 정리된 상태로 두고, 새로운 이메일 인증 완료를 기다리세요.", "/admin/key-requests", "요청함 보기");
+  }
+
+  const firstProductionActions = Number(activationFunnel.first_production_action || 0);
+  if (protectedActions > 0 && firstProductionActions === 0) {
+    addBriefing("opportunity", "API 동작 기록은 있지만 실제 고객 활성화는 아직 0건입니다.", `보호된 작업은 ${protectedActions}건이지만 요청 → 사람의 결정 → 콜백 성공까지 완료한 계정은 없습니다. 테스트 또는 이전 키 사용이 섞였을 가능성이 높습니다.`, "성장 판단에는 전체 작업 수보다 ‘첫 실제 사용 완료’를 우선 보세요. 실제 사용자 1명이 전체 흐름을 완료하는 것을 다음 목표로 추천합니다.", "/admin/accounts", "활성화 확인");
+  } else if (firstProductionActions > 0) {
+    addBriefing("good", "실제 고객의 전체 승인 흐름이 동작했습니다.", `${firstProductionActions}개 계정이 실제 요청, 사람의 결정, 콜백 성공까지 완료했습니다.`, "Accounts에서 반복 사용 여부를 확인하고, 막히는 단계가 생기면 Activation funnel을 비교하세요.", "/admin/accounts", "활성 고객 보기");
+  } else {
+    addBriefing("opportunity", "첫 실제 사용을 만드는 것이 다음 목표입니다.", "아직 실제 API Key로 요청 → 결정 → 콜백 성공까지 완료한 계정이 없습니다.", "유효 요청 한 건의 설치를 도와 ‘첫 실제 사용 완료’ 1건을 만드는 데 집중하세요.", "/admin/accounts", "활성화 준비");
+  }
+
+  const costRatio = estimatedCostToday / GLOBAL_DAILY_COST_GUARD_USD;
+  if (costRatio >= 0.8) {
+    addBriefing("critical", "오늘 비용이 안전 한도에 가까워졌습니다.", `오늘 추정 비용은 $${Number(estimatedCostToday).toFixed(4)}로 일일 보호 한도의 ${Math.round(costRatio * 100)}%입니다.`, "Costs에서 비용이 큰 계정과 키를 확인하고 비싼 기능부터 제한하세요.", "/admin/costs", "비용 확인");
+  } else if (costRatio >= 0.5) {
+    addBriefing("warning", "오늘 비용 증가를 지켜봐야 합니다.", `오늘 추정 비용은 일일 보호 한도의 ${Math.round(costRatio * 100)}%입니다.`, "비용 상위 키가 정상 고객인지 확인하고 필요하면 이메일 기능부터 제한하세요.", "/admin/costs", "비용 추세 보기");
+  } else {
+    addBriefing("good", "오늘 비용은 안전 범위입니다.", `오늘 추정 비용은 $${Number(estimatedCostToday).toFixed(5)}이며 일일 보호 한도 $${GLOBAL_DAILY_COST_GUARD_USD.toFixed(2)}보다 충분히 낮습니다.`, "비용 때문에 지금 조치할 일은 없습니다. 실제 청구서가 오면 수동으로 입력한 확정 비용과 비교하세요.", "/admin/costs", "비용 근거 보기");
+  }
+
+  const criticalCount = briefingItems.filter((item) => item.level === "critical").length;
+  const warningCount = briefingItems.filter((item) => item.level === "warning").length;
+  const opportunityCount = briefingItems.filter((item) => item.level === "opportunity").length;
+  const briefingStatus = criticalCount ? "ACTION" : warningCount ? "WATCH" : opportunityCount ? "OPPORTUNITY" : "CLEAR";
+  const briefingHeadline = criticalCount ? `지금 바로 확인할 항목이 ${criticalCount}개 있습니다.` : warningCount ? `긴급 장애는 없고, 오늘 확인할 항목이 ${warningCount}개 있습니다.` : opportunityCount ? "서비스는 안정적입니다. 지금은 성장 전환을 확인할 때입니다." : "오늘은 별도 조치가 필요 없습니다.";
   return {
     generated_at: new Date().toISOString(),
     approvals: counts,
-    callbacks_failed: db.prepare("SELECT COUNT(*) c FROM outbox WHERE state='failed'").get().c,
-    callbacks_retrying: db.prepare("SELECT COUNT(*) c FROM outbox WHERE state='queued'").get().c,
-    credentials_needing_attention: db.prepare("SELECT COUNT(*) c FROM api_credentials WHERE status<>'active' OR risk_level<>'low'").get().c,
-    incidents_open: db.prepare("SELECT COUNT(*) c FROM incidents WHERE status='OPEN'").get().c,
-    pending_reviews: db.prepare("SELECT COUNT(*) c FROM access_requests WHERE status='PENDING'").get().c,
-    activation_funnel: Object.fromEntries(db.prepare("SELECT event_name,COUNT(DISTINCT COALESCE(account_id,credential_id)) c FROM analytics_events GROUP BY event_name").all().map((r) => [r.event_name, r.c])),
-    estimated_cost_today_usd: db.prepare("SELECT COALESCE(SUM(estimated_usd),0) c FROM cost_ledger WHERE at>=?").get(new Date().setHours(0,0,0,0)).c,
+    callbacks_failed: callbacksFailed,
+    callbacks_retrying: callbacksRetrying,
+    credentials_needing_attention: credentialSummary.attention,
+    incidents_open: incidentsOpen,
+    pending_reviews: pendingReviews,
+    activation_funnel: activationFunnel,
+    estimated_cost_today_usd: estimatedCostToday,
     events_last_24h: db.prepare("SELECT event_type, outcome, COUNT(*) c FROM operational_events WHERE at>=? GROUP BY event_type,outcome ORDER BY c DESC").all(since),
+    request_summary: requestSummary,
+    credential_summary: credentialSummary,
+    briefing: { status: briefingStatus, headline: briefingHeadline, action_count: criticalCount + warningCount, opportunity_count: opportunityCount, items: briefingItems },
   };
 }
 

@@ -139,6 +139,9 @@ async function run() {
   r = await fetch(BASE + "/admin/overview", { headers: { "x-admin-secret": "adm" } });
   const overview = await r.json();
   assert.ok(overview.events_last_24h.some((event) => event.event_type === "approval.created"));
+  assert.ok(["ACTION", "WATCH", "OPPORTUNITY", "CLEAR"].includes(overview.briefing.status));
+  assert.ok(overview.briefing.items.length >= 4, "overview must provide a complete operator briefing");
+  assert.ok(overview.briefing.items.every((item) => item.title && item.detail && item.recommendation && item.href.startsWith("/admin/")), "every briefing item must explain the evidence, recommendation, and destination");
   r = await fetch(BASE + "/admin");
   assert.equal(r.status, 401, "admin dashboard must require authentication");
   assert.match(r.headers.get("www-authenticate"), /Basic/);
@@ -162,6 +165,7 @@ async function run() {
   const adminScript = await r.text();
   assert.match(adminScript, /data-filter/, "key-request metrics must be interactive filters");
   assert.match(adminScript, /aria-pressed/, "the selected request filter must be accessible");
+  assert.match(adminScript, /오늘의 운영 보고/, "overview must lead with the operator briefing");
   const csrf = adminHtml.match(/name="csrf" value="([^"]+)"/)?.[1];
   assert.ok(csrf, "dashboard status form must include a CSRF token");
   r = await fetch(BASE + `/admin/credentials/${issued.id}/status`, { method: "POST", redirect: "manual", headers: { ...basicAdmin, "content-type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ csrf, status: "restricted" }) });
