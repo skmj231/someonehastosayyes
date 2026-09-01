@@ -159,6 +159,9 @@ async function run() {
   r = await fetch(BASE + "/admin/app.js", { headers: basicAdmin });
   assert.equal(r.status, 200);
   assert.match(r.headers.get("content-type"), /javascript/);
+  const adminScript = await r.text();
+  assert.match(adminScript, /data-filter/, "key-request metrics must be interactive filters");
+  assert.match(adminScript, /aria-pressed/, "the selected request filter must be accessible");
   const csrf = adminHtml.match(/name="csrf" value="([^"]+)"/)?.[1];
   assert.ok(csrf, "dashboard status form must include a CSRF token");
   r = await fetch(BASE + `/admin/credentials/${issued.id}/status`, { method: "POST", redirect: "manual", headers: { ...basicAdmin, "content-type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ csrf, status: "restricted" }) });
