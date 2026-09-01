@@ -57,6 +57,16 @@ async function run() {
   assert.equal(requested.status, "verification_sent");
   assert.equal(messages.length, 1, "only the verification email is sent");
   assert.equal(messages[0].subject, "Verify your email to get your API key");
+  let keyRequests = await (await fetch(BASE + "/admin/key-requests", { headers: adminHeaders })).json();
+  const keyRequest = keyRequests.find((item) => item.id === requested.request_id);
+  assert.equal(keyRequest.classification, "UNCLASSIFIED");
+  response = await fetch(BASE + `/admin/key-requests/${keyRequest.id}/classification`, { method: "PATCH", headers: adminHeaders, body: JSON.stringify({ classification: "PROMOTIONAL_SPAM" }) });
+  assert.equal(response.status, 400, "classification evidence is required");
+  response = await fetch(BASE + `/admin/key-requests/${keyRequest.id}/classification`, { method: "PATCH", headers: adminHeaders, body: JSON.stringify({ classification: "VALID_REQUEST", reason: "n8n integration requested; no promotional content" }) });
+  const classified = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(classified.classification, "VALID_REQUEST");
+  assert.equal(classified.classification_reason, "n8n integration requested; no promotional content");
   const verificationUrl = messages[0].html.match(/http:\/\/127\.0\.0\.1:4010\/verify-email\?token=[A-Za-z0-9_-]+/)?.[0];
   assert.ok(verificationUrl);
 
@@ -80,6 +90,10 @@ async function run() {
   assert.equal(issued.grant.limits.emails_month, 1);
   assert.equal(issued.grant.limits.pending, 5);
   assert.equal(issued.grant.limits.rpm, 10);
+  keyRequests = await (await fetch(BASE + "/admin/key-requests", { headers: adminHeaders })).json();
+  const enrichedRequest = keyRequests.find((item) => item.id === requested.request_id);
+  assert.ok(enrichedRequest.email_verified_at, "triage must show email verification evidence");
+  assert.equal(enrichedRequest.credentials[0].id, issued.id, "triage must show the issued credential without exposing its secret");
 
   console.log("✓ email verification, scanner-safe confirmation, limited real key, and closed admin bypass passed");
 }

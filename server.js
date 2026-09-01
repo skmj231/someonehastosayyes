@@ -279,6 +279,16 @@ if (!db.prepare("PRAGMA table_info(approvals)").all().some((c) => c.name === "id
 db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_approval_idempotency ON approvals(api_key, idempotency_key) WHERE idempotency_key IS NOT NULL");
 db.prepare("UPDATE notification_outbox SET state='queued',next_at=? WHERE state='sending'").run(Date.now());
 
+// Key-request triage is kept separately from issuance state. This lets the
+// operator distinguish a real prospect, an internal test, and promotional
+// spam without deleting the original request or its audit history.
+const keyRequestColumns = db.prepare("PRAGMA table_info(key_requests)").all().map((column) => column.name);
+if (!keyRequestColumns.includes("classification")) db.exec("ALTER TABLE key_requests ADD COLUMN classification TEXT");
+if (!keyRequestColumns.includes("classification_reason")) db.exec("ALTER TABLE key_requests ADD COLUMN classification_reason TEXT");
+if (!keyRequestColumns.includes("classified_at")) db.exec("ALTER TABLE key_requests ADD COLUMN classified_at INTEGER");
+if (!keyRequestColumns.includes("classified_by")) db.exec("ALTER TABLE key_requests ADD COLUMN classified_by TEXT");
+db.exec("CREATE INDEX IF NOT EXISTS idx_key_requests_classification ON key_requests(classification, at)");
+
 // 오래된 DB의 평문 키를 한 번만 해시로 바꾸고 새 credential/grant 구조에 연결한다.
 const legacyKeyColumns = db.prepare("PRAGMA table_info(keys)").all().map((column) => column.name);
 if (!legacyKeyColumns.includes("key_hash")) db.exec("ALTER TABLE keys ADD COLUMN key_hash TEXT");
@@ -1545,7 +1555,38 @@ app.get("/admin/backup", adminAuth, asyncRoute(async (req, res) => {
 }));
 
 app.get("/admin/key-requests", adminAuth, (req, res) => {
-  res.json(db.prepare("SELECT * FROM key_requests ORDER BY at DESC LIMIT 200").all());
+  const requests = db.prepare("SELECT * FROM key_requests ORDER BY at DESC LIMIT 200").all();
+  const accountByEmail = db.prepare("SELECT * FROM accounts WHERE lower(email)=lower(?)");
+  const credentialsForAccount = db.prepare(`SELECT c.id,c.key_prefix,c.label,c.status,c.plan,c.last_used_at,g.risk_state,g.revoked_at,g.revoke_reason
+    FROM credential_grants g JOIN api_credentials c ON c.id=g.credential_id
+    WHERE g.account_id=? ORDER BY c.created_at DESC`);
+  res.json(requests.map((request) => {
+    const account = accountByEmail.get(request.email);
+    const credentials = account ? credentialsForAccount.all(account.id) : [];
+    return {
+      ...request,
+      classification: request.classification || "UNCLASSIFIED",
+      account_id: account?.id || null,
+      email_verified_at: account?.email_verified_at || request.verified_at || null,
+      credentials,
+    };
+  }));
+});
+
+app.patch("/admin/key-requests/:id/classification", adminAuth, (req, res) => {
+  const request = db.prepare("SELECT * FROM key_requests WHERE id=?").get(req.params.id);
+  if (!request) return res.status(404).json({ error: "key request not found" });
+  const classification = String(req.body?.classification || "");
+  const allowed = ["UNCLASSIFIED", "VALID_REQUEST", "INTERNAL_TEST", "PROMOTIONAL_SPAM"];
+  if (!allowed.includes(classification)) return res.status(400).json({ error: "invalid classification" });
+  const reason = String(req.body?.reason || "").trim().slice(0, 2000);
+  if (classification !== "UNCLASSIFIED" && !reason) return res.status(400).json({ error: "classification reason required" });
+  const classifiedAt = classification === "UNCLASSIFIED" ? null : now();
+  const classifiedBy = classification === "UNCLASSIFIED" ? null : String(req.body?.classified_by || "admin").slice(0, 120);
+  db.prepare("UPDATE key_requests SET classification=?,classification_reason=?,classified_at=?,classified_by=? WHERE id=?")
+    .run(classification === "UNCLASSIFIED" ? null : classification, reason || null, classifiedAt, classifiedBy, request.id);
+  recordEvent("key_request.classified", { subjectType: "key_request", subjectId: String(request.id), outcome: classification, metadata: { reason, classified_by: classifiedBy } });
+  res.json({ ...db.prepare("SELECT * FROM key_requests WHERE id=?").get(request.id), classification });
 });
 
 // ---------- 키 요청 (랜딩 폼) ----------
