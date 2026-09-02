@@ -361,6 +361,21 @@ function rateLimited(bucket, max, windowMs) {
 const ip = (req) => (req.headers["x-forwarded-for"] || req.socket.remoteAddress || "").toString().split(",")[0].trim();
 const clientFingerprint = (req) => crypto.createHmac("sha256", SIGNING_SECRET).update(ip(req)).digest("hex").slice(0, 24);
 
+// 짧게 살아 있는 익명 heartbeat만 보관한다. 방문자 수나 식별자는 저장하지 않는다.
+const relayPresence = new Map();
+const PRESENCE_TTL_MS = 35000;
+function relayPresenceResponse(req) {
+  const userAgent = String(req.headers["user-agent"] || "");
+  if (!userAgent || /bot|crawl|spider|preview|headless|monitor|uptime/i.test(userAgent)) return { active: false };
+  const visitor = String(req.body?.visitor || "");
+  if (!/^[a-zA-Z0-9_-]{16,80}$/.test(visitor)) return { active: false };
+  const timestamp = now();
+  for (const [key, seenAt] of relayPresence) if (timestamp - seenAt > PRESENCE_TTL_MS) relayPresence.delete(key);
+  const key = crypto.createHmac("sha256", SIGNING_SECRET).update(`${clientFingerprint(req)}:${visitor}`).digest("hex");
+  relayPresence.set(key, timestamp);
+  return { active: [...relayPresence.keys()].some((candidate) => candidate !== key) };
+}
+
 const app = express();
 app.set("trust proxy", true);
 app.disable("x-powered-by");
@@ -1837,6 +1852,10 @@ const PUBLIC_FILES = new Map([
   ["/templates/n8n-content-publish-approval.json", "examples/n8n-content-publish-approval.json"],
   ["/templates/n8n-crm-bulk-change-approval.json", "examples/n8n-crm-bulk-change-approval.json"],
 ]);
+app.post("/presence/relay", (req, res) => {
+  res.set("Cache-Control", "no-store");
+  res.json(relayPresenceResponse(req));
+});
 app.get([...PUBLIC_FILES.keys()], (req, res, next) => {
   res.set("Cache-Control", "public, max-age=300");
   if (req.path.startsWith("/templates/")) {
