@@ -1,9 +1,9 @@
 {
-  "name": "Approval: Content publishing approval",
+  "name": "Approval: Qualified lead routing approval",
   "nodes": [
     {
       "parameters": {},
-      "name": "Content ready",
+      "name": "Lead scored",
       "type": "n8n-nodes-base.manualTrigger",
       "typeVersion": 1,
       "position": [
@@ -30,10 +30,10 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ question: \"Publish this AI-generated content?\", context: {\"action\":\"content.publish\",\"destination\":\"Replace with destination\",\"title\":\"Replace with title\",\"content\":\"Replace with generated content\"}, approve_label: \"Publish\", reject_label: \"Keep draft\", channel: 'email', to: 'YOUR_APPROVER_EMAIL', callback_url: $execution.resumeUrl, timeout_minutes: 120, default_on_timeout: 'rejected' }) }}",
+        "jsonBody": "={{ JSON.stringify({ question: \"Add this qualified lead to the sales pipeline?\", context: {\"action\":\"lead.create\",\"lead\":\"Replace with lead\",\"score\":85,\"evidence\":\"Replace with qualification evidence\"}, approve_label: \"Create lead\", reject_label: \"Do not create\", channel: 'email', to: 'YOUR_APPROVER_EMAIL', callback_url: $execution.resumeUrl, timeout_minutes: 120, default_on_timeout: 'rejected' }) }}",
         "options": {}
       },
-      "name": "Request publishing approval",
+      "name": "Request lead approval",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
@@ -57,7 +57,7 @@
         500,
         0
       ],
-      "webhookId": "shsy-content-publish-0001"
+      "webhookId": "shsy-lead-qualification-0001"
     },
     {
       "parameters": {
@@ -93,7 +93,7 @@
     },
     {
       "parameters": {},
-      "name": "CONNECT PUBLISHING HERE",
+      "name": "CONNECT CRM CREATE HERE",
       "type": "n8n-nodes-base.noOp",
       "typeVersion": 1,
       "position": [
@@ -103,7 +103,7 @@
     },
     {
       "parameters": {},
-      "name": "Keep draft / notify owner",
+      "name": "Skip lead / record reason",
       "type": "n8n-nodes-base.noOp",
       "typeVersion": 1,
       "position": [
@@ -113,18 +113,18 @@
     }
   ],
   "connections": {
-    "Content ready": {
+    "Lead scored": {
       "main": [
         [
           {
-            "node": "Request publishing approval",
+            "node": "Request lead approval",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Request publishing approval": {
+    "Request lead approval": {
       "main": [
         [
           {
@@ -150,14 +150,14 @@
       "main": [
         [
           {
-            "node": "CONNECT PUBLISHING HERE",
+            "node": "CONNECT CRM CREATE HERE",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Keep draft / notify owner",
+            "node": "Skip lead / record reason",
             "type": "main",
             "index": 0
           }
