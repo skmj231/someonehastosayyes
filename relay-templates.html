@@ -193,7 +193,7 @@
     document.getElementById('close-dialog').addEventListener('click',()=>dialog.close());
     dialog.addEventListener('click',event=>{if(event.target===dialog)dialog.close()});
     dialog.addEventListener('close',()=>history.replaceState(null,'',location.pathname+location.search));
-    document.getElementById('download').addEventListener('click',event=>{event.preventDefault();if(!current)return;const blob=new Blob([JSON.stringify(workflowFor(current),null,2)+'\n'],{type:'application/json'});const url=URL.createObjectURL(blob);const link=document.createElement('a');link.href=url;link.download=current.file.split('/').pop();link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);notify('Workflow downloaded')});
+    document.getElementById('download').addEventListener('click',event=>{event.preventDefault();if(!current)return;const blob=new Blob([JSON.stringify(workflowFor(current),null,2)+'\n'],{type:'application/json'});const url=URL.createObjectURL(blob);const link=document.createElement('a');link.href=url;link.download=current.file.split('/').pop();document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);notify('Workflow downloaded')});
     document.getElementById('copy-prompt').addEventListener('click',async()=>{if(!current)return;try{await navigator.clipboard.writeText(current.prompt);notify('Install prompt copied')}catch{notify('Could not copy the prompt')}});
     search.addEventListener('input',render);
     appFilter.addEventListener('change',render);
