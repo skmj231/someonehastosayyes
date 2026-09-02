@@ -3,50 +3,53 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Relay.app migration — keep your human approvals</title>
-  <meta name="description" content="Move your automation to n8n or Make. Replace Relay's human approval step with one approval request and callback.">
+  <title>Keep your Relay approvals | someonehastosayyes</title>
+  <meta name="description" content="Relay.app is closing. Move the workflow to n8n and keep the human approval step.">
   <style>
-    :root{--ink:#181a16;--muted:#62675f;--line:#d9ded6;--accent:#e6ed52;--soft:#f6f7f3;--mono:ui-monospace,SFMono-Regular,Menlo,monospace;--sans:Inter,ui-sans-serif,system-ui,sans-serif}
-    *{box-sizing:border-box}body{margin:0;color:var(--ink);font:16px/1.6 var(--sans)}a{color:inherit;text-underline-offset:4px}.alert{background:var(--accent);padding:12px 20px;text-align:center;font-size:13px;font-weight:700}.shell{width:min(1080px,calc(100% - 40px));margin:auto}.nav{height:76px;display:flex;align-items:center;justify-content:space-between}.brand{font-weight:700;text-decoration:none}.hero{padding:90px 0 80px}.eyebrow{color:#73790e;font:12px var(--mono)}h1{max-width:920px;margin:20px 0 24px;font-size:clamp(54px,8vw,92px);line-height:.94;letter-spacing:-.06em}.lead{max-width:700px;color:var(--muted);font-size:20px}.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:34px}.button{display:inline-flex;align-items:center;min-height:48px;padding:0 19px;border:1px solid var(--ink);background:#fff;text-decoration:none;font-weight:700}.button.primary{background:var(--ink);color:#fff}.map{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:26px;padding:58px;background:var(--soft)}.side small{font:11px var(--mono);color:var(--muted)}.side h2{margin:15px 0 8px;font-size:32px;line-height:1.05}.side p{margin:0;color:var(--muted)}.arrow{font-size:32px}.check{padding:90px 0}.check>h2{max-width:760px;margin:0 0 45px;font-size:clamp(38px,5vw,58px);line-height:1;letter-spacing:-.045em}.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.step{padding:28px;background:var(--soft)}.step span{color:#777d12;font:11px var(--mono)}.step h3{margin:24px 0 7px;font-size:20px}.step p{margin:0;color:var(--muted);font-size:14px}.offer{margin-top:48px;padding:36px;border:1px solid var(--ink)}.offer h2{margin:0 0 12px;font-size:32px}.offer p{max-width:760px;margin:0;color:var(--muted)}.privacy{font-size:13px}.source{color:var(--muted);font-size:12px;margin-top:30px}footer{padding:40px 0;color:var(--muted);font-size:13px}@media(max-width:700px){.hero{padding:60px 0}.map{grid-template-columns:1fr;padding:36px 25px}.arrow{transform:rotate(90deg)}.steps{grid-template-columns:1fr}.actions{display:grid}.button{justify-content:center}}
+    :root{--ink:#171914;--muted:#696e66;--line:#dfe2da;--paper:#f7f8f4;--white:#fff;--signal:#e5ed4d;--mono:ui-monospace,SFMono-Regular,Menlo,monospace;--sans:Inter,ui-sans-serif,system-ui,sans-serif}
+    *{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font:15px/1.5 var(--sans)}a{color:inherit}.shell{width:min(1180px,calc(100% - 48px));margin:auto}.nav{height:68px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line)}.brand{font-weight:800;letter-spacing:-.03em;text-decoration:none}.nav a:last-child{font-size:13px;text-underline-offset:4px}
+    .hero{padding:62px 0 76px}.deadline{margin:0 0 13px;color:var(--muted);font:11px var(--mono);letter-spacing:.06em;text-transform:uppercase}.countdown{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));max-width:980px;border:1px solid var(--ink);background:var(--white)}.unit{padding:22px 24px 19px;border-right:1px solid var(--ink)}.unit:last-child{border:0}.number{display:block;font-size:clamp(48px,8vw,104px);font-weight:850;line-height:.85;letter-spacing:-.07em;font-variant-numeric:tabular-nums}.label{display:block;margin-top:15px;color:var(--muted);font:10px var(--mono);letter-spacing:.08em;text-transform:uppercase}.date{margin:10px 0 0;color:var(--muted);font:11px var(--mono)}
+    h1{max-width:1000px;margin:66px 0 17px;font-size:clamp(58px,9vw,112px);line-height:.86;letter-spacing:-.07em}.approval{color:#777c74}.lead{max-width:620px;margin:0;color:var(--muted);font-size:18px}.actions{display:flex;gap:9px;margin-top:30px}.button{display:inline-flex;align-items:center;justify-content:center;min-height:48px;padding:0 18px;border:1px solid var(--ink);background:var(--ink);color:var(--white);text-decoration:none;font-weight:800}.button.secondary{background:var(--white);color:var(--ink)}
+    .path{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid var(--line);background:var(--white)}.step{min-height:190px;padding:28px;border-right:1px solid var(--line)}.step:last-child{border:0}.step span{font:11px var(--mono);color:var(--muted)}.step h2{margin:48px 0 6px;font-size:24px;letter-spacing:-.035em}.step p{max-width:270px;margin:0;color:var(--muted);font-size:13px}
+    .final{display:flex;align-items:center;justify-content:space-between;gap:30px;padding:74px 0}.final h2{max-width:670px;margin:0;font-size:clamp(32px,5vw,58px);line-height:.98;letter-spacing:-.05em}.source{padding:0 0 40px;color:var(--muted);font-size:11px}footer{padding:30px 0;border-top:1px solid var(--line);color:var(--muted);font-size:12px}
+    @media(max-width:720px){.shell{width:min(100% - 28px,1180px)}.hero{padding-top:40px}.countdown{grid-template-columns:repeat(2,1fr)}.unit:nth-child(2){border-right:0}.unit:nth-child(-n+2){border-bottom:1px solid var(--ink)}h1{margin-top:52px}.path{grid-template-columns:1fr}.step{min-height:auto;border-right:0;border-bottom:1px solid var(--line)}.step h2{margin-top:28px}.actions,.final{align-items:stretch;flex-direction:column}.button{width:100%}.final{padding:58px 0}}
   </style>
 </head>
 <body>
-  <div class="alert">Relay.app paying accounts close September 14, 2026 at 23:59 PT. Export first.</div>
-  <header class="shell nav"><a class="brand" href="/">someonehastosayyes</a><a href="/trust">Trust</a></header>
+  <header class="shell nav"><a class="brand" href="/">someonehastosayyes</a><a href="/relay/templates">Templates</a></header>
   <main>
     <section class="shell hero">
-      <p class="eyebrow">RELAY RESCUE / KEEP THE PART THAT WORKED</p>
-      <h1>Relay.app is shutting down. Keep your human approvals.</h1>
-      <p class="lead">Move the workflow to n8n. Start from a ready-to-import workflow that already includes the approval request, wait state, yes/no branch, and timeout fallback.</p>
-      <div class="actions">
-        <a class="button primary" href="/relay/templates">Browse rescued templates →</a>
-        <a class="button" href="/?tool=n8n&amp;source=relay-page&amp;utm_campaign=relay-rescue#request">Get an API key</a>
+      <p class="deadline">Relay closes in</p>
+      <div class="countdown" id="countdown" aria-label="Time until Relay closes">
+        <div class="unit"><strong class="number" id="days">00</strong><span class="label">Days</span></div>
+        <div class="unit"><strong class="number" id="hours">00</strong><span class="label">Hours</span></div>
+        <div class="unit"><strong class="number" id="minutes">00</strong><span class="label">Minutes</span></div>
+        <div class="unit"><strong class="number" id="seconds">00</strong><span class="label">Seconds</span></div>
       </div>
+      <p class="date">September 14, 2026 · 11:59 PM PT</p>
+      <h1>Keep your <span class="approval">approvals.</span></h1>
+      <p class="lead">Move the workflow to n8n. Keep the human decision.</p>
+      <div class="actions"><a class="button" href="/relay/templates">Choose a template</a><a class="button secondary" href="https://docs.relay.app/workspace-and-account/export-your-relay.app-data">Export from Relay</a></div>
     </section>
-    <section class="shell map" aria-label="Migration architecture">
-      <div class="side"><small>BEFORE</small><h2>Relay runs the work and the approval.</h2><p>Trigger → work → human approval → action</p></div>
-      <div class="arrow">→</div>
-      <div class="side"><small>AFTER</small><h2>Your tool runs the work. We handle the decision.</h2><p>n8n / Make → approval gate → n8n / Make</p></div>
+    <section class="shell path" aria-label="Relay migration steps">
+      <article class="step"><span>01</span><h2>Export</h2><p>Save the Relay workflow before it closes.</p></article>
+      <article class="step"><span>02</span><h2>Pick</h2><p>Choose the action that needs approval.</p></article>
+      <article class="step"><span>03</span><h2>Connect</h2><p>Import the n8n template and connect the approved action.</p></article>
     </section>
-    <section class="shell check">
-      <h2>A smaller migration than rebuilding another platform.</h2>
-      <div class="steps">
-        <article class="step"><span>01</span><h3>Export before the deadline</h3><p>Save Relay workflows, run history, prompts, and tables using Relay's export.</p></article>
-        <article class="step"><span>02</span><h3>Rebuild the work</h3><p>Put triggers and actions in n8n or Make—the automation tool you will keep.</p></article>
-        <article class="step"><span>03</span><h3>Replace only the pause</h3><p>Add the approval request and route the signed callback to approved or rejected.</p></article>
-      </div>
-      <div class="offer">
-        <h2>Do not rebuild the approval plumbing again.</h2>
-        <p>Choose the action you need to protect, download the n8n workflow, and replace two values. Every template keeps the human checkpoint and leaves the final business action as a safe placeholder.</p>
-        <div class="actions">
-          <a class="button primary" href="/relay/templates">Open the template library →</a>
-          <a class="button" href="https://docs.relay.app/workspace-and-account/export-your-relay.app-data">Open Relay's export guide</a>
-        </div>
-        <p class="privacy">Need a workflow that is not listed? Submit its trigger, human checkpoint, and protected action. Never include credentials or customer data.</p>
-      </div>
-      <p class="source">Shutdown dates are from <a href="https://relay.app/">Relay.app's official wind-down announcement</a>.</p>
-    </section>
+    <section class="shell final"><h2>One approval. Then the workflow continues.</h2><a class="button" href="/relay/templates">Open templates</a></section>
+    <p class="shell source">Shutdown date: <a href="https://relay.app/">Relay.app</a></p>
   </main>
-  <footer class="shell">someonehastosayyes · Relay migration</footer>
+  <footer><div class="shell">someonehastosayyes</div></footer>
+  <script>
+    const deadline=new Date('2026-09-15T06:59:00Z').getTime();
+    const fields={days:document.getElementById('days'),hours:document.getElementById('hours'),minutes:document.getElementById('minutes'),seconds:document.getElementById('seconds')};
+    function updateCountdown(){
+      const remaining=Math.max(0,deadline-Date.now());
+      const values={days:Math.floor(remaining/86400000),hours:Math.floor(remaining/3600000)%24,minutes:Math.floor(remaining/60000)%60,seconds:Math.floor(remaining/1000)%60};
+      Object.entries(values).forEach(([key,value])=>fields[key].textContent=String(value).padStart(2,'0'));
+      if(remaining===0){document.querySelector('.deadline').textContent='Relay has closed';clearInterval(timer)}
+    }
+    let timer;updateCountdown();timer=setInterval(updateCountdown,1000);
+  </script>
 </body>
 </html>
