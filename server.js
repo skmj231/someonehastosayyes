@@ -1829,8 +1829,13 @@ const PUBLIC_FILES = new Map([
   ["/trust", "trust.html"],
   ["/status", "status.html"],
   ["/relay", "relay.html"],
+  ["/relay/templates", "relay-templates.html"],
   ["/starters/n8n-email-approval.json", "examples/n8n-email-approval-starter.json"],
   ["/starters/n8n-slack-approval.json", "examples/n8n-approval-demo.json"],
+  ["/templates/n8n-ai-email-approval.json", "examples/n8n-ai-email-approval.json"],
+  ["/templates/n8n-refund-approval.json", "examples/n8n-refund-approval.json"],
+  ["/templates/n8n-content-publish-approval.json", "examples/n8n-content-publish-approval.json"],
+  ["/templates/n8n-crm-bulk-change-approval.json", "examples/n8n-crm-bulk-change-approval.json"],
 ]);
 app.get([...PUBLIC_FILES.keys()], (req, res, next) => {
   res.set("Cache-Control", "public, max-age=300");

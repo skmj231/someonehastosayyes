@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Relay Template Rescue — ready-to-import approval workflows</title>
+  <meta name="description" content="Free, ready-to-import n8n workflows that preserve the human approval step Relay users relied on.">
+  <style>
+    :root{--ink:#181a16;--muted:#62675f;--line:#d9ded6;--accent:#e6ed52;--soft:#f6f7f3;--white:#fff;--mono:ui-monospace,SFMono-Regular,Menlo,monospace;--sans:Inter,ui-sans-serif,system-ui,sans-serif}
+    *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;color:var(--ink);font:16px/1.55 var(--sans);background:var(--white)}a{color:inherit;text-underline-offset:4px}.shell{width:min(1180px,calc(100% - 40px));margin:auto}.alert{padding:11px 20px;background:var(--accent);text-align:center;font-size:13px;font-weight:750}.nav{min-height:72px;display:flex;align-items:center;justify-content:space-between;gap:24px}.brand{font-weight:750;text-decoration:none}.navlinks{display:flex;gap:22px;font-size:14px}.hero{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(280px,.75fr);gap:64px;padding:72px 0 54px;border-bottom:1px solid var(--line)}.eyebrow,.label{font:12px/1.3 var(--mono);letter-spacing:.04em;text-transform:uppercase;color:#72790c}.hero h1{max-width:820px;margin:16px 0 22px;font-size:clamp(52px,7vw,88px);line-height:.93;letter-spacing:-.06em}.lead{max-width:720px;margin:0;color:var(--muted);font-size:20px}.hero-note{align-self:end;padding:26px;border:1px solid var(--ink);box-shadow:8px 8px 0 var(--accent)}.hero-note strong{display:block;margin-bottom:8px;font-size:20px}.hero-note p{margin:0;color:var(--muted);font-size:14px}.library{padding:48px 0 90px}.toolbar{display:flex;align-items:end;justify-content:space-between;gap:20px;margin-bottom:26px}.toolbar h2{margin:8px 0 0;font-size:clamp(32px,4vw,50px);line-height:1;letter-spacing:-.045em}.filters{display:flex;flex-wrap:wrap;gap:8px}.filter{min-height:40px;padding:0 15px;border:1px solid var(--line);background:var(--white);font:700 13px var(--sans);cursor:pointer}.filter[aria-pressed="true"]{border-color:var(--ink);background:var(--ink);color:#fff}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.card{display:flex;flex-direction:column;min-height:340px;padding:30px;border:1px solid var(--line);background:var(--soft)}.card[hidden]{display:none}.meta{display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px;font:11px var(--mono);color:var(--muted);text-transform:uppercase}.status{color:#687000}.card h3{max-width:520px;margin:46px 0 12px;font-size:30px;line-height:1.05;letter-spacing:-.035em}.card p{margin:0;color:var(--muted)}.flow{margin:22px 0 28px;padding:14px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line);font:13px/1.6 var(--mono)}.actions{display:flex;flex-wrap:wrap;gap:9px;margin-top:auto}.button{display:inline-flex;align-items:center;justify-content:center;min-height:46px;padding:0 17px;border:1px solid var(--ink);background:#fff;text-decoration:none;font-weight:750}.button.primary{background:var(--ink);color:#fff}.copy{cursor:pointer}.rescue{display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:70px;padding:46px;background:var(--ink);color:#fff}.rescue h2{margin:10px 0 14px;font-size:40px;line-height:1;letter-spacing:-.04em}.rescue p{margin:0;color:#c5c8c1}.queue{display:grid;gap:9px}.queue-item{display:flex;justify-content:space-between;gap:20px;padding:14px 0;border-bottom:1px solid #41433f;font-size:14px}.queue-item span:last-child{color:var(--accent);font:11px var(--mono);text-transform:uppercase}.contribute{display:grid;grid-template-columns:1fr auto;align-items:center;gap:30px;padding:52px 0;border-bottom:1px solid var(--line)}.contribute h2{margin:0 0 8px;font-size:34px;line-height:1.05}.contribute p{max-width:680px;margin:0;color:var(--muted)}footer{padding:38px 0;color:var(--muted);font-size:13px}.empty{display:none;padding:50px;border:1px dashed var(--line);text-align:center;color:var(--muted)}@media(max-width:820px){.hero,.rescue{grid-template-columns:1fr}.hero{gap:35px;padding-top:48px}.grid{grid-template-columns:1fr}.toolbar,.contribute{align-items:stretch;flex-direction:column;display:flex}.navlinks a:not(:first-child){display:none}.card{min-height:320px}.rescue{padding:30px}.hero h1{font-size:clamp(48px,15vw,70px)}}
+  </style>
+</head>
+<body>
+  <div class="alert">Relay.app paying accounts close September 14, 2026 at 23:59 PT. Export your workspace first.</div>
+  <header class="shell nav">
+    <a class="brand" href="/">someonehastosayyes</a>
+    <nav class="navlinks" aria-label="Main navigation"><a href="/relay">Relay rescue</a><a href="/trust">Trust</a><a href="https://github.com/skmj231/someonehastosayyes">GitHub</a></nav>
+  </header>
+  <main>
+    <section class="shell hero">
+      <div>
+        <p class="eyebrow">Relay Template Rescue / Free library</p>
+        <h1>Keep the workflow. Keep the human checkpoint.</h1>
+        <p class="lead">Ready-to-import n8n workflows for the moments that should never run unchecked. Download one, paste your key and approver email, then replace the final placeholder with your real action.</p>
+      </div>
+      <aside class="hero-note">
+        <strong>No blank canvas.</strong>
+        <p>Every workflow includes the approval request, wait state, yes/no branch, timeout fallback, and a safe placeholder for the protected action.</p>
+      </aside>
+    </section>
+
+    <section class="shell library" id="library">
+      <div class="toolbar">
+        <div><span class="label">4 workflows · n8n</span><h2>Choose the action to protect.</h2></div>
+        <div class="filters" aria-label="Filter templates">
+          <button class="filter" data-filter="all" aria-pressed="true">All</button>
+          <button class="filter" data-filter="communications" aria-pressed="false">Communications</button>
+          <button class="filter" data-filter="finance" aria-pressed="false">Finance</button>
+          <button class="filter" data-filter="operations" aria-pressed="false">Operations</button>
+        </div>
+      </div>
+      <div class="grid" id="template-grid">
+        <article class="card" data-category="communications">
+          <div class="meta"><span>n8n · email</span><span class="status">Ready to import</span></div>
+          <h3>Approve an AI-drafted customer email before it sends</h3>
+          <p>Keep generated copy in draft until a person approves the exact outbound action.</p>
+          <div class="flow">Draft → approval request → wait → approved / rejected → send placeholder</div>
+          <div class="actions"><a class="button primary" href="/templates/n8n-ai-email-approval.json" download>Download workflow →</a><button class="button copy" data-copy="Install the n8n workflow from https://someonehastosayyes.com/templates/n8n-ai-email-approval.json. Replace PASTE_YOUR_API_KEY and YOUR_APPROVER_EMAIL, then connect the approved branch to my email sending node. Do not send until I confirm the test approval works.">Copy AI setup prompt</button></div>
+        </article>
+        <article class="card" data-category="finance">
+          <div class="meta"><span>n8n · finance</span><span class="status">Ready to import</span></div>
+          <h3>Require approval before a high-value refund</h3>
+          <p>Route refunds above your threshold to a human before money moves.</p>
+          <div class="flow">Refund request → amount check → approval → wait → refund placeholder</div>
+          <div class="actions"><a class="button primary" href="/templates/n8n-refund-approval.json" download>Download workflow →</a><button class="button copy" data-copy="Install the n8n workflow from https://someonehastosayyes.com/templates/n8n-refund-approval.json. Replace PASTE_YOUR_API_KEY and YOUR_APPROVER_EMAIL, set my refund threshold, and connect the approved branch to my refund API. Keep the placeholder until the test decision succeeds.">Copy AI setup prompt</button></div>
+        </article>
+        <article class="card" data-category="communications">
+          <div class="meta"><span>n8n · content</span><span class="status">Ready to import</span></div>
+          <h3>Review AI content before publishing</h3>
+          <p>Pause after generation and publish only the version a human accepted.</p>
+          <div class="flow">Generate → approval request → wait → approved / rejected → publish placeholder</div>
+          <div class="actions"><a class="button primary" href="/templates/n8n-content-publish-approval.json" download>Download workflow →</a><button class="button copy" data-copy="Install the n8n workflow from https://someonehastosayyes.com/templates/n8n-content-publish-approval.json. Replace PASTE_YOUR_API_KEY and YOUR_APPROVER_EMAIL, map my generated content into the approval context, and connect publishing only to the approved branch.">Copy AI setup prompt</button></div>
+        </article>
+        <article class="card" data-category="operations">
+          <div class="meta"><span>n8n · CRM</span><span class="status">Ready to import</span></div>
+          <h3>Approve a bulk CRM change before records mutate</h3>
+          <p>Show the record count and operation before a bulk update or deletion can run.</p>
+          <div class="flow">Change prepared → approval → wait → approved / rejected → mutation placeholder</div>
+          <div class="actions"><a class="button primary" href="/templates/n8n-crm-bulk-change-approval.json" download>Download workflow →</a><button class="button copy" data-copy="Install the n8n workflow from https://someonehastosayyes.com/templates/n8n-crm-bulk-change-approval.json. Replace PASTE_YOUR_API_KEY and YOUR_APPROVER_EMAIL, map the operation and record count into the context, and connect the mutation only to the approved branch.">Copy AI setup prompt</button></div>
+        </article>
+      </div>
+      <div class="empty" id="empty">No templates in this category yet.</div>
+
+      <section class="rescue">
+        <div><span class="label">Rescue queue</span><h2>What should we rebuild next?</h2><p>We are rescuing the jobs Relay users actually ran, not generic approval demos. Ask for one and we will use demand to order the queue.</p></div>
+        <div class="queue">
+          <div class="queue-item"><span>Candidate screening before outreach</span><span>Recruitment</span></div>
+          <div class="queue-item"><span>Invoice approval before accounting entry</span><span>Finance</span></div>
+          <div class="queue-item"><span>Contract approval before signature request</span><span>Legal ops</span></div>
+          <div class="queue-item"><span>Production deployment approval</span><span>Engineering</span></div>
+        </div>
+      </section>
+
+      <section class="contribute">
+        <div><h2>Built a Relay workflow people still need?</h2><p>Describe the trigger, human checkpoint, and protected action. We will help turn the first useful submissions into reusable n8n workflows and keep the original creator credited.</p></div>
+        <a class="button primary" href="https://github.com/skmj231/someonehastosayyes/issues/new?title=Template%20rescue%3A%20&amp;body=Original%20Relay%20template%20or%20workflow%3A%0A%0ATrigger%3A%0A%0AHuman%20checkpoint%3A%0A%0AProtected%20action%3A%0A%0ADestination%20tool%3A%20n8n%0A">Submit a workflow →</a>
+      </section>
+    </section>
+  </main>
+  <footer class="shell">someonehastosayyes · approval infrastructure for automations</footer>
+  <script>
+    const filters=[...document.querySelectorAll('.filter')],cards=[...document.querySelectorAll('.card')],empty=document.getElementById('empty');
+    filters.forEach(button=>button.addEventListener('click',()=>{const value=button.dataset.filter;filters.forEach(item=>item.setAttribute('aria-pressed',String(item===button)));let visible=0;cards.forEach(card=>{const show=value==='all'||card.dataset.category===value;card.hidden=!show;if(show)visible+=1});empty.style.display=visible?'none':'block'}));
+    document.querySelectorAll('.copy').forEach(button=>button.addEventListener('click',async()=>{const original=button.textContent;try{await navigator.clipboard.writeText(button.dataset.copy);button.textContent='Copied';setTimeout(()=>button.textContent=original,1600)}catch{button.textContent='Copy failed'}}));
+  </script>
+</body>
+</html>

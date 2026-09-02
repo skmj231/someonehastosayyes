@@ -1,0 +1,13 @@
+{
+  "name": "SHSY — approve a high-value refund",
+  "nodes": [
+    {"parameters":{},"name":"Refund requested","type":"n8n-nodes-base.manualTrigger","typeVersion":1,"position":[0,0]},
+    {"parameters":{"method":"POST","url":"https://someonehastosayyes.com/v1/approvals","sendHeaders":true,"headerParameters":{"parameters":[{"name":"Authorization","value":"Bearer PASTE_YOUR_API_KEY"},{"name":"Idempotency-Key","value":"={{ $execution.id }}"}]},"sendBody":true,"specifyBody":"json","jsonBody":"={{ JSON.stringify({ question: 'Approve this high-value refund?', context: { action: 'refund.create', order_id: 'ORDER_ID', amount: 500, currency: 'USD', reason: 'Replace with reason' }, approve_label: 'Approve refund', reject_label: 'Reject refund', channel: 'email', to: 'YOUR_APPROVER_EMAIL', callback_url: $execution.resumeUrl, timeout_minutes: 60, default_on_timeout: 'rejected' }) }}","options":{}},"name":"Request refund approval","type":"n8n-nodes-base.httpRequest","typeVersion":4.2,"position":[240,0]},
+    {"parameters":{"resume":"webhook","httpMethod":"POST","limitWaitTime":true,"resumeAmount":65,"resumeUnit":"minutes","options":{}},"name":"Wait for decision","type":"n8n-nodes-base.wait","typeVersion":1.1,"position":[500,0],"webhookId":"shsy-refund-approval-0001"},
+    {"parameters":{"conditions":{"options":{"caseSensitive":true,"leftValue":"","typeValidation":"loose"},"conditions":[{"id":"approved","leftValue":"={{ $json.body.approved }}","rightValue":true,"operator":{"type":"boolean","operation":"true","singleValue":true}}],"combinator":"and"},"options":{}},"name":"Approved?","type":"n8n-nodes-base.if","typeVersion":2,"position":[760,0]},
+    {"parameters":{},"name":"CONNECT REFUND API HERE","type":"n8n-nodes-base.noOp","typeVersion":1,"position":[1020,-120]},
+    {"parameters":{},"name":"Stop refund / notify owner","type":"n8n-nodes-base.noOp","typeVersion":1,"position":[1020,120]}
+  ],
+  "connections":{"Refund requested":{"main":[[{"node":"Request refund approval","type":"main","index":0}]]},"Request refund approval":{"main":[[{"node":"Wait for decision","type":"main","index":0}]]},"Wait for decision":{"main":[[{"node":"Approved?","type":"main","index":0}]]},"Approved?":{"main":[[{"node":"CONNECT REFUND API HERE","type":"main","index":0}],[{"node":"Stop refund / notify owner","type":"main","index":0}]]}},
+  "settings":{"executionOrder":"v1"}
+}
