@@ -1,5 +1,5 @@
 {
-  "name": "SHSY — approve a high-value refund",
+  "name": "Approval: High-value refund",
   "nodes": [
     {"parameters":{},"name":"Refund requested","type":"n8n-nodes-base.manualTrigger","typeVersion":1,"position":[0,0]},
     {"parameters":{"method":"POST","url":"https://someonehastosayyes.com/v1/approvals","sendHeaders":true,"headerParameters":{"parameters":[{"name":"Authorization","value":"Bearer PASTE_YOUR_API_KEY"},{"name":"Idempotency-Key","value":"={{ $execution.id }}"}]},"sendBody":true,"specifyBody":"json","jsonBody":"={{ JSON.stringify({ question: 'Approve this high-value refund?', context: { action: 'refund.create', order_id: 'ORDER_ID', amount: 500, currency: 'USD', reason: 'Replace with reason' }, approve_label: 'Approve refund', reject_label: 'Reject refund', channel: 'email', to: 'YOUR_APPROVER_EMAIL', callback_url: $execution.resumeUrl, timeout_minutes: 60, default_on_timeout: 'rejected' }) }}","options":{}},"name":"Request refund approval","type":"n8n-nodes-base.httpRequest","typeVersion":4.2,"position":[240,0]},

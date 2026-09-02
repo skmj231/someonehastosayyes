@@ -1,5 +1,5 @@
 {
-  "name": "SHSY — approve an AI customer email before sending",
+  "name": "Approval: AI customer email",
   "nodes": [
     {"parameters":{},"name":"Draft ready","type":"n8n-nodes-base.manualTrigger","typeVersion":1,"position":[0,0]},
     {"parameters":{"method":"POST","url":"https://someonehastosayyes.com/v1/approvals","sendHeaders":true,"headerParameters":{"parameters":[{"name":"Authorization","value":"Bearer PASTE_YOUR_API_KEY"},{"name":"Idempotency-Key","value":"={{ $execution.id }}"}]},"sendBody":true,"specifyBody":"json","jsonBody":"={{ JSON.stringify({ question: 'Send this AI-drafted customer email?', context: { action: 'email.send', recipient: 'Replace with recipient', subject: 'Replace with subject', draft: 'Replace with AI draft' }, approve_label: 'Send email', reject_label: 'Do not send', channel: 'email', to: 'YOUR_APPROVER_EMAIL', callback_url: $execution.resumeUrl, timeout_minutes: 60, default_on_timeout: 'rejected' }) }}","options":{}},"name":"Request email approval","type":"n8n-nodes-base.httpRequest","typeVersion":4.2,"position":[240,0]},
