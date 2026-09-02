@@ -41,7 +41,7 @@
     .card:hover { border-color:#aeb3a7; box-shadow:0 8px 24px rgba(29,32,24,.06); }
     .apps { display:flex; align-items:center; gap:0; }
     .app { display:grid; place-items:center; width:34px; height:34px; border-radius:50%; background:#20231d; color:var(--white); font:700 10px var(--mono); box-shadow:0 0 0 2px var(--white); }
-    .app.action { width:auto; min-width:52px; padding:0 10px; margin-left:-7px; border-radius:999px; background:var(--signal); color:var(--ink); border:1px solid #bcc534; white-space:nowrap; }
+    .app.action { width:auto; min-width:52px; padding:0 10px; margin-left:-7px; border-radius:999px; background:var(--action-color); color:var(--action-ink,#111); border:1px solid rgba(0,0,0,.18); white-space:nowrap; }
     .type { margin-left:auto; color:var(--muted); font:10px var(--mono); text-transform:uppercase; }
     .card h3 { margin:22px 0 9px; font-size:21px; line-height:1.14; letter-spacing:-.025em; }
     .card p { margin:0 0 18px; color:var(--muted); font-size:13px; }
@@ -52,6 +52,10 @@
     .empty { display:none; padding:70px 20px; border:1px dashed var(--line); background:var(--white); text-align:center; }
     .empty h3 { margin:0 0 6px; }
     .empty p { margin:0; color:var(--muted); }
+    .request { display:flex; align-items:center; justify-content:space-between; gap:24px; margin:0 0 80px; padding:24px 26px; border:1px solid var(--line); background:var(--white); }
+    .request h2 { margin:0 0 4px; font-size:20px; letter-spacing:-.025em; }
+    .request p { margin:0; color:var(--muted); font-size:13px; }
+    .request a { flex:0 0 auto; padding:11px 15px; background:var(--ink); color:var(--white); text-decoration:none; font-weight:800; font-size:12px; }
     dialog { width:min(860px,calc(100% - 28px)); max-height:calc(100vh - 40px); padding:0; border:0; background:var(--white); color:var(--ink); box-shadow:0 24px 90px rgba(0,0,0,.22); }
     dialog::backdrop { background:rgba(18,20,16,.62); }
     .modal-head { display:flex; justify-content:space-between; gap:20px; padding:24px 26px; border-bottom:1px solid var(--line); }
@@ -78,7 +82,7 @@
     .toast.show { opacity:1; transform:none; }
     footer { padding:30px 0; border-top:1px solid var(--line); color:var(--muted); font-size:12px; }
     @media(max-width:1050px) { .grid{grid-template-columns:repeat(2,minmax(0,1fr))} .catalog{grid-template-columns:190px minmax(0,1fr)} }
-    @media(max-width:760px) { .shell{width:min(100% - 28px,1380px)} .intro{padding-top:28px} .searchbar{grid-template-columns:1fr} .catalog{grid-template-columns:1fr;gap:18px} .sidebar{position:static} .category-list{display:flex;overflow:auto} .category{min-width:max-content;gap:18px;border:1px solid var(--line)} .grid{grid-template-columns:1fr} .flow{grid-template-columns:1fr} .step{min-height:44px} .facts{grid-template-columns:1fr} .modal-actions{display:grid} .button{width:100%} .navlinks a:not(:first-child){display:none} }
+    @media(max-width:760px) { .shell{width:min(100% - 28px,1380px)} .intro{padding-top:28px} .searchbar{grid-template-columns:1fr} .catalog{grid-template-columns:1fr;gap:18px} .sidebar{position:static} .category-list{display:flex;overflow:auto} .category{min-width:max-content;gap:18px;border:1px solid var(--line)} .grid{grid-template-columns:1fr} .request{align-items:flex-start;flex-direction:column} .flow{grid-template-columns:1fr} .step{min-height:44px} .facts{grid-template-columns:1fr} .modal-actions{display:grid} .button{width:100%} .navlinks a:not(:first-child){display:none} }
   </style>
 </head>
 <body>
@@ -86,7 +90,7 @@
   <header class="shell nav"><a class="brand" href="/">someonehastosayyes</a><nav class="navlinks"><a href="/relay">Relay migration</a><a href="/trust">Trust</a><a href="https://github.com/skmj231/someonehastosayyes">GitHub</a></nav></header>
   <main class="shell">
     <section class="intro">
-      <p class="kicker">Approval workflow library</p><h1>Choose what needs approval.</h1><p>Each template pauses one real action, asks the right person, and continues only after they say yes.</p>
+      <p class="kicker">Approval workflow library</p><h1>Choose what needs approval.</h1>
     </section>
     <section class="searchbar">
       <label for="search">Search templates</label><input id="search" type="search" placeholder="What needs approval? Email, refund, publishing, CRM..." autocomplete="off">
@@ -97,19 +101,16 @@
       <aside class="sidebar"><h2>Browse by category</h2><div class="category-list" id="categories"></div></aside>
       <div><div class="results-head"><h2 id="result-title">All templates</h2><span id="result-count"></span></div><div class="grid" id="grid"></div><div class="empty" id="empty"><h3>No matching templates</h3><p>Try a broader search or choose another category.</p></div></div>
     </section>
+    <section class="request"><div><h2>Have a workflow in mind?</h2><p>Send it over. We will build the approval version.</p></div><a href="https://github.com/skmj231/someonehastosayyes/issues/new?title=Template%20request%3A%20">Request a template</a></section>
   </main>
   <dialog id="template-dialog" aria-labelledby="dialog-title">
     <div class="modal-head"><div><p id="dialog-category"></p><h2 id="dialog-title"></h2></div><button class="close" id="close-dialog" aria-label="Close">×</button></div>
     <div class="modal-body"><p class="summary" id="dialog-summary"></p><div class="flow" id="dialog-flow"></div><div class="facts" id="dialog-facts"></div><section class="setup"><h3>Set it up</h3><ol><li>Download the workflow JSON and import it into n8n.</li><li>Replace <code>PASTE_YOUR_API_KEY</code> and <code>YOUR_APPROVER_EMAIL</code>.</li><li>Run one approval test. Connect your final action only after both outcomes work.</li></ol></section><div class="modal-actions"><a class="button primary" id="download" download>Download workflow JSON</a><button class="button" id="copy-prompt">Copy AI install prompt</button><a class="button signal" href="/?tool=n8n&amp;source=template-library#request">Get an API key</a></div></div>
   </dialog>
   <div class="toast" id="toast" role="status" aria-live="polite"></div><footer><div class="shell">someonehastosayyes · approval infrastructure for automations</div></footer>
+  <script src="/relay-template-catalog.js"></script>
   <script>
-    const templates = [
-      {id:'ai-email',title:'Customer email approval',summary:'Pause after the draft. Send the email only after a person says yes.',category:'Communication',platform:'n8n',apps:['n8n','Email'],tags:['AI','Email','Customer support'],flow:['Draft ready','Request approval','Wait','Yes or no','Send email'],protected:'email.send',timeout:'60 minutes, then reject',replace:'API key and approver email',connect:'Gmail or email node',file:'/templates/n8n-ai-email-approval.json',prompt:'Import the n8n workflow from https://someonehastosayyes.com/templates/n8n-ai-email-approval.json. Replace PASTE_YOUR_API_KEY and YOUR_APPROVER_EMAIL. Run one approval and one rejection test. Connect the approved branch to my email sending node only after both tests work.'},
-      {id:'refund',title:'High-value refund approval',summary:'Hold the refund request. Move the money only after the right person approves the amount.',category:'Finance',platform:'n8n',apps:['n8n','Refund'],tags:['Refund','Payments','Threshold'],flow:['Refund request','Request approval','Wait','Yes or no','Create refund'],protected:'refund.create',timeout:'60 minutes, then reject',replace:'API key, approver email, and threshold',connect:'Refund API node',file:'/templates/n8n-refund-approval.json',prompt:'Import the n8n workflow from https://someonehastosayyes.com/templates/n8n-refund-approval.json. Replace PASTE_YOUR_API_KEY and YOUR_APPROVER_EMAIL. Set the refund threshold. Test approval and rejection, then connect the approved branch to my refund API.'},
-      {id:'content-publish',title:'Content publishing approval',summary:'Keep the content in draft. Publish only after a person says yes.',category:'Communication',platform:'n8n',apps:['n8n','Publish'],tags:['AI','Content','Publishing'],flow:['Content ready','Request approval','Wait','Yes or no','Publish'],protected:'content.publish',timeout:'120 minutes, then reject',replace:'API key and approver email',connect:'Publishing node',file:'/templates/n8n-content-publish-approval.json',prompt:'Import the n8n workflow from https://someonehastosayyes.com/templates/n8n-content-publish-approval.json. Replace PASTE_YOUR_API_KEY and YOUR_APPROVER_EMAIL. Map the generated content into the approval context. Connect publishing only to the approved branch after the test works.'},
-      {id:'crm-change',title:'Bulk CRM change approval',summary:'Stop the bulk change. Update the CRM only after someone checks the operation and record count.',category:'Operations',platform:'n8n',apps:['n8n','CRM'],tags:['CRM','Bulk update','Data'],flow:['Change ready','Request approval','Wait','Yes or no','Update CRM'],protected:'crm.bulk_update',timeout:'60 minutes, then reject',replace:'API key and approver email',connect:'CRM update node',file:'/templates/n8n-crm-bulk-change-approval.json',prompt:'Import the n8n workflow from https://someonehastosayyes.com/templates/n8n-crm-bulk-change-approval.json. Replace PASTE_YOUR_API_KEY and YOUR_APPROVER_EMAIL. Map the operation and record count into the approval context. Connect the CRM update only to the approved branch after testing.'}
-    ];
+    const templates = window.SHSY_TEMPLATES;
     const grid=document.getElementById('grid');
     const categories=document.getElementById('categories');
     const search=document.getElementById('search');
@@ -133,7 +134,7 @@
       if(sort.value==='title') list=[...list].sort((a,b)=>a.title.localeCompare(b.title));
       resultTitle.textContent=category==='All'?'All templates':category;
       count.textContent=`Showing ${list.length} of ${templates.length}`;
-      grid.innerHTML=list.map(item=>`<article class="card"><div class="apps"><span class="app">${item.apps[0]}</span><span class="app action">${item.apps[1]}</span><span class="type">${item.platform} workflow</span></div><h3>${item.title}</h3><p>${item.summary}</p><div class="card-footer"><span>${item.flow.length} steps</span><button class="view" data-id="${item.id}">View template ›</button></div></article>`).join('');
+      grid.innerHTML=list.map(item=>`<article class="card" style="--action-color:${item.color};--action-ink:${item.actionInk||'#111'}"><div class="apps"><span class="app">${item.apps[0]}</span><span class="app action">${item.apps[1]}</span><span class="type">${item.platform} workflow</span></div><h3>${item.title}</h3><p>${item.summary}</p><div class="card-footer"><span>${item.flow.length} steps</span><button class="view" data-id="${item.id}">View template ›</button></div></article>`).join('');
       empty.style.display=list.length?'none':'block';
       grid.querySelectorAll('.view').forEach(button=>button.addEventListener('click',()=>openTemplate(button.dataset.id)));
     }
