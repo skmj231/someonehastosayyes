@@ -5,7 +5,7 @@
   "repository": { "type": "git", "url": "https://github.com/skmj231/someonehastosayyes.git" },
   "description": "승인 링크 API — n8n/Make 워크플로에 깨지지 않는 사람 승인 단계를 붙인다",
   "main": "server.js",
-  "scripts": { "start": "node server.js", "generate:templates": "node scripts/generate-relay-rescue-templates.mjs", "test": "node test.js", "test:key-review": "node test-key-review.js", "test:reliability": "node --test test-reliability.js", "test:load": "node test-load.js", "test:recovery": "node test-notification-recovery.js", "test:callback-restart": "node test-callback-restart.js", "test:tenant-isolation": "node test-tenant-isolation.js", "test:key-migration": "node test-key-migration.js" },
+  "scripts": { "start": "node server.js", "test": "node test.js", "test:key-review": "node test-key-review.js", "test:reliability": "node --test test-reliability.js", "test:load": "node test-load.js", "test:recovery": "node test-notification-recovery.js", "test:callback-restart": "node test-callback-restart.js", "test:tenant-isolation": "node test-tenant-isolation.js", "test:key-migration": "node test-key-migration.js" },
   "engines": { "node": ">=20" },
   "dependencies": { "better-sqlite3": "^11", "express": "^4" }
 }
