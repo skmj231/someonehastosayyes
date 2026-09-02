@@ -1839,6 +1839,10 @@ const PUBLIC_FILES = new Map([
 ]);
 app.get([...PUBLIC_FILES.keys()], (req, res, next) => {
   res.set("Cache-Control", "public, max-age=300");
+  if (req.path.startsWith("/templates/")) {
+    const filename = PUBLIC_FILES.get(req.path).split("/").pop();
+    res.set("Content-Disposition", `attachment; filename="${filename}"`);
+  }
   res.sendFile(__dirname + "/" + PUBLIC_FILES.get(req.path), (error) => error ? next(error) : undefined);
 });
 app.get("/", (_req, res) => res.type("html").send(LANDING.replaceAll("{{BASE_URL}}", BASE_URL)));
