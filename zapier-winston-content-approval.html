@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Zapier + Winston AI content approval workflow</title>
+  <meta name="description" content="A copy-ready Zapier recipe that checks articles with Winston AI, records the result, asks for approval when needed, and publishes only after a clear decision.">
+  <style>
+    :root{--ink:#181a16;--muted:#62675f;--line:#d9ded6;--paper:#f6f7f3;--white:#fff;--signal:#e6ed52;--soft:#f5f6d8;--purple:#7651dc;--mono:ui-monospace,SFMono-Regular,Menlo,monospace;--sans:Inter,ui-sans-serif,system-ui,sans-serif}*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--paper);color:var(--ink);font:15px/1.55 var(--sans)}a{color:inherit;text-underline-offset:4px}.shell{width:min(1050px,calc(100% - 40px));margin:auto}.nav{height:70px;display:flex;align-items:center;justify-content:space-between}.brand{font-weight:800;text-decoration:none}.nav a:last-child{color:var(--muted);font-size:13px}.hero{padding:70px 0 78px}.kicker{margin:0 0 18px;color:#666d0d;font:11px var(--mono);letter-spacing:.08em}.hero h1{max-width:850px;margin:0;font-size:clamp(48px,7.6vw,82px);font-weight:600;line-height:.94;letter-spacing:-.06em}.lead{max-width:720px;margin:25px 0 0;color:var(--muted);font-size:20px}.requirements{display:flex;gap:8px;flex-wrap:wrap;margin:28px 0 0}.requirements span{padding:7px 10px;border:1px solid var(--line);background:var(--white);font:11px var(--mono)}.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:32px}.button{display:inline-flex;align-items:center;justify-content:center;min-height:48px;padding:0 18px;border:1px solid var(--ink);background:var(--white);font-weight:750;text-decoration:none}.button.primary{background:var(--ink);color:var(--white)}.flow{padding:30px 0 82px}.flow-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:7px}.flow-card{display:grid;place-items:center;min-height:88px;padding:12px;border:1px solid var(--line);background:var(--white);text-align:center;font:11px/1.35 var(--mono)}.flow-card.check{background:#f2efff;border-color:#c9bced}.flow-card.gate{background:var(--signal);border-color:#b5bd31;font-weight:800}.flow-card.publish{background:#e8f5ec;border-color:#b7d7c0}.section{padding:84px 0;border-top:1px solid var(--line)}.section-head{display:grid;grid-template-columns:1fr 1fr;gap:42px;margin-bottom:40px}.section h2{margin:0;font-size:clamp(35px,5vw,54px);line-height:1;letter-spacing:-.05em}.section-head p{margin:3px 0 0;color:var(--muted);font-size:17px}.safe{margin-bottom:40px;padding:22px 24px;border-left:5px solid var(--signal);background:var(--soft)}.safe b{display:block;margin-bottom:4px}.zap{margin-top:48px}.zap-title{display:flex;align-items:center;gap:14px;margin-bottom:16px}.zap-title span{display:grid;place-items:center;width:34px;height:34px;border-radius:50%;background:var(--purple);color:#fff;font:700 11px var(--mono)}.zap-title h3{margin:0;font-size:27px;letter-spacing:-.035em}.steps{list-style:none;margin:0;padding:0;border-top:1px solid var(--ink);counter-reset:steps}.steps>li{counter-increment:steps;display:grid;grid-template-columns:48px minmax(0,1fr);gap:18px;padding:25px 0;border-bottom:1px solid var(--line)}.steps>li:before{content:'0' counter(steps);padding-top:3px;color:#72770f;font:11px var(--mono)}.steps h4{margin:0 0 7px;font-size:18px}.steps p{margin:0;color:var(--muted)}.field{display:inline-block;margin-top:10px;padding:5px 8px;background:#fff;font:11px var(--mono)}.copybox{margin-top:16px;border:1px solid var(--line);background:#fff}.copybar{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid var(--line);font:11px var(--mono)}.copybar button{border:0;background:var(--ink);color:#fff;padding:7px 10px;cursor:pointer}.copybox pre{overflow:auto;margin:0;padding:17px;font:11px/1.65 var(--mono);white-space:pre-wrap;word-break:break-word}.paths{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:15px}.path{padding:16px;border:1px solid var(--line);background:#fff}.path b{display:block;margin-bottom:5px}.path p{font-size:13px}.sheet{width:100%;border-collapse:collapse;margin-top:14px;background:#fff;font-size:13px}.sheet th,.sheet td{padding:12px;border:1px solid var(--line);text-align:left}.sheet th{font:11px var(--mono)}.finish{padding:76px 0 100px;text-align:center}.finish h2{max-width:700px;margin:0 auto 25px;font-size:clamp(36px,5vw,56px);line-height:1;letter-spacing:-.05em}.fine{max-width:760px;margin:28px auto 0;color:var(--muted);font-size:12px}.toast{position:fixed;right:18px;bottom:18px;padding:11px 14px;background:var(--ink);color:#fff;opacity:0;transform:translateY(8px);transition:.2s;pointer-events:none}.toast.show{opacity:1;transform:none}@media(max-width:760px){.hero{padding-top:40px}.flow-grid{grid-template-columns:1fr}.flow-card{min-height:54px}.section-head{grid-template-columns:1fr}.paths{grid-template-columns:1fr}.steps>li{grid-template-columns:34px 1fr}.actions{display:grid}.button{width:100%}.sheet{display:block;overflow-x:auto}}
+  </style>
+</head>
+<body>
+  <header class="shell nav"><a class="brand" href="/">someonehastosayyes</a><a href="/relay/templates">n8n templates</a></header>
+  <main>
+    <section class="shell hero">
+      <p class="kicker">ZAPIER RECIPE</p>
+      <h1>Check the article. Ask when needed. Publish after yes.</h1>
+      <p class="lead">Winston AI checks the draft for AI signals and plagiarism. Zapier records the result. Anything uncertain waits for a real person before your website changes.</p>
+      <div class="requirements"><span>Zapier Professional</span><span>Winston AI</span><span>Google Sheets</span><span>SHSY API key</span></div>
+      <div class="actions"><a class="button primary" href="#setup">Build it step by step</a><a class="button" href="/?tool=zapier#request">Get an approval API key</a></div>
+    </section>
+    <section class="shell flow" aria-label="Workflow overview"><div class="flow-grid"><div class="flow-card">Article ready</div><div class="flow-card check">Winston AI check</div><div class="flow-card check">Plagiarism check</div><div class="flow-card">Save result</div><div class="flow-card">Needs review?</div><div class="flow-card gate">Ask for approval</div><div class="flow-card publish">Publish after yes</div></div></section>
+    <section class="section" id="setup"><div class="shell">
+      <div class="section-head"><h2>Two small Zaps.</h2><p>The first Zap checks the article and asks. The second receives the decision and publishes. Nothing stays paused inside Zapier.</p></div>
+      <div class="safe"><b>Start safely.</b>Send your first 10 articles to approval regardless of score. Once you have seen real results, turn on the automatic publish path using thresholds that fit your content.</div>
+      <article class="zap">
+        <div class="zap-title"><span>A</span><h3>Check and ask</h3></div>
+        <ol class="steps">
+          <li><div><h4>Trigger when an article is ready for review</h4><p>Use your existing article source. WordPress, Webflow, Google Docs, Airtable, and any CMS trigger will work. Trigger on a draft or “Ready for review” status, never on an already published article.</p></div></li>
+          <li><div><h4>Add Winston AI: Detect AI Content</h4><p>Map the full article body into <b>Text</b>. Choose the latest model. Winston recommends long-form text; use at least 300 words and preferably the complete article.</p><span class="field">Text = Article body</span></div></li>
+          <li><div><h4>Add Winston AI: Detect Plagiarism</h4><p>Map the same article body into <b>Text</b>. Test both Winston steps once so Zapier exposes the returned scores as fields.</p><span class="field">Text = Article body</span></div></li>
+          <li><div><h4>Save one row in Google Sheets</h4><p>Create these columns once, then map the article and Winston results.</p><table class="sheet"><tr><th>title</th><th>draft_url</th><th>human_score</th><th>plagiarism</th><th>decision</th><th>status</th></tr><tr><td>Article title</td><td>CMS draft URL</td><td>Winston score</td><td>Winston result</td><td>blank</td><td>checked</td></tr></table></div></li>
+          <li><div><h4>Add Paths by Zapier</h4><p>Use Winston’s overall Human Score as a routing signal, not a verdict. A practical starting point after calibration is Human Score 80 or higher plus your own acceptable plagiarism limit.</p><div class="paths"><div class="path"><b>Path 1: Ready</b><p>Both checks meet your thresholds. Update the sheet to “ready.” You may publish automatically after the first 10 supervised runs.</p></div><div class="path"><b>Path 2: Review</b><p>Use the fallback path for every other result. Add Webhooks by Zapier, choose Custom Request, and send the approval request below.</p></div></div></div></li>
+          <li><div><h4>Copy this request into the Review path</h4><p>Method is <b>POST</b>. URL is <b>https://someonehastosayyes.com/v1/approvals</b>. Add the two headers, then paste the JSON body. Map the fields shown in braces from earlier Zap steps.</p><div class="copybox"><div class="copybar"><span>HEADERS</span><button type="button" data-copy="headers">Copy</button></div><pre id="headers">Authorization: Bearer YOUR_SHSY_API_KEY
+Content-Type: application/json
+Idempotency-Key: {{Article ID}}</pre></div><div class="copybox"><div class="copybar"><span>JSON BODY</span><button type="button" data-copy="body">Copy</button></div><pre id="body">{
+  "question": "Publish {{Article Title}}?",
+  "context": {
+    "action": "content.publish",
+    "title": "{{Article Title}}",
+    "draft_url": "{{Draft URL}}",
+    "human_score": "{{Winston Human Score}}",
+    "plagiarism_result": "{{Winston Plagiarism Result}}"
+  },
+  "approve_label": "Publish",
+  "reject_label": "Needs revision",
+  "channel": "email",
+  "to": "YOUR_APPROVER_EMAIL",
+  "callback_url": "YOUR_ZAP_B_CATCH_HOOK_URL",
+  "timeout_minutes": 1440,
+  "default_on_timeout": "rejected"
+}</pre></div><p style="margin-top:13px">Send only the title, draft link, and scores. Do not send the full article to the approval service.</p></div></li>
+        </ol>
+      </article>
+      <article class="zap">
+        <div class="zap-title"><span>B</span><h3>Receive the answer and publish</h3></div>
+        <ol class="steps">
+          <li><div><h4>Create the Catch Hook first</h4><p>In a new Zap, choose <b>Webhooks by Zapier → Catch Hook</b>. Copy its URL and place it in Zap A as <code>callback_url</code>.</p></div></li>
+          <li><div><h4>Test one approval</h4><p>Run Zap A once, open the approval email, and choose Publish. Return to Zap B and test the trigger. Zapier should show <code>approved: true</code>, the decision, and the approval ID.</p></div></li>
+          <li><div><h4>Add two Paths</h4><div class="paths"><div class="path"><b>Approved is true</b><p>Publish the existing draft in your CMS. Then update the Google Sheets row to “published.”</p></div><div class="path"><b>Fallback</b><p>Keep the article as a draft. Update the row to “needs revision” and notify the writer.</p></div></div></div></li>
+          <li><div><h4>Test yes, no, and no answer</h4><p>Confirm that only the approved path can publish. A rejection or 24-hour timeout must leave the article unpublished.</p></div></li>
+        </ol>
+      </article>
+    </div></section>
+    <section class="shell finish"><h2>One article is enough to test the whole path.</h2><div class="actions" style="justify-content:center"><a class="button primary" href="/?tool=zapier#request">Get the SHSY key</a><a class="button" href="mailto:sj@someonehastosayyes.com?subject=Zapier%20Winston%20content%20approval">Ask us to check your setup</a></div><p class="fine">Winston AI already has native Zapier actions for AI content and plagiarism checks. Webhooks and Paths require a paid Zapier plan. Detection scores can be wrong, so use them to route review, not as automatic proof of authorship.</p></section>
+  </main>
+  <div class="toast" id="toast" role="status" aria-live="polite">Copied</div>
+  <script>document.querySelectorAll('[data-copy]').forEach(button=>button.addEventListener('click',async()=>{const text=document.getElementById(button.dataset.copy).textContent;try{await navigator.clipboard.writeText(text)}catch(_){const area=document.createElement('textarea');area.value=text;document.body.appendChild(area);area.select();document.execCommand('copy');area.remove()}const toast=document.getElementById('toast');toast.classList.add('show');setTimeout(()=>toast.classList.remove('show'),1300)}));</script>
+</body>
+</html>
