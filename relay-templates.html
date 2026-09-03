@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>n8n approval templates | someonehastosayyes</title>
-  <meta name="description" content="Ready-to-import n8n workflows that pause email, refunds, publishing, and data changes until a person approves.">
+  <title>Approval workflow templates | someonehastosayyes</title>
+  <meta name="description" content="Approval workflows for n8n, Make, Zapier, APIs, AI agents, Pipedream, Activepieces, and Node-RED.">
   <style>
     :root { --ink:#171914; --muted:#666b62; --line:#dfe2da; --paper:#f7f8f4; --white:#fff; --signal:#e5ed4d; --signal-dark:#697000; --mono:ui-monospace,SFMono-Regular,Menlo,monospace; --sans:Inter,ui-sans-serif,system-ui,sans-serif; }
     * { box-sizing:border-box; }
@@ -27,6 +27,15 @@
     .searchbar input,.searchbar select { height:46px; border:1px solid var(--line); background:var(--white); color:var(--ink); padding:0 14px; }
     .searchbar input:focus,.searchbar select:focus { outline:2px solid var(--signal); border-color:var(--ink); }
     .searchbar label { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0,0,0,0); }
+    .platform-filter { display:flex; align-items:center; gap:18px; margin-top:10px; padding:12px 14px; border:1px solid var(--line); background:var(--white); }
+    .platform-filter h2 { flex:0 0 auto; margin:0; font-size:12px; letter-spacing:.04em; text-transform:uppercase; }
+    .platform-filter-list { display:flex; align-items:center; flex-wrap:wrap; gap:6px; }
+    .platform-filter-button { display:inline-flex; align-items:center; gap:7px; min-height:38px; padding:0 10px; border:1px solid transparent; background:transparent; color:var(--muted); cursor:pointer; font-size:11px; font-weight:700; }
+    .platform-filter-button:hover { border-color:var(--line); color:var(--ink); }
+    .platform-filter-button:focus-visible { outline:2px solid var(--signal); outline-offset:1px; }
+    .platform-filter-button[aria-pressed=true] { border-color:var(--ink); box-shadow:inset 0 -3px var(--signal); color:var(--ink); }
+    .platform-filter-icon { display:grid; width:22px; height:22px; place-items:center; border-radius:50%; background:#f0f1ed; color:var(--ink); font:700 9px var(--mono); }
+    .platform-filter-icon img { display:block; width:13px; height:13px; opacity:.82; }
     .catalog { display:grid; grid-template-columns:190px minmax(0,1fr); gap:28px; padding:22px 0 80px; }
     .sidebar { align-self:start; position:sticky; top:20px; }
     .sidebar h2 { margin:0 0 12px; font-size:12px; letter-spacing:.05em; text-transform:uppercase; }
@@ -41,12 +50,8 @@
     .grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; }
     .card { display:flex; flex-direction:column; min-height:210px; padding:20px; border:1px solid var(--line); background:var(--white); }
     .card:hover { border-color:#aeb3a7; box-shadow:0 8px 24px rgba(29,32,24,.06); }
-    .card-top { display:flex; align-items:center; justify-content:space-between; gap:10px; }
-    .action-pill { display:inline-grid; place-items:center; min-height:34px; padding:0 12px; border-radius:999px; background:var(--action-color); color:var(--action-ink,#111); border:1px solid rgba(0,0,0,.18); font:700 11px var(--mono); white-space:nowrap; }
-    .platform-count { color:var(--muted); font:10px var(--mono); text-transform:uppercase; }
+    .action-pill { display:inline-grid; align-self:flex-start; place-items:center; min-height:34px; padding:0 12px; border-radius:999px; background:var(--action-color); color:var(--action-ink,#111); border:1px solid rgba(0,0,0,.18); font:700 11px var(--mono); white-space:nowrap; }
     .card h3 { margin:18px 0 12px; font-size:21px; line-height:1.14; letter-spacing:-.025em; }
-    .card-platforms { display:flex; flex-wrap:wrap; gap:5px; margin:0 0 18px; }
-    .card-platform { padding:4px 7px; border:1px solid #cfd3ca; border-radius:999px; background:#f8f9f6; color:#454a42; font:700 9px var(--mono); white-space:nowrap; }
     .approval-label { color:#777c74; }
     .card-footer { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:auto; padding-top:16px; border-top:1px solid var(--line); }
     .card-footer span { color:var(--muted); font:10px var(--mono); }
@@ -94,7 +99,7 @@
     .toast.show { opacity:1; transform:none; }
     footer { padding:30px 0; border-top:1px solid var(--line); color:var(--muted); font-size:12px; }
     @media(max-width:1050px) { .grid{grid-template-columns:repeat(2,minmax(0,1fr))} .catalog{grid-template-columns:190px minmax(0,1fr)} }
-    @media(max-width:760px) { .shell{width:min(100% - 28px,1380px)} .intro{padding-top:28px} .searchbar{grid-template-columns:1fr} .catalog{grid-template-columns:1fr;gap:18px} .sidebar{position:static} .category-list{display:flex;overflow:auto} .category{min-width:max-content;gap:18px;border:1px solid var(--line)} .grid{grid-template-columns:1fr} .request{align-items:flex-start;flex-direction:column} .flow{grid-template-columns:1fr} .step{min-height:44px} .facts{grid-template-columns:1fr} .modal-actions{display:grid} .button{width:100%} .navlinks a:not(:first-child){display:none} }
+    @media(max-width:760px) { .shell{width:min(100% - 28px,1380px)} .intro{padding-top:28px} .searchbar{grid-template-columns:1fr} .platform-filter{align-items:flex-start;flex-direction:column;gap:8px}.platform-filter-list{gap:4px}.catalog{grid-template-columns:1fr;gap:18px} .sidebar{position:static} .category-list{display:flex;overflow:auto} .category{min-width:max-content;gap:18px;border:1px solid var(--line)} .grid{grid-template-columns:1fr} .request{align-items:flex-start;flex-direction:column} .flow{grid-template-columns:1fr} .step{min-height:44px} .facts{grid-template-columns:1fr} .modal-actions{display:grid} .button{width:100%} .navlinks a:not(:first-child){display:none} }
   </style>
 </head>
 <body>
@@ -106,8 +111,12 @@
       <p>Pick an approval workflow, then use it in n8n, Make, Zapier, your API, or an AI agent. Reviewing articles in Zapier? Use the <a href="/guides/zapier-winston-content-approval">Winston AI content approval recipe</a>.</p>
     </section>
     <section class="searchbar">
-      <label for="search">Search templates</label><input id="search" type="search" placeholder="Search a problem, action, or tool..." autocomplete="off">
+      <label for="search">Search templates</label><input id="search" type="search" placeholder="Search a task, tool, role, or action..." autocomplete="off">
       <label for="sort">Sort templates</label><select id="sort"><option value="recommended">Recommended</option><option value="title">Title A to Z</option></select>
+    </section>
+    <section class="platform-filter" aria-labelledby="platform-filter-title">
+      <h2 id="platform-filter-title">Works with</h2>
+      <div class="platform-filter-list" id="platform-filters"></div>
     </section>
     <section class="catalog">
       <aside class="sidebar"><div class="category-list" id="categories"></div></aside>
@@ -149,23 +158,63 @@
     const categories=document.getElementById('categories');
     const search=document.getElementById('search');
     const sort=document.getElementById('sort');
+    const platformFilters=document.getElementById('platform-filters');
     const empty=document.getElementById('empty');
     const dialog=document.getElementById('template-dialog');
     const toast=document.getElementById('toast');
     let category='All';
+    let filterPlatform='all';
     let current=null;
     let selectedPlatform='n8n';
     const platforms=[
-      {id:'n8n',label:'n8n'},
-      {id:'make',label:'Make'},
-      {id:'zapier',label:'Zapier'},
-      {id:'api',label:'API'},
-      {id:'agent',label:'AI agent'},
-      {id:'pipedream',label:'Pipedream'},
-      {id:'activepieces',label:'Activepieces'},
-      {id:'node-red',label:'Node-RED'}
+      {id:'n8n',label:'n8n',icon:'https://n8n.io/favicon.ico'},
+      {id:'make',label:'Make',icon:'https://www.make.com/favicon.ico'},
+      {id:'zapier',label:'Zapier',icon:'https://zapier.com/favicon.ico'},
+      {id:'api',label:'API',mark:'{}'},
+      {id:'agent',label:'AI agent',mark:'AI'},
+      {id:'pipedream',label:'Pipedream',icon:'https://pipedream.com/favicon.ico'},
+      {id:'activepieces',label:'Activepieces',icon:'https://www.activepieces.com/favicon.ico'},
+      {id:'node-red',label:'Node-RED',icon:'https://nodered.org/favicon.ico'}
     ];
+    const searchAliases={
+      'ai-email':'gmail outlook transactional email customer reply support message approval before sending comms communication legal review brand voice',
+      refund:'stripe payment reimbursement charge return money finance manager threshold high value fraud risk',
+      'content-publish':'wordpress webflow cms blog article social post editor editorial marketing seo release approve before publish',
+      'crm-bulk-change':'hubspot salesforce attio pipedrive records contacts companies batch update delete modify data operations admin',
+      'pipeline-digest':'sales report forecast opportunities deals revenue slack teams manager weekly summary owners',
+      'meeting-followup':'zoom meet teams transcript recap minutes attendees follow up email account executive customer success',
+      'sales-quote':'proposal pricing discount terms contract estimate deal desk finance legal customer send',
+      'candidate-progress':'greenhouse lever ashby ats applicant interview recruiter hiring stage reject offer people hr',
+      'account-provisioning':'employee onboarding okta google workspace microsoft access permissions role start date it security',
+      'order-fulfillment':'shopify ecommerce warehouse inventory shipping release destination operations',
+      'payment-receipt':'invoice receipt billing proof of payment customer details email finance',
+      'performance-review':'manager feedback employee evaluation hr people private ai draft compensation',
+      'reddit-outreach':'prospecting community lead generation crm contact sales message reply',
+      'lead-qualification':'scoring inbound prospect mql sql routing crm sales rep evidence enrichment',
+      'support-response':'zendesk intercom helpdesk ticket diagnosis tone customer reply service agent',
+      'health-escalation':'customer success csm churn risk account alert escalation slack crm renewal',
+      'email-triage':'inbox classify archive reply task gmail outlook routing operations',
+      'ticket-backlog-digest':'zendesk intercom jira service desk sla workload queue reporting support lead slack teams',
+      'review-reply':'google business profile maps location reputation rating public response local business tone',
+      'action-items':'meeting transcript tasks assignee due date asana linear clickup project management bulk create',
+      'order-calendar':'google calendar outlook event schedule order date customer parsed email operations',
+      'zapier-winston-content':'winston ai detection plagiarism originality article cms wordpress webflow google sheets editorial review'
+    };
+    const categoryAliases={
+      Communication:'email message publishing content external communication marketing',
+      Finance:'money payment refund price billing invoice finance accounting',
+      Operations:'workflow data admin task calendar onboarding fulfillment access',
+      Sales:'crm lead deal pipeline quote prospect revenue sales',
+      People:'hr hiring recruiter employee candidate performance people',
+      Support:'customer ticket helpdesk reply escalation support service'
+    };
     const categoryNames=['All',...new Set(templates.map(item=>item.category))];
+    function supportedPlatforms(item){return item.guide?['zapier']:platforms.map(platform=>platform.id)}
+    function renderPlatformFilters(){
+      const choices=[{id:'all',label:'All',mark:'•'},...platforms];
+      platformFilters.innerHTML=choices.map(platform=>`<button class="platform-filter-button" type="button" data-platform-filter="${platform.id}" aria-pressed="${platform.id===filterPlatform}"><span class="platform-filter-icon">${platform.icon?`<img src="${platform.icon}" alt="">`:platform.mark}</span><span>${platform.label}</span></button>`).join('');
+      platformFilters.querySelectorAll('button').forEach(button=>button.addEventListener('click',()=>{filterPlatform=button.dataset.platformFilter;renderPlatformFilters();render()}));
+    }
     function renderCategories(){
       categories.innerHTML=categoryNames.map(name=>`<button class="category" data-category="${name}" aria-pressed="${name===category}"><span>${name}</span><span>${name==='All'?templates.length:templates.filter(item=>item.category===name).length}</span></button>`).join('');
       categories.querySelectorAll('button').forEach(button=>button.addEventListener('click',()=>{category=button.dataset.category;renderCategories();render()}));
@@ -175,14 +224,25 @@
       const query=normalize(search.value);
       const terms=query.split(/\s+/).filter(Boolean);
       let list=templates.filter(item=>{
-        const searchable=normalize([item.title,item.summary,item.category,item.platform,item.protected,item.timeout,item.replace,item.connect,item.prompt,...item.tags,...item.apps,...item.flow,...(item.keywords||[])].filter(Boolean).join(' '));
-        return (category==='All'||item.category===category)&&terms.every(term=>searchable.includes(term)||(term.endsWith('s')&&searchable.includes(term.slice(0,-1))));
+        const platformWords=supportedPlatforms(item).map(id=>platforms.find(platform=>platform.id===id)?.label||id);
+        const searchable=normalize([item.title,item.summary,item.category,item.platform,item.protected,item.timeout,item.replace,item.connect,item.prompt,searchAliases[item.id],categoryAliases[item.category],...platformWords,...item.tags,...item.apps,...item.flow,...(item.keywords||[])].filter(Boolean).join(' '));
+        const matchesSearch=terms.every(term=>searchable.includes(term)||(term.endsWith('s')&&searchable.includes(term.slice(0,-1))));
+        const matchesPlatform=filterPlatform==='all'||supportedPlatforms(item).includes(filterPlatform);
+        return (category==='All'||item.category===category)&&matchesPlatform&&matchesSearch;
       });
       if(sort.value==='title') list=[...list].sort((a,b)=>a.title.localeCompare(b.title));
-      grid.innerHTML=list.map(item=>{const subject=item.title.replace(/\s+approval$/i,'');const available=item.guide?[{label:'Zapier'},{label:'Winston AI'}]:platforms;return `<article class="card" style="--action-color:${item.color};--action-ink:${item.actionInk||'#111'}"><div class="card-top"><span class="action-pill">${item.apps[1]}</span><span class="platform-count">${item.guide?'Ready guide':platforms.length+' platforms'}</span></div><h3>${subject} <span class="approval-label">approval</span></h3><div class="card-platforms" aria-label="Available for ${available.map(platform=>platform.label).join(', ')}">${available.map(platform=>`<span class="card-platform">${platform.label}</span>`).join('')}</div><div class="card-footer"><span>${item.flow.length} steps</span><button class="view" data-id="${item.id}">${item.guide?'Use this recipe':'View template'} ›</button></div></article>`}).join('');
-      empty.innerHTML=list.length?'':'<h3>No matching templates</h3><p>Try a broader search or choose another category.</p>';
+      grid.innerHTML=list.map(item=>{const subject=item.title.replace(/\s+approval$/i,'');return `<article class="card" style="--action-color:${item.color};--action-ink:${contrastInk(item.color)}"><span class="action-pill">${item.apps[1]}</span><h3>${subject} <span class="approval-label">approval</span></h3><div class="card-footer"><span>${item.flow.length} steps</span><button class="view" data-id="${item.id}">${item.guide?'Use this recipe':'View template'} ›</button></div></article>`}).join('');
+      const platformName=platforms.find(platform=>platform.id===filterPlatform)?.label;
+      empty.innerHTML=list.length?'':`<h3>No matching templates</h3><p>Try a broader search${platformName?' or clear the '+platformName+' filter':''}.</p>`;
       empty.style.display=list.length?'none':'block';
       grid.querySelectorAll('.view').forEach(button=>button.addEventListener('click',()=>openTemplate(button.dataset.id)));
+    }
+    function contrastInk(hex){
+      const value=hex.replace('#','');
+      const full=value.length===3?value.split('').map(char=>char+char).join(''):value;
+      const rgb=[0,2,4].map(offset=>parseInt(full.slice(offset,offset+2),16));
+      const luminance=(rgb[0]*299+rgb[1]*587+rgb[2]*114)/1000;
+      return luminance>150?'#111':'#fff';
     }
     function workflowFor(item){
       const requestName=`Request ${item.apps[1].toLowerCase()} approval`;
@@ -303,7 +363,7 @@ console.log(approval);\n`;
       document.getElementById('download').href='data:application/json;charset=utf-8,'+encodeURIComponent(workflow);
       document.getElementById('download').download=current.file.split('/').pop();
       history.replaceState(null,'','#'+current.id);
-      selectedPlatform='n8n';
+      selectedPlatform=filterPlatform==='all'?'n8n':filterPlatform;
       renderPlatform();
       dialog.showModal();
     }
@@ -321,6 +381,7 @@ console.log(approval);\n`;
     document.getElementById('copy-prompt').addEventListener('click',async()=>{if(!current)return;try{await navigator.clipboard.writeText(platformCopyText(current,selectedPlatform));notify(selectedPlatform==='api'?'JavaScript example copied':'Build prompt copied')}catch{notify('Could not copy')}});
     search.addEventListener('input',render);
     sort.addEventListener('change',render);
+    renderPlatformFilters();
     renderCategories();
     render();
     if(location.hash) openTemplate(location.hash.slice(1));
