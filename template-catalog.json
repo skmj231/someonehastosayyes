@@ -1,0 +1,706 @@
+[
+  {
+    "id": "zapier-winston-content",
+    "title": "Zapier + Winston AI content approval",
+    "summary": "Check AI signals and plagiarism, save the result, and publish only after a person says yes.",
+    "category": "Communication",
+    "platform": "zapier",
+    "apps": [
+      "Zapier",
+      "Winston AI"
+    ],
+    "color": "#ff4f00",
+    "tags": [
+      "Article",
+      "Blog",
+      "Content",
+      "Publishing",
+      "AI detection",
+      "Plagiarism",
+      "Originality",
+      "Google Sheets",
+      "CMS",
+      "WordPress",
+      "Webflow",
+      "Manual review",
+      "Human in the loop",
+      "HITL",
+      "Notification",
+      "Webhook"
+    ],
+    "keywords": [
+      "writer",
+      "writing",
+      "editorial",
+      "editor",
+      "SEO",
+      "draft",
+      "website",
+      "content review",
+      "quality check",
+      "AI checker",
+      "plagiarism checker",
+      "automated publishing",
+      "approve before publish",
+      "review before publishing",
+      "manual attention",
+      "content moderation",
+      "Winston",
+      "Zapier workflow",
+      "article created"
+    ],
+    "flow": [
+      "Article ready",
+      "Winston checks",
+      "Save result",
+      "Ask for approval",
+      "Publish after yes"
+    ],
+    "protected": "content.publish",
+    "timeout": "1440 minutes, then reject",
+    "replace": "Zapier, Winston AI, Sheet, and approver details",
+    "connect": "Website or CMS publishing action",
+    "guide": "/guides/zapier-winston-content-approval",
+    "description": "Check AI and plagiarism signals before publishing."
+  },
+  {
+    "id": "ai-email",
+    "title": "Customer email approval",
+    "summary": "Pause after the draft. Send the email only after a person says yes.",
+    "category": "Communication",
+    "platform": "n8n",
+    "apps": [
+      "n8n",
+      "Email"
+    ],
+    "color": "#ff5a36",
+    "tags": [
+      "AI",
+      "Email",
+      "Customer support"
+    ],
+    "flow": [
+      "Draft ready",
+      "Request approval",
+      "Wait",
+      "Yes or no",
+      "Send email"
+    ],
+    "protected": "email.send",
+    "timeout": "60 minutes, then reject",
+    "replace": "API key and approver email",
+    "connect": "Gmail or email node",
+    "file": "/templates/n8n-ai-email-approval.json",
+    "description": "Review the draft before it reaches the customer."
+  },
+  {
+    "id": "refund",
+    "title": "High-value refund approval",
+    "summary": "Hold the refund request. Move the money only after the right person approves the amount.",
+    "category": "Finance",
+    "platform": "n8n",
+    "apps": [
+      "n8n",
+      "Refund"
+    ],
+    "color": "#3478ff",
+    "actionInk": "#fff",
+    "tags": [
+      "Refund",
+      "Payments",
+      "Threshold"
+    ],
+    "flow": [
+      "Refund request",
+      "Request approval",
+      "Wait",
+      "Yes or no",
+      "Create refund"
+    ],
+    "protected": "refund.create",
+    "timeout": "60 minutes, then reject",
+    "replace": "API key, approver email, and threshold",
+    "connect": "Refund API node",
+    "file": "/templates/n8n-refund-approval.json",
+    "description": "Check the amount before money moves."
+  },
+  {
+    "id": "content-publish",
+    "title": "Content publishing approval",
+    "summary": "Keep the content in draft. Publish only after a person says yes.",
+    "category": "Communication",
+    "platform": "n8n",
+    "apps": [
+      "n8n",
+      "Publish"
+    ],
+    "color": "#ff3da6",
+    "tags": [
+      "AI",
+      "Content",
+      "Publishing"
+    ],
+    "flow": [
+      "Content ready",
+      "Request approval",
+      "Wait",
+      "Yes or no",
+      "Publish"
+    ],
+    "protected": "content.publish",
+    "timeout": "120 minutes, then reject",
+    "replace": "API key and approver email",
+    "connect": "Publishing node",
+    "file": "/templates/n8n-content-publish-approval.json",
+    "description": "Review the draft before it goes live."
+  },
+  {
+    "id": "crm-bulk-change",
+    "title": "Bulk CRM change approval",
+    "summary": "Stop the bulk change. Update the CRM only after someone checks the operation and record count.",
+    "category": "Operations",
+    "platform": "n8n",
+    "apps": [
+      "n8n",
+      "CRM"
+    ],
+    "color": "#16c784",
+    "tags": [
+      "CRM",
+      "Bulk update",
+      "Data"
+    ],
+    "flow": [
+      "Change ready",
+      "Request approval",
+      "Wait",
+      "Yes or no",
+      "Update CRM"
+    ],
+    "protected": "crm.bulk_update",
+    "timeout": "60 minutes, then reject",
+    "replace": "API key and approver email",
+    "connect": "CRM update node",
+    "file": "/templates/n8n-crm-bulk-change-approval.json",
+    "description": "Confirm the operation and record count before updating."
+  },
+  {
+    "id": "pipeline-digest",
+    "title": "Sales pipeline digest approval",
+    "summary": "Hold the weekly digest. Post it only after the sales manager checks the numbers and owners.",
+    "category": "Sales",
+    "platform": "n8n",
+    "apps": [
+      "n8n",
+      "Pipeline"
+    ],
+    "color": "#7c3cff",
+    "actionInk": "#fff",
+    "tags": [
+      "Sales",
+      "Reporting",
+      "Slack"
+    ],
+    "flow": [
+      "Digest ready",
+      "Request approval",
+      "Wait",
+      "Yes or no",
+      "Post digest"
+    ],
+    "protected": "sales_digest.post",
+    "timeout": "120 minutes, then reject",
+    "replace": "API key and approver email",
+    "connect": "Slack post node",
+    "file": "/templates/n8n-pipeline-digest-approval.json",
+    "description": "Check the figures before posting the sales digest."
+  },
+  {
+    "id": "meeting-followup",
+    "title": "Meeting follow-up approval",
+    "summary": "Keep the recap unsent. Email attendees only after the meeting owner checks it.",
+    "category": "Communication",
+    "platform": "n8n",
+    "apps": [
+      "n8n",
+      "Follow-up"
+    ],
+    "color": "#ffb000",
+    "tags": [
+      "Meeting",
+      "Email",
+      "AI"
+    ],
+    "flow": [
+      "Recap ready",
+      "Request approval",
+      "Wait",
+      "Yes or no",
+      "Send email"
+    ],
+    "protected": "meeting_recap.send",
+    "timeout": "120 minutes, then reject",
+    "replace": "API key and approver email",
+    "connect": "Gmail or Outlook node",
+    "file": "/templates/n8n-meeting-followup-approval.json",
+    "description": "Review the recap before emailing attendees."
+  },
+  {
+    "id": "sales-quote",
+    "title": "Sales quote approval",
+    "summary": "Hold the generated quote. Send it only after someone checks pricing, discount, and terms.",
+    "category": "Sales",
+    "platform": "n8n",
+    "apps": [
+      "n8n",
+      "Quote"
+    ],
+    "color": "#00a6ff",
+    "actionInk": "#fff",
+    "tags": [
+      "Quote",
+      "Pricing",
+      "Sales"
+    ],
+    "flow": [
+      "Quote ready",
+      "Request approval",
+      "Wait",
+      "Yes or no",
+      "Send quote"
+    ],
+    "protected": "sales_quote.send",
+    "timeout": "240 minutes, then reject",
+    "replace": "API key and approver email",
+    "connect": "DocuSign or email node",
+    "file": "/templates/n8n-sales-quote-approval.json",
+    "description": "Check pricing and terms before sending."
+  },
+  {
+    "id": "candidate-progress",
+    "title": "Candidate progression approval",
+    "summary": "Pause after AI screening. Move the candidate forward only after a recruiter says yes.",
+    "category": "People",
+    "platform": "n8n",
+    "apps": [
+      "n8n",
+      "Hiring"
+    ],
+    "color": "#ff7043",
+    "tags": [
+      "Hiring",
+      "ATS",
+      "AI"
+    ],
+    "flow": [
+      "Candidate scored",
+      "Request approval",
+      "Wait",
+      "Yes or no",
+      "Update ATS"
+    ],
+    "protected": "candidate.advance",
+    "timeout": "1440 minutes, then reject",
+    "replace": "API key and approver email",
+    "connect": "Greenhouse, Lever, or Ashby node",
+    "file": "/templates/n8n-candidate-progress-approval.json",
+    "description": "Confirm the next stage before updating the ATS."
+  },
+  {
+    "id": "account-provisioning",
+    "title": "Employee account provisioning approval",
+    "summary": "Stop before access is created. Provision employee accounts only after the owner confirms the role and start date.",
+    "category": "People",
+    "platform": "n8n",
+    "apps": [
+      "n8n",
+      "Onboard"
+    ],
+    "color": "#00c2a8",
+    "tags": [
+      "Onboarding",
+      "IT",
+      "Access"
+    ],
+    "flow": [
+      "Hire ready",
+      "Request approval",
+      "Wait",
+      "Yes or no",
+      "Create accounts"
+    ],
+    "protected": "employee.provision",
+    "timeout": "1440 minutes, then reject",
+    "replace": "API key and approver email",
+    "connect": "Identity or account provisioning nodes",
+    "file": "/templates/n8n-account-provisioning-approval.json",
+    "description": "Confirm role and start date before creating access."
+  },
+  {
+    "id": "order-fulfillment",
+    "title": "Order fulfillment approval",
+    "summary": "Hold the order before fulfillment. Release it only after ops checks the order, stock, and destination.",
+    "category": "Operations",
+    "platform": "n8n",
+    "apps": [
+      "n8n",
+      "Fulfill"
+    ],
+    "color": "#7dce13",
+    "tags": [
+      "Order",
+      "Fulfillment",
+      "Commerce"
+    ],
+    "flow": [
+      "Order ready",
+      "Request approval",
+      "Wait",
+      "Yes or no",
+      "Release order"
+    ],
+    "protected": "order.fulfill",
+    "timeout": "240 minutes, then reject",
+    "replace": "API key and approver email",
+    "connect": "Shopify, WooCommerce, or warehouse node",
+    "file": "/templates/n8n-order-fulfillment-approval.json",
+    "description": "Check stock and destination before releasing the order."
+  },
+  {
+    "id": "payment-receipt",
+    "title": "Payment receipt approval",
+    "summary": "Keep the receipt in draft. Send it only after finance checks the payment and customer details.",
+    "category": "Finance",
+    "platform": "n8n",
+    "apps": [
+      "n8n",
+      "Receipt"
+    ],
+    "color": "#6c5ce7",
+    "actionInk": "#fff",
+    "tags": [
+      "Payment",
+      "Receipt",
+      "Finance"
+    ],
+    "flow": [
+      "Receipt drafted",
+      "Request approval",
+      "Wait",
+      "Yes or no",
+      "Send receipt"
+    ],
+    "protected": "payment_receipt.send",
+    "timeout": "120 minutes, then reject",
+    "replace": "API key and approver email",
+    "connect": "Gmail or Outlook node",
+    "file": "/templates/n8n-payment-receipt-approval.json",
+    "description": "Verify payment details before sending the receipt."
+  },
+  {
+    "id": "performance-review",
+    "title": "Performance review approval",
+    "summary": "Keep the AI draft private. Share the review only after the manager makes the final call.",
+    "category": "People",
+    "platform": "n8n",
+    "apps": [
+      "n8n",
+      "Review"
+    ],
+    "color": "#d833ff",
+    "actionInk": "#fff",
+    "tags": [
+      "People",
+      "Review",
+      "AI"
+    ],
+    "flow": [
+      "Review drafted",
+      "Request approval",
+      "Wait",
+      "Yes or no",
+      "Share review"
+    ],
+    "protected": "performance_review.share",
+    "timeout": "2880 minutes, then reject",
+    "replace": "API key and approver email",
+    "connect": "Document share or email node",
+    "file": "/templates/n8n-performance-review-approval.json",
+    "description": "Keep the draft private until the manager approves."
+  },
+  {
+    "id": "reddit-outreach",
+    "title": "Reddit lead outreach approval",
+    "summary": "Hold the drafted response. Create the lead or send outreach only after a rep reviews the context.",
+    "category": "Sales",
+    "platform": "n8n",
+    "apps": [
+      "n8n",
+      "Outreach"
+    ],
+    "color": "#ff4747",
+    "actionInk": "#fff",
+    "tags": [
+      "Reddit",
+      "Lead",
+      "Outreach"
+    ],
+    "flow": [
+      "Reply drafted",
+      "Request approval",
+      "Wait",
+      "Yes or no",
+      "Create lead"
+    ],
+    "protected": "lead_outreach.create",
+    "timeout": "120 minutes, then reject",
+    "replace": "API key and approver email",
+    "connect": "HubSpot, Salesforce, or Attio node",
+    "file": "/templates/n8n-reddit-outreach-approval.json",
+    "description": "Review the context before outreach or CRM creation."
+  },
+  {
+    "id": "lead-qualification",
+    "title": "Qualified lead routing approval",
+    "summary": "Pause after AI scoring. Add the lead to the sales pipeline only after a rep checks the evidence.",
+    "category": "Sales",
+    "platform": "n8n",
+    "apps": [
+      "n8n",
+      "Lead"
+    ],
+    "color": "#00b8d9",
+    "tags": [
+      "Lead",
+      "CRM",
+      "AI"
+    ],
+    "flow": [
+      "Lead scored",
+      "Request approval",
+      "Wait",
+      "Yes or no",
+      "Create lead"
+    ],
+    "protected": "lead.create",
+    "timeout": "120 minutes, then reject",
+    "replace": "API key and approver email",
+    "connect": "HubSpot, Salesforce, or Pipedrive node",
+    "file": "/templates/n8n-lead-qualification-approval.json",
+    "description": "Check the evidence before routing the lead."
+  },
+  {
+    "id": "support-response",
+    "title": "Customer support response approval",
+    "summary": "Keep the answer unsent. Reply to the customer only after an agent checks the diagnosis and tone.",
+    "category": "Support",
+    "platform": "n8n",
+    "apps": [
+      "n8n",
+      "Support"
+    ],
+    "color": "#f36f21",
+    "tags": [
+      "Support",
+      "Email",
+      "AI"
+    ],
+    "flow": [
+      "Response ready",
+      "Request approval",
+      "Wait",
+      "Yes or no",
+      "Send reply"
+    ],
+    "protected": "support_reply.send",
+    "timeout": "60 minutes, then reject",
+    "replace": "API key and approver email",
+    "connect": "Zendesk, Intercom, or email node",
+    "file": "/templates/n8n-support-response-approval.json",
+    "description": "Review the diagnosis and tone before replying."
+  },
+  {
+    "id": "health-escalation",
+    "title": "Customer health escalation approval",
+    "summary": "Hold the escalation. Contact the account team only after a CSM confirms the risk signals.",
+    "category": "Support",
+    "platform": "n8n",
+    "apps": [
+      "n8n",
+      "Escalate"
+    ],
+    "color": "#ff1f69",
+    "actionInk": "#fff",
+    "tags": [
+      "Customer success",
+      "Risk",
+      "CRM"
+    ],
+    "flow": [
+      "Risk detected",
+      "Request approval",
+      "Wait",
+      "Yes or no",
+      "Escalate"
+    ],
+    "protected": "customer_health.escalate",
+    "timeout": "240 minutes, then reject",
+    "replace": "API key and approver email",
+    "connect": "Slack, email, or CRM task node",
+    "file": "/templates/n8n-health-escalation-approval.json",
+    "description": "Confirm the risk signals before escalating."
+  },
+  {
+    "id": "email-triage",
+    "title": "Email triage action approval",
+    "summary": "Pause after AI triage. Reply, archive, or create a task only after a person confirms the action.",
+    "category": "Operations",
+    "platform": "n8n",
+    "apps": [
+      "n8n",
+      "Triage"
+    ],
+    "color": "#00a67e",
+    "actionInk": "#fff",
+    "tags": [
+      "Email",
+      "Triage",
+      "AI"
+    ],
+    "flow": [
+      "Email classified",
+      "Request approval",
+      "Wait",
+      "Yes or no",
+      "Run action"
+    ],
+    "protected": "email_triage.execute",
+    "timeout": "60 minutes, then reject",
+    "replace": "API key and approver email",
+    "connect": "Gmail, Outlook, or task node",
+    "file": "/templates/n8n-email-triage-approval.json",
+    "description": "Confirm reply, archive, or task creation after triage."
+  },
+  {
+    "id": "ticket-backlog-digest",
+    "title": "Ticket backlog digest approval",
+    "summary": "Hold the support digest. Post it only after the support lead checks the SLA and workload numbers.",
+    "category": "Support",
+    "platform": "n8n",
+    "apps": [
+      "n8n",
+      "Backlog"
+    ],
+    "color": "#7857ff",
+    "actionInk": "#fff",
+    "tags": [
+      "Support",
+      "Reporting",
+      "Slack"
+    ],
+    "flow": [
+      "Digest ready",
+      "Request approval",
+      "Wait",
+      "Yes or no",
+      "Post digest"
+    ],
+    "protected": "support_digest.post",
+    "timeout": "120 minutes, then reject",
+    "replace": "API key and approver email",
+    "connect": "Slack or Teams node",
+    "file": "/templates/n8n-ticket-backlog-digest-approval.json",
+    "description": "Check SLA and workload figures before posting."
+  },
+  {
+    "id": "review-reply",
+    "title": "Google review reply approval",
+    "summary": "Keep the reply unpublished. Post it only after the location owner checks the facts and tone.",
+    "category": "Support",
+    "platform": "n8n",
+    "apps": [
+      "n8n",
+      "Reviews"
+    ],
+    "color": "#ffd400",
+    "tags": [
+      "Google Business",
+      "Reviews",
+      "AI"
+    ],
+    "flow": [
+      "Reply drafted",
+      "Request approval",
+      "Wait",
+      "Yes or no",
+      "Post reply"
+    ],
+    "protected": "review_reply.publish",
+    "timeout": "120 minutes, then reject",
+    "replace": "API key and approver email",
+    "connect": "Google Business Profile reply node",
+    "file": "/templates/n8n-review-reply-approval.json",
+    "description": "Check facts and tone before publishing the reply."
+  },
+  {
+    "id": "action-items",
+    "title": "Action item creation approval",
+    "summary": "Hold the extracted tasks. Create them only after the meeting owner confirms each assignee and due date.",
+    "category": "Operations",
+    "platform": "n8n",
+    "apps": [
+      "n8n",
+      "Tasks"
+    ],
+    "color": "#ff2d20",
+    "actionInk": "#fff",
+    "tags": [
+      "Asana",
+      "Meeting",
+      "AI"
+    ],
+    "flow": [
+      "Tasks extracted",
+      "Request approval",
+      "Wait",
+      "Yes or no",
+      "Create tasks"
+    ],
+    "protected": "tasks.bulk_create",
+    "timeout": "240 minutes, then reject",
+    "replace": "API key and approver email",
+    "connect": "Asana, Linear, or ClickUp node",
+    "file": "/templates/n8n-action-items-approval.json",
+    "description": "Confirm assignees and due dates before creating tasks."
+  },
+  {
+    "id": "order-calendar",
+    "title": "Order calendar event approval",
+    "summary": "Keep the parsed order off the calendar. Create the event only after someone checks the date, customer, and order details.",
+    "category": "Operations",
+    "platform": "n8n",
+    "apps": [
+      "n8n",
+      "Calendar"
+    ],
+    "color": "#00d4ff",
+    "tags": [
+      "Order",
+      "Calendar",
+      "AI"
+    ],
+    "flow": [
+      "Order parsed",
+      "Request approval",
+      "Wait",
+      "Yes or no",
+      "Create event"
+    ],
+    "protected": "calendar_event.create",
+    "timeout": "120 minutes, then reject",
+    "replace": "API key and approver email",
+    "connect": "Google Calendar or Outlook node",
+    "file": "/templates/n8n-order-calendar-approval.json",
+    "description": "Check the date and order details before creating the event."
+  }
+]
