@@ -52,13 +52,25 @@
     .results-head h2 { margin:0; font-size:18px; }
     .results-head span { color:var(--muted); font:11px var(--mono); }
     .grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; }
-    .card { display:flex; flex-direction:column; min-height:225px; padding:20px; border:1px solid var(--line); background:var(--white); }
-    .card:hover { border-color:#aeb3a7; box-shadow:0 8px 24px rgba(29,32,24,.06); }
+    .card { display:flex; overflow:hidden; flex-direction:column; min-height:340px; padding:0; border:1px solid var(--line); border-radius:14px; background:var(--white); text-decoration:none; transition:transform .16s ease,border-color .16s ease,box-shadow .16s ease; }
+    .card:hover { transform:translateY(-3px); border-color:#aeb3a7; box-shadow:0 10px 26px rgba(29,32,24,.08); }
+    .card-visual { display:grid; min-height:152px; place-items:center; padding:22px 14px; background:var(--platform-wash); background-image:linear-gradient(rgba(255,255,255,.28) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.28) 1px,transparent 1px); background-size:25px 25px; }
+    .card-flow { display:flex; align-items:center; gap:8px; padding:12px; border:1px solid rgba(23,25,20,.1); border-radius:14px; background:rgba(255,255,255,.94); box-shadow:0 4px 0 rgba(23,25,20,.04); }
+    .flow-app { display:flex; width:70px; height:70px; flex-direction:column; align-items:center; justify-content:center; gap:6px; padding:6px; border:1px solid #d8d5cd; border-radius:12px; background:var(--white); color:var(--ink); text-align:center; }
+    .flow-app.platform { color:var(--platform-color); }
+    .flow-app.approval { border-color:var(--ink); background:var(--ink); color:var(--white); }
+    .flow-app.approval small { color:var(--signal); }
+    .flow-app small { max-width:62px; font:700 9px/1.05 var(--sans); overflow-wrap:anywhere; }
+    .flow-logo { display:block; width:25px; height:25px; background:currentColor; -webkit-mask:var(--flow-icon) center/contain no-repeat; mask:var(--flow-icon) center/contain no-repeat; }
+    .flow-word { font-size:13px; font-weight:900; }
+    .flow-arrow { color:#77746f; font-size:22px; }
+    .card-body { display:flex; flex:1; flex-direction:column; padding:19px 20px 18px; }
     .action-pill { display:inline-grid; align-self:flex-start; place-items:center; min-height:34px; padding:0 12px; border-radius:999px; background:var(--action-color); color:var(--action-ink,#111); border:1px solid rgba(0,0,0,.18); font:700 11px var(--mono); white-space:nowrap; }
-    .card h3 { margin:18px 0 8px; font-size:21px; line-height:1.14; letter-spacing:-.025em; }
+    .card h3 { margin:0 0 8px; font-size:20px; line-height:1.14; letter-spacing:-.025em; }
     .card-description { max-width:34ch; margin:0 0 18px; color:var(--muted); font-size:12px; line-height:1.45; }
     .approval-label { color:#777c74; }
-    .card-footer { display:flex; align-items:center; justify-content:flex-end; margin-top:auto; padding-top:16px; border-top:1px solid var(--line); }
+    .card-footer { display:flex; align-items:center; justify-content:space-between; margin-top:auto; padding-top:14px; border-top:1px solid var(--line); font-size:11px; }
+    .card-platform { color:var(--platform-color); font-weight:850; }
     .view { border:0; background:none; color:var(--ink); padding:5px 0; font-weight:800; cursor:pointer; text-decoration:none; }
     .view:hover { text-decoration:underline; }
     .empty { display:none; padding:70px 20px; border:1px dashed var(--line); background:var(--white); text-align:center; }
@@ -180,6 +192,21 @@
       {id:'activepieces',label:'Activepieces',mask:'https://raw.githubusercontent.com/activepieces/activepieces/main/packages/web/public/logo.svg',color:'#8142e3'},
       {id:'node-red',label:'Node-RED',mask:'https://cdn.jsdelivr.net/npm/simple-icons@14.15.0/icons/nodered.svg',color:'#8f0000'}
     ];
+    const platformWash={n8n:'#ffdce5',make:'#e9dcff',zapier:'#ffe0cf',api:'#dfe8ff',agent:'#e8eadf',pipedream:'#e8ddff',activepieces:'#eadfff','node-red':'#f3dada'};
+    const destinations={
+      'zapier-winston-content':{label:'WordPress',icon:'wordpress'},
+      'ai-email':{label:'Gmail',icon:'gmail'}, refund:{label:'Stripe',icon:'stripe'},
+      'content-publish':{label:'WordPress',icon:'wordpress'}, 'crm-bulk-change':{label:'HubSpot',icon:'hubspot'},
+      'pipeline-digest':{label:'Slack',icon:'slack'}, 'meeting-followup':{label:'Gmail',icon:'gmail'},
+      'sales-quote':{label:'DocuSign',icon:'docusign'}, 'candidate-progress':{label:'Greenhouse',short:'GH'},
+      'account-provisioning':{label:'Okta',icon:'okta'}, 'order-fulfillment':{label:'Shopify',icon:'shopify'},
+      'payment-receipt':{label:'Gmail',icon:'gmail'}, 'performance-review':{label:'Google Docs',icon:'googledocs'},
+      'reddit-outreach':{label:'HubSpot',icon:'hubspot'}, 'lead-qualification':{label:'HubSpot',icon:'hubspot'},
+      'support-response':{label:'Zendesk',icon:'zendesk'}, 'health-escalation':{label:'Slack',icon:'slack'},
+      'email-triage':{label:'Gmail',icon:'gmail'}, 'ticket-backlog-digest':{label:'Slack',icon:'slack'},
+      'review-reply':{label:'Google Business',icon:'google'}, 'action-items':{label:'Asana',icon:'asana'},
+      'order-calendar':{label:'Google Calendar',icon:'googlecalendar'}
+    };
     const searchAliases={
       'ai-email':'gmail outlook transactional email customer reply support message approval before sending comms communication legal review brand voice',
       refund:'stripe payment reimbursement charge return money finance manager threshold high value fraud risk',
@@ -237,9 +264,10 @@
       Support:'customer ticket helpdesk reply escalation support service'
     };
     const categoryNames=['All',...new Set(templates.map(item=>item.category))];
-    function supportedPlatforms(item){return item.guide?['zapier']:platforms.map(platform=>platform.id)}
+    function supportedPlatforms(item){return [item.platform]}
     function renderPlatformFilters(){
-      const choices=[{id:'all',label:'All'},...platforms];
+      const available=new Set(templates.map(item=>item.platform));
+      const choices=[{id:'all',label:'All'},...platforms.filter(platform=>available.has(platform.id))];
       platformFilters.innerHTML=choices.map(platform=>`<button class="platform-filter-button" type="button" data-platform-filter="${platform.id}" aria-pressed="${platform.id===filterPlatform}">${platform.id==='all'?'':`<span class="platform-filter-icon">${platform.mask?`<span class="platform-filter-logo" style="--logo-color:${platform.color};--logo-mask:url('${platform.mask}')"></span>`:platform.icon?`<img src="${platform.icon}" alt="">`:platform.mark}</span>`}<span>${platform.label}</span></button>`).join('');
       platformFilters.querySelectorAll('button').forEach(button=>button.addEventListener('click',()=>{filterPlatform=button.dataset.platformFilter;renderPlatformFilters();render()}));
     }
@@ -259,7 +287,7 @@
         return (category==='All'||item.category===category)&&matchesPlatform&&matchesSearch;
       });
       if(sort.value==='title') list=[...list].sort((a,b)=>a.title.localeCompare(b.title));
-      grid.innerHTML=list.map(item=>{const subject=item.title.replace(/\s+approval$/i,'');const platform=filterPlatform==='all'?(item.guide?'zapier':'n8n'):filterPlatform;const path=item.guide?item.guide:`/templates/${item.id}`;return `<article class="card" style="--action-color:${item.color};--action-ink:${contrastInk(item.color)}"><span class="action-pill">${item.apps[1]}</span><h3>${subject} <span class="approval-label">approval</span></h3><p class="card-description">${cardDescriptions[item.id]}</p><div class="card-footer"><a class="view" href="${path}?platform=${platform}">${item.guide?'Use this recipe':'View template'} ›</a></div></article>`}).join('');
+      grid.innerHTML=list.map(item=>{const subject=item.title.replace(/\s+approval$/i,'');const platform=platforms.find(entry=>entry.id===item.platform);const target=destinations[item.id]||{label:'Your app',icon:null};const path=item.guide?item.guide:`/templates/${item.id}`;const icon=entry=>entry?.mask?`<i class="flow-logo" style="--flow-icon:url('${entry.mask}')"></i>`:`<b class="flow-word">${entry?.mark||entry?.label}</b>`;const targetIcon=target.icon?`<i class="flow-logo" style="--flow-icon:url('https://cdn.jsdelivr.net/npm/simple-icons@14.15.0/icons/${target.icon}.svg')"></i>`:`<b class="flow-word">${target.short||target.label}</b>`;return `<a class="card" href="${path}?platform=${item.platform}" style="--platform-color:${platform.color||item.color};--platform-wash:${platformWash[item.platform]||'#eef0ea'}"><div class="card-visual"><div class="card-flow"><span class="flow-app platform">${icon(platform)}<small>${platform.label}</small></span><span class="flow-arrow">→</span><span class="flow-app approval"><b class="flow-word">SHSY</b><small>Approval</small></span><span class="flow-arrow">→</span><span class="flow-app">${targetIcon}<small>${target.label}</small></span></div></div><div class="card-body"><h3>${subject} <span class="approval-label">approval</span></h3><p class="card-description">${cardDescriptions[item.id]}</p><div class="card-footer"><span class="card-platform">${platform.label} setup</span><span class="view">View template ›</span></div></div></a>`}).join('');
       const platformName=platforms.find(platform=>platform.id===filterPlatform)?.label;
       empty.innerHTML=list.length?'':`<h3>No matching templates</h3><p>Try a broader search${platformName?' or clear the '+platformName+' filter':''}.</p>`;
       empty.style.display=list.length?'none':'block';
