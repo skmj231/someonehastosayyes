@@ -36,8 +36,9 @@
     .platform-filter-button[aria-pressed=true] { background:var(--signal); color:var(--ink); }
     .platform-filter-icon { display:grid; width:28px; height:28px; place-items:center; color:var(--ink); font:800 12px var(--mono); transition:transform .16s ease; }
     .platform-filter-icon img { display:block; width:26px; height:26px; object-fit:contain; opacity:.78; transition:opacity .16s ease; }
+    .platform-filter-logo { display:block; width:26px; height:26px; background:var(--logo-color); -webkit-mask:var(--logo-mask) center/contain no-repeat; mask:var(--logo-mask) center/contain no-repeat; opacity:.82; transition:opacity .16s ease; }
     .platform-filter-button:hover .platform-filter-icon { transform:scale(1.1); }
-    .platform-filter-button:hover .platform-filter-icon img,.platform-filter-button[aria-pressed=true] .platform-filter-icon img { opacity:1; }
+    .platform-filter-button:hover .platform-filter-icon img,.platform-filter-button:hover .platform-filter-logo,.platform-filter-button[aria-pressed=true] .platform-filter-icon img,.platform-filter-button[aria-pressed=true] .platform-filter-logo { opacity:1; }
     @media(prefers-reduced-motion:reduce) { .platform-filter-button,.platform-filter-icon,.platform-filter-icon img { transition:none; } }
     .catalog { display:grid; grid-template-columns:190px minmax(0,1fr); gap:28px; padding:22px 0 80px; }
     .sidebar { align-self:start; position:sticky; top:20px; }
@@ -58,7 +59,7 @@
     .card-description { max-width:34ch; margin:0 0 18px; color:var(--muted); font-size:12px; line-height:1.45; }
     .approval-label { color:#777c74; }
     .card-footer { display:flex; align-items:center; justify-content:flex-end; margin-top:auto; padding-top:16px; border-top:1px solid var(--line); }
-    .view { border:0; background:none; padding:5px 0; font-weight:800; cursor:pointer; }
+    .view { border:0; background:none; color:var(--ink); padding:5px 0; font-weight:800; cursor:pointer; text-decoration:none; }
     .view:hover { text-decoration:underline; }
     .empty { display:none; padding:70px 20px; border:1px dashed var(--line); background:var(--white); text-align:center; }
     .empty h3 { margin:0 0 6px; }
@@ -170,14 +171,14 @@
     let current=null;
     let selectedPlatform='n8n';
     const platforms=[
-      {id:'n8n',label:'n8n',icon:'https://cdn.jsdelivr.net/npm/simple-icons@14.15.0/icons/n8n.svg'},
-      {id:'make',label:'Make',icon:'https://cdn.jsdelivr.net/npm/simple-icons@14.15.0/icons/make.svg'},
-      {id:'zapier',label:'Zapier',icon:'https://cdn.jsdelivr.net/npm/simple-icons@14.15.0/icons/zapier.svg'},
+      {id:'n8n',label:'n8n',mask:'https://cdn.jsdelivr.net/npm/simple-icons@14.15.0/icons/n8n.svg',color:'#ea4b71'},
+      {id:'make',label:'Make',mask:'https://cdn.jsdelivr.net/npm/simple-icons@14.15.0/icons/make.svg',color:'#6d00cc'},
+      {id:'zapier',label:'Zapier',mask:'https://cdn.jsdelivr.net/npm/simple-icons@14.15.0/icons/zapier.svg',color:'#ff4f00'},
       {id:'api',label:'API',mark:'{}'},
       {id:'agent',label:'AI agent',mark:'AI'},
       {id:'pipedream',label:'Pipedream',icon:'https://pipedream.com/favicon.ico'},
-      {id:'activepieces',label:'Activepieces',icon:'https://raw.githubusercontent.com/activepieces/activepieces/main/packages/web/public/logo.svg'},
-      {id:'node-red',label:'Node-RED',icon:'https://cdn.jsdelivr.net/npm/simple-icons@14.15.0/icons/nodered.svg'}
+      {id:'activepieces',label:'Activepieces',mask:'https://raw.githubusercontent.com/activepieces/activepieces/main/packages/web/public/logo.svg',color:'#8142e3'},
+      {id:'node-red',label:'Node-RED',mask:'https://cdn.jsdelivr.net/npm/simple-icons@14.15.0/icons/nodered.svg',color:'#8f0000'}
     ];
     const searchAliases={
       'ai-email':'gmail outlook transactional email customer reply support message approval before sending comms communication legal review brand voice',
@@ -239,7 +240,7 @@
     function supportedPlatforms(item){return item.guide?['zapier']:platforms.map(platform=>platform.id)}
     function renderPlatformFilters(){
       const choices=[{id:'all',label:'All'},...platforms];
-      platformFilters.innerHTML=choices.map(platform=>`<button class="platform-filter-button" type="button" data-platform-filter="${platform.id}" aria-pressed="${platform.id===filterPlatform}">${platform.id==='all'?'':`<span class="platform-filter-icon">${platform.icon?`<img src="${platform.icon}" alt="">`:platform.mark}</span>`}<span>${platform.label}</span></button>`).join('');
+      platformFilters.innerHTML=choices.map(platform=>`<button class="platform-filter-button" type="button" data-platform-filter="${platform.id}" aria-pressed="${platform.id===filterPlatform}">${platform.id==='all'?'':`<span class="platform-filter-icon">${platform.mask?`<span class="platform-filter-logo" style="--logo-color:${platform.color};--logo-mask:url('${platform.mask}')"></span>`:platform.icon?`<img src="${platform.icon}" alt="">`:platform.mark}</span>`}<span>${platform.label}</span></button>`).join('');
       platformFilters.querySelectorAll('button').forEach(button=>button.addEventListener('click',()=>{filterPlatform=button.dataset.platformFilter;renderPlatformFilters();render()}));
     }
     function renderCategories(){
@@ -258,11 +259,10 @@
         return (category==='All'||item.category===category)&&matchesPlatform&&matchesSearch;
       });
       if(sort.value==='title') list=[...list].sort((a,b)=>a.title.localeCompare(b.title));
-      grid.innerHTML=list.map(item=>{const subject=item.title.replace(/\s+approval$/i,'');return `<article class="card" style="--action-color:${item.color};--action-ink:${contrastInk(item.color)}"><span class="action-pill">${item.apps[1]}</span><h3>${subject} <span class="approval-label">approval</span></h3><p class="card-description">${cardDescriptions[item.id]}</p><div class="card-footer"><button class="view" data-id="${item.id}">${item.guide?'Use this recipe':'View template'} ›</button></div></article>`}).join('');
+      grid.innerHTML=list.map(item=>{const subject=item.title.replace(/\s+approval$/i,'');const platform=filterPlatform==='all'?(item.guide?'zapier':'n8n'):filterPlatform;const path=item.guide?item.guide:`/templates/${item.id}`;return `<article class="card" style="--action-color:${item.color};--action-ink:${contrastInk(item.color)}"><span class="action-pill">${item.apps[1]}</span><h3>${subject} <span class="approval-label">approval</span></h3><p class="card-description">${cardDescriptions[item.id]}</p><div class="card-footer"><a class="view" href="${path}?platform=${platform}">${item.guide?'Use this recipe':'View template'} ›</a></div></article>`}).join('');
       const platformName=platforms.find(platform=>platform.id===filterPlatform)?.label;
       empty.innerHTML=list.length?'':`<h3>No matching templates</h3><p>Try a broader search${platformName?' or clear the '+platformName+' filter':''}.</p>`;
       empty.style.display=list.length?'none':'block';
-      grid.querySelectorAll('.view').forEach(button=>button.addEventListener('click',()=>openTemplate(button.dataset.id)));
     }
     function contrastInk(hex){
       const value=hex.replace('#','');
@@ -411,7 +411,6 @@ console.log(approval);\n`;
     renderPlatformFilters();
     renderCategories();
     render();
-    if(location.hash) openTemplate(location.hash.slice(1));
   </script>
 </body>
 </html>

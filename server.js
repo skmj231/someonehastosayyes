@@ -1845,7 +1845,7 @@ const PUBLIC_FILES = new Map([
   ["/status", "status.html"],
   ["/relay", "relay.html"],
   ["/relay/templates", "relay-templates.html"],
-  ["/guides/zapier-winston-content-approval", "zapier-winston-content-approval.html"],
+  ["/guides/zapier-winston-content-approval", "template-guide.html"],
   ["/starters/n8n-email-approval.json", "examples/n8n-email-approval-starter.json"],
   ["/starters/n8n-slack-approval.json", "examples/n8n-approval-demo.json"],
   ["/templates/n8n-ai-email-approval.json", "examples/n8n-ai-email-approval.json"],
@@ -1864,6 +1864,17 @@ app.get([...PUBLIC_FILES.keys()], (req, res, next) => {
     res.set("Content-Disposition", `attachment; filename="${filename}"`);
   }
   res.sendFile(__dirname + "/" + PUBLIC_FILES.get(req.path), (error) => error ? next(error) : undefined);
+});
+const TEMPLATE_GUIDE_IDS = new Set([
+  "ai-email", "refund", "content-publish", "crm-bulk-change", "pipeline-digest", "meeting-followup",
+  "sales-quote", "candidate-progress", "account-provisioning", "order-fulfillment", "payment-receipt",
+  "performance-review", "reddit-outreach", "lead-qualification", "support-response", "health-escalation",
+  "email-triage", "ticket-backlog-digest", "review-reply", "action-items", "order-calendar"
+]);
+app.get("/templates/:templateId", (req, res, next) => {
+  if (!TEMPLATE_GUIDE_IDS.has(req.params.templateId)) return next();
+  res.set("Cache-Control", "public, max-age=300");
+  res.sendFile(__dirname + "/template-guide.html", (error) => error ? next(error) : undefined);
 });
 app.get("/", (_req, res) => res.type("html").send(LANDING.replaceAll("{{BASE_URL}}", BASE_URL)));
 
