@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Approval workflow templates | someonehastosayyes</title>
-  <meta name="description" content="Approval workflows for n8n, Make, Zapier, APIs, AI agents, Pipedream, Activepieces, and Node-RED.">
+  <meta name="description" content="Platform-specific approval workflow guides for n8n, Make, and Zapier.">
   <style>
     :root { --ink:#171914; --muted:#666b62; --line:#dfe2da; --paper:#f7f8f4; --white:#fff; --signal:#e5ed4d; --signal-dark:#697000; --mono:ui-monospace,SFMono-Regular,Menlo,monospace; --sans:Inter,ui-sans-serif,system-ui,sans-serif; }
     * { box-sizing:border-box; }
@@ -99,7 +99,6 @@
     .fact { padding:16px; background:var(--white); }
     .fact span { display:block; color:var(--muted); font:10px var(--mono); text-transform:uppercase; }
     .fact strong { display:block; margin-top:5px; font-size:13px; }
-    .platform-picker { display:flex; flex-wrap:wrap; gap:7px; margin:0 0 22px; }
     .platform-button { min-height:40px; padding:0 13px; border:1px solid var(--line); background:var(--white); color:var(--muted); font-weight:750; cursor:pointer; }
     .platform-button:hover { border-color:var(--ink); color:var(--ink); }
     .platform-button[aria-pressed=true] { border-color:var(--ink); background:var(--ink); color:var(--white); }
@@ -124,7 +123,7 @@
   <main class="shell">
     <section class="intro">
       <h1>Choose what needs approval.</h1>
-      <p>Pick an approval workflow, then use it in n8n, Make, Zapier, your API, or an AI agent. Reviewing articles in Zapier? Use the <a href="/guides/zapier-winston-content-approval">Winston AI content approval recipe</a>.</p>
+      <p>Choose the exact n8n, Make, or Zapier guide for the action you need to approve. Reviewing articles in Zapier? Use the <a href="/guides/zapier-winston-content-approval">Winston AI content approval recipe</a>.</p>
     </section>
     <section class="searchbar">
       <label for="search">Search templates</label><input id="search" type="search" placeholder="Search a task, tool, role, or action..." autocomplete="off">
@@ -140,35 +139,31 @@
     </section>
     <section class="request"><div><h2>Have a workflow in mind?</h2><p>Send it over. We will build the approval version.</p></div><a href="https://github.com/skmj231/someonehastosayyes/issues/new?title=Template%20request%3A%20">Request a template</a></section>
   </main>
-  <dialog id="template-dialog" aria-labelledby="dialog-title">
-    <div class="modal-head"><div><p id="dialog-category"></p><h2 id="dialog-title"></h2></div><button class="close" id="close-dialog" aria-label="Close">×</button></div>
-    <div class="modal-body"><p class="summary" id="dialog-summary"></p><div class="flow" id="dialog-flow"></div><div class="facts" id="dialog-facts"></div><div class="platform-picker" id="platform-picker" aria-label="Choose a platform"></div><p class="platform-note" id="platform-note"></p><section class="setup"><h3 id="setup-title">Set it up</h3><ol id="setup-steps"></ol></section><div class="modal-actions"><a class="button primary" id="download" download>Download n8n JSON</a><button class="button" id="copy-prompt">Copy build prompt</button><a class="button signal" id="api-key-link" href="/?tool=n8n&amp;source=template-library#request">Get an API key</a></div></div>
-  </dialog>
-  <div class="toast" id="toast" role="status" aria-live="polite"></div><footer><div class="shell">someonehastosayyes</div></footer>
+  <footer><div class="shell">someonehastosayyes</div></footer>
   <script>
     const templates = [
       {id:'zapier-winston-content',title:'Zapier + Winston AI content approval',summary:'Check AI signals and plagiarism, save the result, and publish only after a person says yes.',category:'Communication',platform:'zapier',apps:['Zapier','Winston AI'],color:'#ff4f00',tags:['Article','Blog','Content','Publishing','AI detection','Plagiarism','Originality','Google Sheets','CMS','WordPress','Webflow','Manual review','Human in the loop','HITL','Notification','Webhook'],keywords:['writer','writing','editorial','editor','SEO','draft','website','content review','quality check','AI checker','plagiarism checker','automated publishing','approve before publish','review before publishing','manual attention','content moderation','Winston','Zapier workflow','article created'],flow:['Article ready','Winston checks','Save result','Ask for approval','Publish after yes'],protected:'content.publish',timeout:'1440 minutes, then reject',replace:'Zapier, Winston AI, Sheet, and approver details',connect:'Website or CMS publishing action',guide:'/guides/zapier-winston-content-approval'},
-      {id:'ai-email',title:'Customer email approval',summary:'Pause after the draft. Send the email only after a person says yes.',category:'Communication',platform:'n8n',apps:['n8n','Email'],color:'#ff5a36',tags:['AI','Email','Customer support'],flow:['Draft ready','Request approval','Wait','Yes or no','Send email'],protected:'email.send',timeout:'60 minutes, then reject',replace:'API key and approver email',connect:'Gmail or email node',file:'/templates/n8n-ai-email-approval.json',prompt:'Import the n8n workflow from https://someonehastosayyes.com/templates/n8n-ai-email-approval.json. Replace PASTE_YOUR_API_KEY and YOUR_APPROVER_EMAIL. Run one approval and one rejection test. Connect the approved branch to my email sending node only after both tests work.'},
-      {id:'refund',title:'High-value refund approval',summary:'Hold the refund request. Move the money only after the right person approves the amount.',category:'Finance',platform:'n8n',apps:['n8n','Refund'],color:'#3478ff',actionInk:'#fff',tags:['Refund','Payments','Threshold'],flow:['Refund request','Request approval','Wait','Yes or no','Create refund'],protected:'refund.create',timeout:'60 minutes, then reject',replace:'API key, approver email, and threshold',connect:'Refund API node',file:'/templates/n8n-refund-approval.json',prompt:'Import the n8n workflow from https://someonehastosayyes.com/templates/n8n-refund-approval.json. Replace PASTE_YOUR_API_KEY and YOUR_APPROVER_EMAIL. Set the refund threshold. Test approval and rejection, then connect the approved branch to my refund API.'},
-      {id:'content-publish',title:'Content publishing approval',summary:'Keep the content in draft. Publish only after a person says yes.',category:'Communication',platform:'n8n',apps:['n8n','Publish'],color:'#ff3da6',tags:['AI','Content','Publishing'],flow:['Content ready','Request approval','Wait','Yes or no','Publish'],protected:'content.publish',timeout:'120 minutes, then reject',replace:'API key and approver email',connect:'Publishing node',file:'/templates/n8n-content-publish-approval.json',prompt:'Import the n8n workflow from https://someonehastosayyes.com/templates/n8n-content-publish-approval.json. Replace PASTE_YOUR_API_KEY and YOUR_APPROVER_EMAIL. Map the generated content into the approval context. Connect publishing only to the approved branch after the test works.'},
-      {id:'crm-bulk-change',title:'Bulk CRM change approval',summary:'Stop the bulk change. Update the CRM only after someone checks the operation and record count.',category:'Operations',platform:'n8n',apps:['n8n','CRM'],color:'#16c784',tags:['CRM','Bulk update','Data'],flow:['Change ready','Request approval','Wait','Yes or no','Update CRM'],protected:'crm.bulk_update',timeout:'60 minutes, then reject',replace:'API key and approver email',connect:'CRM update node',file:'/templates/n8n-crm-bulk-change-approval.json',prompt:'Import the n8n workflow from https://someonehastosayyes.com/templates/n8n-crm-bulk-change-approval.json. Replace PASTE_YOUR_API_KEY and YOUR_APPROVER_EMAIL. Map the operation and record count into the approval context. Connect the CRM update only to the approved branch after testing.'},
-      {id:'pipeline-digest',title:'Sales pipeline digest approval',summary:'Hold the weekly digest. Post it only after the sales manager checks the numbers and owners.',category:'Sales',platform:'n8n',apps:['n8n','Pipeline'],color:'#7c3cff',actionInk:'#fff',tags:['Sales','Reporting','Slack'],flow:['Digest ready','Request approval','Wait','Yes or no','Post digest'],protected:'sales_digest.post',timeout:'120 minutes, then reject',replace:'API key and approver email',connect:'Slack post node',file:'/templates/n8n-pipeline-digest-approval.json',prompt:'Download the Sales pipeline digest approval workflow from someonehastosayyes. Replace PASTE_YOUR_API_KEY and YOUR_APPROVER_EMAIL. Test yes and no before connecting the Slack post.'},
-      {id:'meeting-followup',title:'Meeting follow-up approval',summary:'Keep the recap unsent. Email attendees only after the meeting owner checks it.',category:'Communication',platform:'n8n',apps:['n8n','Follow-up'],color:'#ffb000',tags:['Meeting','Email','AI'],flow:['Recap ready','Request approval','Wait','Yes or no','Send email'],protected:'meeting_recap.send',timeout:'120 minutes, then reject',replace:'API key and approver email',connect:'Gmail or Outlook node',file:'/templates/n8n-meeting-followup-approval.json',prompt:'Download the Meeting follow-up approval workflow from someonehastosayyes. Replace PASTE_YOUR_API_KEY and YOUR_APPROVER_EMAIL. Test yes and no before connecting the email send.'},
-      {id:'sales-quote',title:'Sales quote approval',summary:'Hold the generated quote. Send it only after someone checks pricing, discount, and terms.',category:'Sales',platform:'n8n',apps:['n8n','Quote'],color:'#00a6ff',actionInk:'#fff',tags:['Quote','Pricing','Sales'],flow:['Quote ready','Request approval','Wait','Yes or no','Send quote'],protected:'sales_quote.send',timeout:'240 minutes, then reject',replace:'API key and approver email',connect:'DocuSign or email node',file:'/templates/n8n-sales-quote-approval.json',prompt:'Download the Sales quote approval workflow from someonehastosayyes. Replace PASTE_YOUR_API_KEY and YOUR_APPROVER_EMAIL. Test yes and no before connecting quote delivery.'},
-      {id:'candidate-progress',title:'Candidate progression approval',summary:'Pause after AI screening. Move the candidate forward only after a recruiter says yes.',category:'People',platform:'n8n',apps:['n8n','Hiring'],color:'#ff7043',tags:['Hiring','ATS','AI'],flow:['Candidate scored','Request approval','Wait','Yes or no','Update ATS'],protected:'candidate.advance',timeout:'1440 minutes, then reject',replace:'API key and approver email',connect:'Greenhouse, Lever, or Ashby node',file:'/templates/n8n-candidate-progress-approval.json',prompt:'Download the Candidate progression approval workflow from someonehastosayyes. Replace PASTE_YOUR_API_KEY and YOUR_APPROVER_EMAIL. Test yes and no before connecting the ATS update.'},
-      {id:'account-provisioning',title:'Employee account provisioning approval',summary:'Stop before access is created. Provision employee accounts only after the owner confirms the role and start date.',category:'People',platform:'n8n',apps:['n8n','Onboard'],color:'#00c2a8',tags:['Onboarding','IT','Access'],flow:['Hire ready','Request approval','Wait','Yes or no','Create accounts'],protected:'employee.provision',timeout:'1440 minutes, then reject',replace:'API key and approver email',connect:'Identity or account provisioning nodes',file:'/templates/n8n-account-provisioning-approval.json',prompt:'Download the Employee account provisioning approval workflow from someonehastosayyes. Replace PASTE_YOUR_API_KEY and YOUR_APPROVER_EMAIL. Test yes and no before connecting account creation.'},
-      {id:'order-fulfillment',title:'Order fulfillment approval',summary:'Hold the order before fulfillment. Release it only after ops checks the order, stock, and destination.',category:'Operations',platform:'n8n',apps:['n8n','Fulfill'],color:'#7dce13',tags:['Order','Fulfillment','Commerce'],flow:['Order ready','Request approval','Wait','Yes or no','Release order'],protected:'order.fulfill',timeout:'240 minutes, then reject',replace:'API key and approver email',connect:'Shopify, WooCommerce, or warehouse node',file:'/templates/n8n-order-fulfillment-approval.json',prompt:'Download the Order fulfillment approval workflow from someonehastosayyes. Replace PASTE_YOUR_API_KEY and YOUR_APPROVER_EMAIL. Test yes and no before connecting fulfillment.'},
-      {id:'payment-receipt',title:'Payment receipt approval',summary:'Keep the receipt in draft. Send it only after finance checks the payment and customer details.',category:'Finance',platform:'n8n',apps:['n8n','Receipt'],color:'#6c5ce7',actionInk:'#fff',tags:['Payment','Receipt','Finance'],flow:['Receipt drafted','Request approval','Wait','Yes or no','Send receipt'],protected:'payment_receipt.send',timeout:'120 minutes, then reject',replace:'API key and approver email',connect:'Gmail or Outlook node',file:'/templates/n8n-payment-receipt-approval.json',prompt:'Download the Payment receipt approval workflow from someonehastosayyes. Replace PASTE_YOUR_API_KEY and YOUR_APPROVER_EMAIL. Test yes and no before connecting receipt delivery.'},
-      {id:'performance-review',title:'Performance review approval',summary:'Keep the AI draft private. Share the review only after the manager makes the final call.',category:'People',platform:'n8n',apps:['n8n','Review'],color:'#d833ff',actionInk:'#fff',tags:['People','Review','AI'],flow:['Review drafted','Request approval','Wait','Yes or no','Share review'],protected:'performance_review.share',timeout:'2880 minutes, then reject',replace:'API key and approver email',connect:'Document share or email node',file:'/templates/n8n-performance-review-approval.json',prompt:'Download the Performance review approval workflow from someonehastosayyes. Replace PASTE_YOUR_API_KEY and YOUR_APPROVER_EMAIL. Test yes and no before connecting review sharing.'},
-      {id:'reddit-outreach',title:'Reddit lead outreach approval',summary:'Hold the drafted response. Create the lead or send outreach only after a rep reviews the context.',category:'Sales',platform:'n8n',apps:['n8n','Outreach'],color:'#ff4747',actionInk:'#fff',tags:['Reddit','Lead','Outreach'],flow:['Reply drafted','Request approval','Wait','Yes or no','Create lead'],protected:'lead_outreach.create',timeout:'120 minutes, then reject',replace:'API key and approver email',connect:'HubSpot, Salesforce, or Attio node',file:'/templates/n8n-reddit-outreach-approval.json',prompt:'Download the Reddit lead outreach approval workflow from someonehastosayyes. Replace PASTE_YOUR_API_KEY and YOUR_APPROVER_EMAIL. Test yes and no before connecting CRM creation.'},
-      {id:'lead-qualification',title:'Qualified lead routing approval',summary:'Pause after AI scoring. Add the lead to the sales pipeline only after a rep checks the evidence.',category:'Sales',platform:'n8n',apps:['n8n','Lead'],color:'#00b8d9',tags:['Lead','CRM','AI'],flow:['Lead scored','Request approval','Wait','Yes or no','Create lead'],protected:'lead.create',timeout:'120 minutes, then reject',replace:'API key and approver email',connect:'HubSpot, Salesforce, or Pipedrive node',file:'/templates/n8n-lead-qualification-approval.json',prompt:'Download the Qualified lead routing approval workflow from someonehastosayyes. Replace PASTE_YOUR_API_KEY and YOUR_APPROVER_EMAIL. Test yes and no before connecting CRM creation.'},
-      {id:'support-response',title:'Customer support response approval',summary:'Keep the answer unsent. Reply to the customer only after an agent checks the diagnosis and tone.',category:'Support',platform:'n8n',apps:['n8n','Support'],color:'#f36f21',tags:['Support','Email','AI'],flow:['Response ready','Request approval','Wait','Yes or no','Send reply'],protected:'support_reply.send',timeout:'60 minutes, then reject',replace:'API key and approver email',connect:'Zendesk, Intercom, or email node',file:'/templates/n8n-support-response-approval.json',prompt:'Download the Customer support response approval workflow from someonehastosayyes. Replace PASTE_YOUR_API_KEY and YOUR_APPROVER_EMAIL. Test yes and no before connecting the support reply.'},
-      {id:'health-escalation',title:'Customer health escalation approval',summary:'Hold the escalation. Contact the account team only after a CSM confirms the risk signals.',category:'Support',platform:'n8n',apps:['n8n','Escalate'],color:'#ff1f69',actionInk:'#fff',tags:['Customer success','Risk','CRM'],flow:['Risk detected','Request approval','Wait','Yes or no','Escalate'],protected:'customer_health.escalate',timeout:'240 minutes, then reject',replace:'API key and approver email',connect:'Slack, email, or CRM task node',file:'/templates/n8n-health-escalation-approval.json',prompt:'Download the Customer health escalation approval workflow from someonehastosayyes. Replace PASTE_YOUR_API_KEY and YOUR_APPROVER_EMAIL. Test yes and no before connecting the escalation.'},
-      {id:'email-triage',title:'Email triage action approval',summary:'Pause after AI triage. Reply, archive, or create a task only after a person confirms the action.',category:'Operations',platform:'n8n',apps:['n8n','Triage'],color:'#00a67e',actionInk:'#fff',tags:['Email','Triage','AI'],flow:['Email classified','Request approval','Wait','Yes or no','Run action'],protected:'email_triage.execute',timeout:'60 minutes, then reject',replace:'API key and approver email',connect:'Gmail, Outlook, or task node',file:'/templates/n8n-email-triage-approval.json',prompt:'Download the Email triage action approval workflow from someonehastosayyes. Replace PASTE_YOUR_API_KEY and YOUR_APPROVER_EMAIL. Test yes and no before connecting the email action.'},
-      {id:'ticket-backlog-digest',title:'Ticket backlog digest approval',summary:'Hold the support digest. Post it only after the support lead checks the SLA and workload numbers.',category:'Support',platform:'n8n',apps:['n8n','Backlog'],color:'#7857ff',actionInk:'#fff',tags:['Support','Reporting','Slack'],flow:['Digest ready','Request approval','Wait','Yes or no','Post digest'],protected:'support_digest.post',timeout:'120 minutes, then reject',replace:'API key and approver email',connect:'Slack or Teams node',file:'/templates/n8n-ticket-backlog-digest-approval.json',prompt:'Download the Ticket backlog digest approval workflow from someonehastosayyes. Replace PASTE_YOUR_API_KEY and YOUR_APPROVER_EMAIL. Test yes and no before connecting the digest post.'},
-      {id:'review-reply',title:'Google review reply approval',summary:'Keep the reply unpublished. Post it only after the location owner checks the facts and tone.',category:'Support',platform:'n8n',apps:['n8n','Reviews'],color:'#ffd400',tags:['Google Business','Reviews','AI'],flow:['Reply drafted','Request approval','Wait','Yes or no','Post reply'],protected:'review_reply.publish',timeout:'120 minutes, then reject',replace:'API key and approver email',connect:'Google Business Profile reply node',file:'/templates/n8n-review-reply-approval.json',prompt:'Download the Google review reply approval workflow from someonehastosayyes. Replace PASTE_YOUR_API_KEY and YOUR_APPROVER_EMAIL. Test yes and no before connecting the Google Business Profile reply.'},
-      {id:'action-items',title:'Action item creation approval',summary:'Hold the extracted tasks. Create them only after the meeting owner confirms each assignee and due date.',category:'Operations',platform:'n8n',apps:['n8n','Tasks'],color:'#ff2d20',actionInk:'#fff',tags:['Asana','Meeting','AI'],flow:['Tasks extracted','Request approval','Wait','Yes or no','Create tasks'],protected:'tasks.bulk_create',timeout:'240 minutes, then reject',replace:'API key and approver email',connect:'Asana, Linear, or ClickUp node',file:'/templates/n8n-action-items-approval.json',prompt:'Download the Action item creation approval workflow from someonehastosayyes. Replace PASTE_YOUR_API_KEY and YOUR_APPROVER_EMAIL. Test yes and no before connecting task creation.'},
-      {id:'order-calendar',title:'Order calendar event approval',summary:'Keep the parsed order off the calendar. Create the event only after someone checks the date, customer, and order details.',category:'Operations',platform:'n8n',apps:['n8n','Calendar'],color:'#00d4ff',tags:['Order','Calendar','AI'],flow:['Order parsed','Request approval','Wait','Yes or no','Create event'],protected:'calendar_event.create',timeout:'120 minutes, then reject',replace:'API key and approver email',connect:'Google Calendar or Outlook node',file:'/templates/n8n-order-calendar-approval.json',prompt:'Download the Order calendar event approval workflow from someonehastosayyes. Replace PASTE_YOUR_API_KEY and YOUR_APPROVER_EMAIL. Test yes and no before connecting calendar event creation.'}
+      {id:'ai-email',title:'Customer email approval',summary:'Pause after the draft. Send the email only after a person says yes.',category:'Communication',platform:'n8n',apps:['n8n','Email'],color:'#ff5a36',tags:['AI','Email','Customer support'],flow:['Draft ready','Request approval','Wait','Yes or no','Send email'],protected:'email.send',timeout:'60 minutes, then reject',replace:'API key and approver email',connect:'Gmail or email node',file:'/templates/n8n-ai-email-approval.json'},
+      {id:'refund',title:'High-value refund approval',summary:'Hold the refund request. Move the money only after the right person approves the amount.',category:'Finance',platform:'n8n',apps:['n8n','Refund'],color:'#3478ff',actionInk:'#fff',tags:['Refund','Payments','Threshold'],flow:['Refund request','Request approval','Wait','Yes or no','Create refund'],protected:'refund.create',timeout:'60 minutes, then reject',replace:'API key, approver email, and threshold',connect:'Refund API node',file:'/templates/n8n-refund-approval.json'},
+      {id:'content-publish',title:'Content publishing approval',summary:'Keep the content in draft. Publish only after a person says yes.',category:'Communication',platform:'n8n',apps:['n8n','Publish'],color:'#ff3da6',tags:['AI','Content','Publishing'],flow:['Content ready','Request approval','Wait','Yes or no','Publish'],protected:'content.publish',timeout:'120 minutes, then reject',replace:'API key and approver email',connect:'Publishing node',file:'/templates/n8n-content-publish-approval.json'},
+      {id:'crm-bulk-change',title:'Bulk CRM change approval',summary:'Stop the bulk change. Update the CRM only after someone checks the operation and record count.',category:'Operations',platform:'n8n',apps:['n8n','CRM'],color:'#16c784',tags:['CRM','Bulk update','Data'],flow:['Change ready','Request approval','Wait','Yes or no','Update CRM'],protected:'crm.bulk_update',timeout:'60 minutes, then reject',replace:'API key and approver email',connect:'CRM update node',file:'/templates/n8n-crm-bulk-change-approval.json'},
+      {id:'pipeline-digest',title:'Sales pipeline digest approval',summary:'Hold the weekly digest. Post it only after the sales manager checks the numbers and owners.',category:'Sales',platform:'n8n',apps:['n8n','Pipeline'],color:'#7c3cff',actionInk:'#fff',tags:['Sales','Reporting','Slack'],flow:['Digest ready','Request approval','Wait','Yes or no','Post digest'],protected:'sales_digest.post',timeout:'120 minutes, then reject',replace:'API key and approver email',connect:'Slack post node',file:'/templates/n8n-pipeline-digest-approval.json'},
+      {id:'meeting-followup',title:'Meeting follow-up approval',summary:'Keep the recap unsent. Email attendees only after the meeting owner checks it.',category:'Communication',platform:'n8n',apps:['n8n','Follow-up'],color:'#ffb000',tags:['Meeting','Email','AI'],flow:['Recap ready','Request approval','Wait','Yes or no','Send email'],protected:'meeting_recap.send',timeout:'120 minutes, then reject',replace:'API key and approver email',connect:'Gmail or Outlook node',file:'/templates/n8n-meeting-followup-approval.json'},
+      {id:'sales-quote',title:'Sales quote approval',summary:'Hold the generated quote. Send it only after someone checks pricing, discount, and terms.',category:'Sales',platform:'n8n',apps:['n8n','Quote'],color:'#00a6ff',actionInk:'#fff',tags:['Quote','Pricing','Sales'],flow:['Quote ready','Request approval','Wait','Yes or no','Send quote'],protected:'sales_quote.send',timeout:'240 minutes, then reject',replace:'API key and approver email',connect:'DocuSign or email node',file:'/templates/n8n-sales-quote-approval.json'},
+      {id:'candidate-progress',title:'Candidate progression approval',summary:'Pause after AI screening. Move the candidate forward only after a recruiter says yes.',category:'People',platform:'n8n',apps:['n8n','Hiring'],color:'#ff7043',tags:['Hiring','ATS','AI'],flow:['Candidate scored','Request approval','Wait','Yes or no','Update ATS'],protected:'candidate.advance',timeout:'1440 minutes, then reject',replace:'API key and approver email',connect:'Greenhouse, Lever, or Ashby node',file:'/templates/n8n-candidate-progress-approval.json'},
+      {id:'account-provisioning',title:'Employee account provisioning approval',summary:'Stop before access is created. Provision employee accounts only after the owner confirms the role and start date.',category:'People',platform:'n8n',apps:['n8n','Onboard'],color:'#00c2a8',tags:['Onboarding','IT','Access'],flow:['Hire ready','Request approval','Wait','Yes or no','Create accounts'],protected:'employee.provision',timeout:'1440 minutes, then reject',replace:'API key and approver email',connect:'Identity or account provisioning nodes',file:'/templates/n8n-account-provisioning-approval.json'},
+      {id:'order-fulfillment',title:'Order fulfillment approval',summary:'Hold the order before fulfillment. Release it only after ops checks the order, stock, and destination.',category:'Operations',platform:'n8n',apps:['n8n','Fulfill'],color:'#7dce13',tags:['Order','Fulfillment','Commerce'],flow:['Order ready','Request approval','Wait','Yes or no','Release order'],protected:'order.fulfill',timeout:'240 minutes, then reject',replace:'API key and approver email',connect:'Shopify, WooCommerce, or warehouse node',file:'/templates/n8n-order-fulfillment-approval.json'},
+      {id:'payment-receipt',title:'Payment receipt approval',summary:'Keep the receipt in draft. Send it only after finance checks the payment and customer details.',category:'Finance',platform:'n8n',apps:['n8n','Receipt'],color:'#6c5ce7',actionInk:'#fff',tags:['Payment','Receipt','Finance'],flow:['Receipt drafted','Request approval','Wait','Yes or no','Send receipt'],protected:'payment_receipt.send',timeout:'120 minutes, then reject',replace:'API key and approver email',connect:'Gmail or Outlook node',file:'/templates/n8n-payment-receipt-approval.json'},
+      {id:'performance-review',title:'Performance review approval',summary:'Keep the AI draft private. Share the review only after the manager makes the final call.',category:'People',platform:'n8n',apps:['n8n','Review'],color:'#d833ff',actionInk:'#fff',tags:['People','Review','AI'],flow:['Review drafted','Request approval','Wait','Yes or no','Share review'],protected:'performance_review.share',timeout:'2880 minutes, then reject',replace:'API key and approver email',connect:'Document share or email node',file:'/templates/n8n-performance-review-approval.json'},
+      {id:'reddit-outreach',title:'Reddit lead outreach approval',summary:'Hold the drafted response. Create the lead or send outreach only after a rep reviews the context.',category:'Sales',platform:'n8n',apps:['n8n','Outreach'],color:'#ff4747',actionInk:'#fff',tags:['Reddit','Lead','Outreach'],flow:['Reply drafted','Request approval','Wait','Yes or no','Create lead'],protected:'lead_outreach.create',timeout:'120 minutes, then reject',replace:'API key and approver email',connect:'HubSpot, Salesforce, or Attio node',file:'/templates/n8n-reddit-outreach-approval.json'},
+      {id:'lead-qualification',title:'Qualified lead routing approval',summary:'Pause after AI scoring. Add the lead to the sales pipeline only after a rep checks the evidence.',category:'Sales',platform:'n8n',apps:['n8n','Lead'],color:'#00b8d9',tags:['Lead','CRM','AI'],flow:['Lead scored','Request approval','Wait','Yes or no','Create lead'],protected:'lead.create',timeout:'120 minutes, then reject',replace:'API key and approver email',connect:'HubSpot, Salesforce, or Pipedrive node',file:'/templates/n8n-lead-qualification-approval.json'},
+      {id:'support-response',title:'Customer support response approval',summary:'Keep the answer unsent. Reply to the customer only after an agent checks the diagnosis and tone.',category:'Support',platform:'n8n',apps:['n8n','Support'],color:'#f36f21',tags:['Support','Email','AI'],flow:['Response ready','Request approval','Wait','Yes or no','Send reply'],protected:'support_reply.send',timeout:'60 minutes, then reject',replace:'API key and approver email',connect:'Zendesk, Intercom, or email node',file:'/templates/n8n-support-response-approval.json'},
+      {id:'health-escalation',title:'Customer health escalation approval',summary:'Hold the escalation. Contact the account team only after a CSM confirms the risk signals.',category:'Support',platform:'n8n',apps:['n8n','Escalate'],color:'#ff1f69',actionInk:'#fff',tags:['Customer success','Risk','CRM'],flow:['Risk detected','Request approval','Wait','Yes or no','Escalate'],protected:'customer_health.escalate',timeout:'240 minutes, then reject',replace:'API key and approver email',connect:'Slack, email, or CRM task node',file:'/templates/n8n-health-escalation-approval.json'},
+      {id:'email-triage',title:'Email triage action approval',summary:'Pause after AI triage. Reply, archive, or create a task only after a person confirms the action.',category:'Operations',platform:'n8n',apps:['n8n','Triage'],color:'#00a67e',actionInk:'#fff',tags:['Email','Triage','AI'],flow:['Email classified','Request approval','Wait','Yes or no','Run action'],protected:'email_triage.execute',timeout:'60 minutes, then reject',replace:'API key and approver email',connect:'Gmail, Outlook, or task node',file:'/templates/n8n-email-triage-approval.json'},
+      {id:'ticket-backlog-digest',title:'Ticket backlog digest approval',summary:'Hold the support digest. Post it only after the support lead checks the SLA and workload numbers.',category:'Support',platform:'n8n',apps:['n8n','Backlog'],color:'#7857ff',actionInk:'#fff',tags:['Support','Reporting','Slack'],flow:['Digest ready','Request approval','Wait','Yes or no','Post digest'],protected:'support_digest.post',timeout:'120 minutes, then reject',replace:'API key and approver email',connect:'Slack or Teams node',file:'/templates/n8n-ticket-backlog-digest-approval.json'},
+      {id:'review-reply',title:'Google review reply approval',summary:'Keep the reply unpublished. Post it only after the location owner checks the facts and tone.',category:'Support',platform:'n8n',apps:['n8n','Reviews'],color:'#ffd400',tags:['Google Business','Reviews','AI'],flow:['Reply drafted','Request approval','Wait','Yes or no','Post reply'],protected:'review_reply.publish',timeout:'120 minutes, then reject',replace:'API key and approver email',connect:'Google Business Profile reply node',file:'/templates/n8n-review-reply-approval.json'},
+      {id:'action-items',title:'Action item creation approval',summary:'Hold the extracted tasks. Create them only after the meeting owner confirms each assignee and due date.',category:'Operations',platform:'n8n',apps:['n8n','Tasks'],color:'#ff2d20',actionInk:'#fff',tags:['Asana','Meeting','AI'],flow:['Tasks extracted','Request approval','Wait','Yes or no','Create tasks'],protected:'tasks.bulk_create',timeout:'240 minutes, then reject',replace:'API key and approver email',connect:'Asana, Linear, or ClickUp node',file:'/templates/n8n-action-items-approval.json'},
+      {id:'order-calendar',title:'Order calendar event approval',summary:'Keep the parsed order off the calendar. Create the event only after someone checks the date, customer, and order details.',category:'Operations',platform:'n8n',apps:['n8n','Calendar'],color:'#00d4ff',tags:['Order','Calendar','AI'],flow:['Order parsed','Request approval','Wait','Yes or no','Create event'],protected:'calendar_event.create',timeout:'120 minutes, then reject',replace:'API key and approver email',connect:'Google Calendar or Outlook node',file:'/templates/n8n-order-calendar-approval.json'}
     ];
     const grid=document.getElementById('grid');
     const categories=document.getElementById('categories');
@@ -176,12 +171,8 @@
     const sort=document.getElementById('sort');
     const platformFilters=document.getElementById('platform-filters');
     const empty=document.getElementById('empty');
-    const dialog=document.getElementById('template-dialog');
-    const toast=document.getElementById('toast');
     let category='All';
     let filterPlatform='all';
-    let current=null;
-    let selectedPlatform='n8n';
     const platforms=[
       {id:'n8n',label:'n8n',mask:'https://cdn.jsdelivr.net/npm/simple-icons@14.15.0/icons/n8n.svg',color:'#ea4b71'},
       {id:'make',label:'Make',mask:'https://cdn.jsdelivr.net/npm/simple-icons@14.15.0/icons/make.svg',color:'#6d00cc'},
@@ -264,176 +255,36 @@
       Support:'customer ticket helpdesk reply escalation support service'
     };
     const categoryNames=['All',...new Set(templates.map(item=>item.category))];
-    function supportedPlatforms(item){return [item.platform]}
+    function supportedPlatforms(item){return item.guide?['zapier']:['n8n','make','zapier']}
     function renderPlatformFilters(){
-      const available=new Set(templates.map(item=>item.platform));
+      const available=new Set(templates.flatMap(supportedPlatforms));
       const choices=[{id:'all',label:'All'},...platforms.filter(platform=>available.has(platform.id))];
       platformFilters.innerHTML=choices.map(platform=>`<button class="platform-filter-button" type="button" data-platform-filter="${platform.id}" aria-pressed="${platform.id===filterPlatform}">${platform.id==='all'?'':`<span class="platform-filter-icon">${platform.mask?`<span class="platform-filter-logo" style="--logo-color:${platform.color};--logo-mask:url('${platform.mask}')"></span>`:platform.icon?`<img src="${platform.icon}" alt="">`:platform.mark}</span>`}<span>${platform.label}</span></button>`).join('');
-      platformFilters.querySelectorAll('button').forEach(button=>button.addEventListener('click',()=>{filterPlatform=button.dataset.platformFilter;renderPlatformFilters();render()}));
+      platformFilters.querySelectorAll('button').forEach(button=>button.addEventListener('click',()=>{filterPlatform=button.dataset.platformFilter;renderPlatformFilters();renderCategories();render()}));
     }
     function renderCategories(){
-      categories.innerHTML=categoryNames.map(name=>`<button class="category" data-category="${name}" aria-pressed="${name===category}"><span>${name}</span><span>${name==='All'?templates.length:templates.filter(item=>item.category===name).length}</span></button>`).join('');
+      const countFor=name=>templates.filter(item=>name==='All'||item.category===name).reduce((total,item)=>total+supportedPlatforms(item).filter(platform=>filterPlatform==='all'||platform===filterPlatform).length,0);
+      categories.innerHTML=categoryNames.map(name=>`<button class="category" data-category="${name}" aria-pressed="${name===category}"><span>${name}</span><span>${countFor(name)}</span></button>`).join('');
       categories.querySelectorAll('button').forEach(button=>button.addEventListener('click',()=>{category=button.dataset.category;renderCategories();render()}));
     }
     function render(){
       const normalize=value=>String(value||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
       const query=normalize(search.value);
       const terms=query.split(/\s+/).filter(Boolean);
-      let list=templates.filter(item=>{
+      let list=templates.flatMap(item=>supportedPlatforms(item).map(platformId=>({item,platformId}))).filter(variant=>{
+        const {item,platformId}=variant;
         const platformWords=supportedPlatforms(item).map(id=>platforms.find(platform=>platform.id===id)?.label||id);
-        const searchable=normalize([item.title,item.summary,cardDescriptions[item.id],item.category,item.platform,item.protected,item.timeout,item.replace,item.connect,item.prompt,searchAliases[item.id],categoryAliases[item.category],...platformWords,...item.tags,...item.apps,...item.flow,...(item.keywords||[])].filter(Boolean).join(' '));
+        const searchable=normalize([item.title,item.summary,cardDescriptions[item.id],item.category,item.platform,item.protected,item.timeout,item.replace,item.connect,searchAliases[item.id],categoryAliases[item.category],...platformWords,...item.tags,...item.apps,...item.flow,...(item.keywords||[])].filter(Boolean).join(' '));
         const matchesSearch=terms.every(term=>searchable.includes(term)||(term.endsWith('s')&&searchable.includes(term.slice(0,-1))));
-        const matchesPlatform=filterPlatform==='all'||supportedPlatforms(item).includes(filterPlatform);
+        const matchesPlatform=filterPlatform==='all'||platformId===filterPlatform;
         return (category==='All'||item.category===category)&&matchesPlatform&&matchesSearch;
       });
-      if(sort.value==='title') list=[...list].sort((a,b)=>a.title.localeCompare(b.title));
-      grid.innerHTML=list.map(item=>{const subject=item.title.replace(/\s+approval$/i,'');const platform=platforms.find(entry=>entry.id===item.platform);const target=destinations[item.id]||{label:'Your app',icon:null};const path=item.guide?item.guide:`/templates/${item.id}`;const icon=entry=>entry?.mask?`<i class="flow-logo" style="--flow-icon:url('${entry.mask}')"></i>`:`<b class="flow-word">${entry?.mark||entry?.label}</b>`;const targetIcon=target.icon?`<i class="flow-logo" style="--flow-icon:url('https://cdn.jsdelivr.net/npm/simple-icons@14.15.0/icons/${target.icon}.svg')"></i>`:`<b class="flow-word">${target.short||target.label}</b>`;return `<a class="card" href="${path}?platform=${item.platform}" style="--platform-color:${platform.color||item.color};--platform-wash:${platformWash[item.platform]||'#eef0ea'}"><div class="card-visual"><div class="card-flow"><span class="flow-app platform">${icon(platform)}<small>${platform.label}</small></span><span class="flow-arrow">→</span><span class="flow-app approval"><b class="flow-word">SHSY</b><small>Approval</small></span><span class="flow-arrow">→</span><span class="flow-app">${targetIcon}<small>${target.label}</small></span></div></div><div class="card-body"><h3>${subject} <span class="approval-label">approval</span></h3><p class="card-description">${cardDescriptions[item.id]}</p><div class="card-footer"><span class="card-platform">${platform.label} setup</span><span class="view">View template ›</span></div></div></a>`}).join('');
+      if(sort.value==='title') list=[...list].sort((a,b)=>a.item.title.localeCompare(b.item.title)||a.platformId.localeCompare(b.platformId));
+      grid.innerHTML=list.map(({item,platformId})=>{const subject=item.title.replace(/\s+approval$/i,'').replace(/^Zapier \+ /i,'');const platform=platforms.find(entry=>entry.id===platformId);const target=destinations[item.id]||{label:'Your app',icon:null};const path=item.guide?item.guide:`/templates/${item.id}`;const icon=entry=>entry?.mask?`<i class="flow-logo" style="--flow-icon:url('${entry.mask}')"></i>`:`<b class="flow-word">${entry?.mark||entry?.label}</b>`;const targetIcon=target.icon?`<i class="flow-logo" style="--flow-icon:url('https://cdn.jsdelivr.net/npm/simple-icons@14.15.0/icons/${target.icon}.svg')"></i>`:`<b class="flow-word">${target.short||target.label}</b>`;return `<a class="card" href="${path}?platform=${platformId}" style="--platform-color:${platform.color||item.color};--platform-wash:${platformWash[platformId]||'#eef0ea'}"><div class="card-visual"><div class="card-flow"><span class="flow-app platform">${icon(platform)}<small>${platform.label}</small></span><span class="flow-arrow">→</span><span class="flow-app approval"><b class="flow-word">SHSY</b><small>Approval</small></span><span class="flow-arrow">→</span><span class="flow-app">${targetIcon}<small>${target.label}</small></span></div></div><div class="card-body"><h3>${subject} <span class="approval-label">approval for ${platform.label}</span></h3><p class="card-description">${cardDescriptions[item.id]}</p><div class="card-footer"><span class="card-platform">${platform.label} setup guide</span><span class="view">View template ›</span></div></div></a>`}).join('');
       const platformName=platforms.find(platform=>platform.id===filterPlatform)?.label;
       empty.innerHTML=list.length?'':`<h3>No matching templates</h3><p>Try a broader search${platformName?' or clear the '+platformName+' filter':''}.</p>`;
       empty.style.display=list.length?'none':'block';
     }
-    function contrastInk(hex){
-      const value=hex.replace('#','');
-      const full=value.length===3?value.split('').map(char=>char+char).join(''):value;
-      const rgb=[0,2,4].map(offset=>parseInt(full.slice(offset,offset+2),16));
-      const luminance=(rgb[0]*299+rgb[1]*587+rgb[2]*114)/1000;
-      return luminance>150?'#111':'#fff';
-    }
-    function workflowFor(item){
-      const requestName=`Request ${item.apps[1].toLowerCase()} approval`;
-      const finalName=`CONNECT ${item.flow[4].toUpperCase()} HERE`;
-      const fallbackName='Stop action / notify owner';
-      const timeoutMinutes=parseInt(item.timeout,10);
-      const body=`={{ JSON.stringify({ question: ${JSON.stringify(`Approve this ${item.protected} action?`)}, context: { action: ${JSON.stringify(item.protected)}, details: 'Replace with the exact data the approver should review' }, approve_label: 'Approve', reject_label: 'Reject', channel: 'email', to: 'YOUR_APPROVER_EMAIL', callback_url: $execution.resumeUrl, timeout_minutes: ${timeoutMinutes}, default_on_timeout: 'rejected' }) }}`;
-      return {name:`Approval: ${item.title}`,nodes:[
-        {parameters:{},name:item.flow[0],type:'n8n-nodes-base.manualTrigger',typeVersion:1,position:[0,0]},
-        {parameters:{method:'POST',url:'https://someonehastosayyes.com/v1/approvals',sendHeaders:true,headerParameters:{parameters:[{name:'Authorization',value:'Bearer PASTE_YOUR_API_KEY'},{name:'Idempotency-Key',value:'={{ $execution.id }}'}]},sendBody:true,specifyBody:'json',jsonBody:body,options:{}},name:requestName,type:'n8n-nodes-base.httpRequest',typeVersion:4.2,position:[240,0]},
-        {parameters:{resume:'webhook',httpMethod:'POST',limitWaitTime:true,resumeAmount:timeoutMinutes+5,resumeUnit:'minutes',options:{}},name:'Wait for decision',type:'n8n-nodes-base.wait',typeVersion:1.1,position:[500,0],webhookId:`shsy-${item.id}-0001`},
-        {parameters:{conditions:{options:{caseSensitive:true,leftValue:'',typeValidation:'loose'},conditions:[{id:'approved',leftValue:'={{ $json.body.approved }}',rightValue:true,operator:{type:'boolean',operation:'true',singleValue:true}}],combinator:'and'},options:{}},name:'Approved?',type:'n8n-nodes-base.if',typeVersion:2,position:[760,0]},
-        {parameters:{},name:finalName,type:'n8n-nodes-base.noOp',typeVersion:1,position:[1020,-120]},
-        {parameters:{},name:fallbackName,type:'n8n-nodes-base.noOp',typeVersion:1,position:[1020,120]}
-      ],connections:{
-        [item.flow[0]]:{main:[[{node:requestName,type:'main',index:0}]]},
-        [requestName]:{main:[[{node:'Wait for decision',type:'main',index:0}]]},
-        'Wait for decision':{main:[[{node:'Approved?',type:'main',index:0}]]},
-        'Approved?':{main:[[{node:finalName,type:'main',index:0}],[{node:fallbackName,type:'main',index:0}]]}
-      },settings:{executionOrder:'v1'}};
-    }
-    function makeBlueprintFor(item){
-      return {
-        name:`Approval: ${item.title}`,
-        flow:[
-          {id:1,module:'webhooks:CustomWebhook',version:1,parameters:{},mapper:{},metadata:{designer:{x:0,y:0}}},
-          {id:2,module:'http:ActionSendData',version:3,parameters:{},mapper:{url:'https://someonehastosayyes.com/v1/approvals',method:'post',headers:[{name:'Authorization',value:'Bearer PASTE_YOUR_API_KEY'},{name:'Content-Type',value:'application/json'}],body:JSON.stringify({question:`Approve this ${item.protected} action?`,context:{action:item.protected,details:'Map the exact data the approver should review'},channel:'email',to:'YOUR_APPROVER_EMAIL',callback_url:'PASTE_YOUR_MAKE_APPROVAL_CALLBACK_WEBHOOK',timeout_minutes:parseInt(item.timeout,10),default_on_timeout:'rejected'})},metadata:{designer:{x:300,y:0}}}
-        ],
-        metadata:{instant:false,version:1,scenario:{roundtrips:1,maxErrors:3,autoCommit:true,autoCommitTriggerLast:true,sequential:false}}
-      };
-    }
-    function apiExampleFor(item){
-      return `const response = await fetch("https://someonehastosayyes.com/v1/approvals", {
-  method: "POST",
-  headers: {
-    "Authorization": "Bearer PASTE_YOUR_API_KEY",
-    "Content-Type": "application/json",
-    "Idempotency-Key": "REPLACE_WITH_RUN_ID"
-  },
-  body: JSON.stringify({
-    question: "Approve this ${item.protected} action?",
-    context: { action: "${item.protected}", details: "Replace with the data to review" },
-    channel: "email",
-    to: "YOUR_APPROVER_EMAIL",
-    callback_url: "YOUR_HTTPS_CALLBACK_URL",
-    timeout_minutes: ${parseInt(item.timeout,10)},
-    default_on_timeout: "rejected"
-  })
-});
-
-const approval = await response.json();
-console.log(approval);\n`;
-    }
-    function buildPromptFor(item,platform){
-      const common=`Build “${item.title}”. Start when ${item.flow[0].toLowerCase()}. Before ${item.flow[4].toLowerCase()}, POST an approval request to https://someonehastosayyes.com/v1/approvals using Bearer PASTE_YOUR_API_KEY. Ask “Approve this ${item.protected} action?”, include the exact record data in context, send it to YOUR_APPROVER_EMAIL, set timeout_minutes to ${parseInt(item.timeout,10)}, and default_on_timeout to rejected. Continue to ${item.flow[4].toLowerCase()} only when the callback decision is approved. On rejection or timeout, stop and notify the workflow owner. Test approve, reject, and timeout before connecting the live action.`;
-      if(platform==='make') return common+' In Make, use one scenario to request approval and a second custom-webhook scenario for the callback. Filter the callback so only approved=true reaches the live action.';
-      if(platform==='zapier') return common+' In Zapier, use Webhooks by Zapier for the request and a Catch Hook Zap for the callback. Add a Filter step requiring approved=true before the live action.';
-      if(platform==='agent') return common+' Implement the approval as a tool boundary. The agent may prepare the action but must never call the protected tool until an approved callback is verified.';
-      if(platform==='pipedream') return common+' In Pipedream, use an HTTP trigger or app event for the request workflow and a second HTTP endpoint for the callback. Continue only when approved=true.';
-      if(platform==='activepieces') return common+' In Activepieces, use an HTTP action to create the approval and a webhook flow for the callback. Add a branch requiring approved=true before the live action.';
-      if(platform==='node-red') return common+' In Node-RED, use an HTTP request node for the approval and an HTTP In callback flow. Route only approved=true to the protected action.';
-      return common;
-    }
-    function downloadText(name,text,type){
-      const url=URL.createObjectURL(new Blob([text],{type}));
-      const link=document.createElement('a');
-      link.href=url; link.download=name; document.body.appendChild(link); link.click(); link.remove();
-      setTimeout(()=>URL.revokeObjectURL(url),1000);
-    }
-    function platformCopyText(item,platform){
-      if(platform==='api') return apiExampleFor(item);
-      return buildPromptFor(item,platform);
-    }
-    function renderPlatform(){
-      if(!current)return;
-      document.getElementById('platform-picker').innerHTML=platforms.map(platform=>`<button class="platform-button" data-platform="${platform.id}" aria-pressed="${platform.id===selectedPlatform}">${platform.label}</button>`).join('');
-      document.querySelectorAll('.platform-button').forEach(button=>button.addEventListener('click',()=>{selectedPlatform=button.dataset.platform;renderPlatform()}));
-      const download=document.getElementById('download');
-      const copy=document.getElementById('copy-prompt');
-      const key=document.getElementById('api-key-link');
-      const notes={
-        n8n:'Import a ready workflow JSON, then connect the final action after testing.',
-        make:'Import the request blueprint, then use the build prompt to add the approval callback scenario.',
-        zapier:'Zapier has no portable Zap file. Paste the build prompt into Copilot.',
-        api:'Use the JavaScript example in any service that can receive an HTTPS callback.',
-        agent:'Give the prompt to your coding agent and keep approval at the protected tool boundary.',
-        pipedream:'Use two workflows: one requests approval and one receives the decision callback.',
-        activepieces:'Use an HTTP request piece and a webhook flow, then branch on the approved value.',
-        'node-red':'Use an HTTP request node and a separate callback flow before the protected node.'
-      };
-      const steps={
-        n8n:['Download the JSON and import it into n8n.','Replace PASTE_YOUR_API_KEY and YOUR_APPROVER_EMAIL.','Test approve, reject, and timeout before connecting the live action.'],
-        make:['Download and import the Make blueprint.','Create a second custom webhook scenario for the decision callback.','Allow the live action only when approved is true.'],
-        zapier:['Copy the build prompt into Zapier Copilot.','Create one Zap for the request and one Catch Hook Zap for the callback.','Add a Filter requiring approved=true before the live action.'],
-        api:['Copy the JavaScript request example.','Replace the API key, approver, context, and callback URL.','Verify the callback signature and decision before running the action.'],
-        agent:['Copy the agent build prompt.','Expose the approval API and callback verification to the agent.','Block the protected tool until approval is verified.'],
-        pipedream:['Copy the Pipedream build prompt.','Create separate request and callback workflows.','Run the live step only when approved is true.'],
-        activepieces:['Copy the Activepieces build prompt.','Create the approval request and callback flows.','Branch on approved=true before the live action.'],
-        'node-red':['Copy the Node-RED build prompt.','Create the request and HTTP callback flows.','Route only approved decisions to the protected node.']
-      };
-      document.getElementById('platform-note').textContent=notes[selectedPlatform];
-      document.getElementById('setup-steps').innerHTML=steps[selectedPlatform].map(step=>`<li>${step}</li>`).join('');
-      key.href=`/?tool=${['n8n','make','zapier'].includes(selectedPlatform)?selectedPlatform:'api'}&source=template-library#request`;
-      if(selectedPlatform==='n8n'){download.hidden=false;download.textContent='Download n8n JSON';copy.hidden=false;copy.textContent='Copy build prompt'}
-      else if(selectedPlatform==='make'){download.hidden=false;download.textContent='Download Make blueprint';copy.hidden=false;copy.textContent='Copy build prompt'}
-      else {download.hidden=true;copy.hidden=false;copy.textContent=selectedPlatform==='api'?'Copy JavaScript example':'Copy build prompt'}
-    }
-    function openTemplate(id){
-      current=templates.find(item=>item.id===id);
-      if(!current) return;
-      if(current.guide){location.href=current.guide;return}
-      document.getElementById('dialog-category').textContent=`${current.category} · approval workflow`;
-      document.getElementById('dialog-title').textContent=current.title;
-      document.getElementById('dialog-summary').textContent=current.summary;
-      document.getElementById('dialog-flow').innerHTML=current.flow.map((step,index)=>`<span class="step ${index===1?'gate':''}">${step}</span>`).join('');
-      document.getElementById('dialog-facts').innerHTML=`<div class="fact"><span>Protected action</span><strong>${current.protected}</strong></div><div class="fact"><span>Timeout</span><strong>${current.timeout}</strong></div><div class="fact"><span>Replace</span><strong>${current.replace}</strong></div><div class="fact"><span>Connect after testing</span><strong>${current.connect}</strong></div>`;
-      const workflow=JSON.stringify(workflowFor(current),null,2)+'\n';
-      document.getElementById('download').href='data:application/json;charset=utf-8,'+encodeURIComponent(workflow);
-      document.getElementById('download').download=current.file.split('/').pop();
-      history.replaceState(null,'','#'+current.id);
-      selectedPlatform=filterPlatform==='all'?'n8n':filterPlatform;
-      renderPlatform();
-      dialog.showModal();
-    }
-    function notify(message){toast.textContent=message;toast.classList.add('show');setTimeout(()=>toast.classList.remove('show'),1600)}
-    document.getElementById('close-dialog').addEventListener('click',()=>dialog.close());
-    dialog.addEventListener('click',event=>{if(event.target===dialog)dialog.close()});
-    dialog.addEventListener('close',()=>history.replaceState(null,'',location.pathname+location.search));
-    document.getElementById('download').addEventListener('click',event=>{
-      event.preventDefault();
-      if(!current)return;
-      if(selectedPlatform==='n8n') downloadText(current.file.split('/').pop(),JSON.stringify(workflowFor(current),null,2)+'\\n','application/json');
-      if(selectedPlatform==='make') downloadText(`make-${current.id}-approval-blueprint.json`,JSON.stringify(makeBlueprintFor(current),null,2)+'\\n','application/json');
-      notify(selectedPlatform==='make'?'Make blueprint downloaded':'n8n workflow downloaded');
-    });
-    document.getElementById('copy-prompt').addEventListener('click',async()=>{if(!current)return;try{await navigator.clipboard.writeText(platformCopyText(current,selectedPlatform));notify(selectedPlatform==='api'?'JavaScript example copied':'Build prompt copied')}catch{notify('Could not copy')}});
     search.addEventListener('input',render);
     sort.addEventListener('change',render);
     renderPlatformFilters();
