@@ -23,7 +23,7 @@
     .intro h1 { margin:0; font-size:clamp(34px,4.2vw,54px); line-height:1.02; letter-spacing:-.05em; }
     .intro p:last-child { max-width:760px; margin:12px 0 0; color:var(--muted); font-size:15px; }
     .intro p a { color:var(--ink); text-underline-offset:3px; }
-    .searchbar { display:grid; grid-template-columns:minmax(0,1fr) 170px; gap:8px; padding:14px; background:var(--white); border:1px solid var(--line); }
+    .searchbar { display:grid; grid-template-columns:minmax(0,1fr) 170px; gap:8px; }
     .searchbar input,.searchbar select { height:46px; border:1px solid var(--line); background:var(--white); color:var(--ink); padding:0 14px; }
     .searchbar input:focus,.searchbar select:focus { outline:2px solid var(--signal); border-color:var(--ink); }
     .searchbar label { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0,0,0,0); }
@@ -33,16 +33,18 @@
     .platform-filter-button { position:relative; display:inline-flex; align-items:center; gap:9px; min-height:50px; padding:0 11px; border:0; background:transparent; color:var(--muted); cursor:pointer; font-size:12px; font-weight:700; }
     .platform-filter-button:hover { color:var(--ink); }
     .platform-filter-button:focus-visible { outline:2px solid var(--signal); outline-offset:1px; }
-    .platform-filter-button::after { content:""; position:absolute; left:50%; bottom:2px; width:18px; height:3px; border-radius:999px; background:var(--ink); opacity:0; transform:translateX(-50%) scaleX(.35); transition:opacity .16s ease,transform .16s ease; }
     .platform-filter-button[aria-pressed=true] { color:var(--ink); }
-    .platform-filter-button[aria-pressed=true]::after { opacity:1; transform:translateX(-50%) scaleX(1); }
-    .platform-filter-icon { display:grid; width:32px; height:32px; place-items:center; border-radius:50%; background:#f0f1ed; color:var(--ink); font:700 10px var(--mono); transition:transform .16s ease,background-color .16s ease,box-shadow .16s ease; }
-    .platform-filter-icon img { display:block; width:19px; height:19px; opacity:.82; transition:opacity .16s ease; }
-    .platform-filter-button:hover .platform-filter-icon { transform:scale(1.12); }
+    .platform-filter-icon { position:relative; display:grid; width:34px; height:34px; place-items:center; background:transparent; color:var(--ink); font:800 13px var(--mono); transition:transform .16s ease; }
+    .platform-filter-icon img { display:block; width:30px; height:30px; object-fit:contain; opacity:.7; transition:opacity .16s ease; }
+    .platform-filter-icon::after { content:""; position:absolute; top:-1px; right:-1px; width:8px; height:8px; border:2px solid var(--white); border-radius:50%; background:var(--signal); opacity:0; transform:scale(.5); transition:opacity .16s ease,transform .16s ease; }
+    .platform-filter-button:hover .platform-filter-icon { transform:scale(1.1); }
     .platform-filter-button:hover .platform-filter-icon img { opacity:1; }
-    .platform-filter-button[aria-pressed=true] .platform-filter-icon { background:var(--signal); box-shadow:0 0 0 4px rgba(229,237,77,.24); }
+    .platform-filter-button[aria-pressed=true] .platform-filter-icon { transform:scale(1.04); }
     .platform-filter-button[aria-pressed=true] .platform-filter-icon img { opacity:1; }
-    @media(prefers-reduced-motion:reduce) { .platform-filter-button::after,.platform-filter-icon,.platform-filter-icon img { transition:none; } }
+    .platform-filter-button[aria-pressed=true] .platform-filter-icon::after { opacity:1; transform:scale(1); }
+    .platform-filter-button[data-platform-filter=all] { padding-left:4px; }
+    .platform-filter-button[data-platform-filter=all][aria-pressed=true] span { background:linear-gradient(transparent 58%,var(--signal) 58%); }
+    @media(prefers-reduced-motion:reduce) { .platform-filter-icon,.platform-filter-icon img,.platform-filter-icon::after { transition:none; } }
     .catalog { display:grid; grid-template-columns:190px minmax(0,1fr); gap:28px; padding:22px 0 80px; }
     .sidebar { align-self:start; position:sticky; top:20px; }
     .sidebar h2 { margin:0 0 12px; font-size:12px; letter-spacing:.05em; text-transform:uppercase; }
@@ -174,14 +176,14 @@
     let current=null;
     let selectedPlatform='n8n';
     const platforms=[
-      {id:'n8n',label:'n8n',icon:'https://n8n.io/favicon.ico'},
-      {id:'make',label:'Make',icon:'https://www.make.com/favicon.ico'},
-      {id:'zapier',label:'Zapier',icon:'https://zapier.com/favicon.ico'},
+      {id:'n8n',label:'n8n',icon:'https://cdn.jsdelivr.net/npm/simple-icons@14.15.0/icons/n8n.svg'},
+      {id:'make',label:'Make',icon:'https://cdn.jsdelivr.net/npm/simple-icons@14.15.0/icons/make.svg'},
+      {id:'zapier',label:'Zapier',icon:'https://cdn.jsdelivr.net/npm/simple-icons@14.15.0/icons/zapier.svg'},
       {id:'api',label:'API',mark:'{}'},
       {id:'agent',label:'AI agent',mark:'AI'},
       {id:'pipedream',label:'Pipedream',icon:'https://pipedream.com/favicon.ico'},
-      {id:'activepieces',label:'Activepieces',icon:'https://www.activepieces.com/favicon.ico'},
-      {id:'node-red',label:'Node-RED',icon:'https://nodered.org/favicon.ico'}
+      {id:'activepieces',label:'Activepieces',icon:'https://raw.githubusercontent.com/activepieces/activepieces/main/packages/web/public/logo.svg'},
+      {id:'node-red',label:'Node-RED',icon:'https://cdn.jsdelivr.net/npm/simple-icons@14.15.0/icons/nodered.svg'}
     ];
     const searchAliases={
       'ai-email':'gmail outlook transactional email customer reply support message approval before sending comms communication legal review brand voice',
@@ -218,8 +220,8 @@
     const categoryNames=['All',...new Set(templates.map(item=>item.category))];
     function supportedPlatforms(item){return item.guide?['zapier']:platforms.map(platform=>platform.id)}
     function renderPlatformFilters(){
-      const choices=[{id:'all',label:'All',mark:'•'},...platforms];
-      platformFilters.innerHTML=choices.map(platform=>`<button class="platform-filter-button" type="button" data-platform-filter="${platform.id}" aria-pressed="${platform.id===filterPlatform}"><span class="platform-filter-icon">${platform.icon?`<img src="${platform.icon}" alt="">`:platform.mark}</span><span>${platform.label}</span></button>`).join('');
+      const choices=[{id:'all',label:'All'},...platforms];
+      platformFilters.innerHTML=choices.map(platform=>`<button class="platform-filter-button" type="button" data-platform-filter="${platform.id}" aria-pressed="${platform.id===filterPlatform}">${platform.id==='all'?'':`<span class="platform-filter-icon">${platform.icon?`<img src="${platform.icon}" alt="">`:platform.mark}</span>`}<span>${platform.label}</span></button>`).join('');
       platformFilters.querySelectorAll('button').forEach(button=>button.addEventListener('click',()=>{filterPlatform=button.dataset.platformFilter;renderPlatformFilters();render()}));
     }
     function renderCategories(){
