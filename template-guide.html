@@ -27,7 +27,7 @@
       <ul class="checklist" id="checklist"></ul>
     </div></section>
     <section class="section" id="setup"><div class="shell">
-      <div class="section-head"><h2>Set it up</h2><p>Choose the platform you use. The workflow stays the same; only the setup steps change.</p></div>
+      <div class="section-head"><h2>Set it up</h2><p>Follow these steps for this platform. Other platforms have their own template pages.</p></div>
       <div class="platforms" id="platforms" aria-label="Choose a platform"></div>
       <p class="platform-note" id="platform-note"></p>
       <ol class="steps" id="steps"></ol>
@@ -97,12 +97,12 @@
     ];
     const pathId=location.pathname==='/guides/zapier-winston-content-approval'?'zapier-winston-content':location.pathname.split('/').filter(Boolean).pop();
     const item=templates.find(template=>template.id===pathId);
-    const supported=item?.guide?['zapier']:platformList.map(platform=>platform.id);
-    let selectedPlatform=supported.includes(new URLSearchParams(location.search).get('platform'))?new URLSearchParams(location.search).get('platform'):supported[0];
+    const supported=item?[item.platform]:[];
+    let selectedPlatform=item?.platform;
     const page=document.getElementById('page');
     const notFound=document.getElementById('not-found');
     const toast=document.getElementById('toast');
-    const notes={n8n:'Import a ready workflow, add your key and approver, then connect the final node.',make:'Import the request blueprint, then add a second scenario to receive the decision.',zapier:'Build one Zap to ask and one Zap to receive the answer. No code is required.',api:'Send one HTTPS request and continue only after your callback verifies approval.',agent:'Let the agent prepare the action, but block the protected tool until approval is verified.',pipedream:'Use one workflow to ask and another endpoint to receive the decision.',activepieces:'Use an HTTP step to ask, a webhook to receive the answer, and a branch for approved.', 'node-red':'Use an HTTP request node to ask and an HTTP In flow to receive the answer.'};
+    const notes={n8n:'Import the workflow, add your key and approver, then connect the final node.',make:'Import the request blueprint, then add a second scenario to receive the decision.',zapier:'No custom code. You will configure two Zaps, one webhook request, and one Catch Hook.',api:'Send one HTTPS request and continue only after your callback verifies approval.',agent:'Let the agent prepare the action, but block the protected tool until approval is verified.',pipedream:'Use one workflow to ask and another endpoint to receive the decision.',activepieces:'Use an HTTP step to ask, a webhook to receive the answer, and a branch for approved.', 'node-red':'Use an HTTP request node to ask and an HTTP In flow to receive the answer.'};
     function notify(message='Copied'){toast.textContent=message;toast.classList.add('show');setTimeout(()=>toast.classList.remove('show'),1400)}
     function platformSteps(platform){
       if(item.guide)return [
@@ -131,8 +131,7 @@
     function buildPrompt(){return `Build “${item.title}” in ${platformList.find(platform=>platform.id===selectedPlatform)?.label}. Before ${item.flow[4].toLowerCase()}, POST an approval request to https://someonehastosayyes.com/v1/approvals. Include the exact data the approver needs, use a unique idempotency key, and continue only when the verified callback says approved=true. On rejection or timeout, stop and notify the workflow owner. Test approve, reject, and timeout before connecting the live action.`}
     function download(name,text){const url=URL.createObjectURL(new Blob([text],{type:'application/json'}));const link=document.createElement('a');link.href=url;link.download=name;document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000)}
     function renderPlatform(){
-      document.getElementById('platforms').innerHTML=platformList.filter(platform=>supported.includes(platform.id)).map(platform=>`<button class="platform" type="button" data-platform="${platform.id}" aria-pressed="${platform.id===selectedPlatform}">${platform.label}</button>`).join('');
-      document.querySelectorAll('.platform').forEach(button=>button.addEventListener('click',()=>{selectedPlatform=button.dataset.platform;const url=new URL(location.href);url.searchParams.set('platform',selectedPlatform);history.replaceState(null,'',url);renderPlatform()}));
+      document.getElementById('platforms').hidden=true;
       document.getElementById('platform-note').textContent=notes[selectedPlatform];
       document.getElementById('steps').innerHTML=platformSteps(selectedPlatform).map(([title,text])=>`<li><div><h3>${title}</h3><p>${text}</p></div></li>`).join('');
       const downloadButton=document.getElementById('download');
@@ -144,9 +143,11 @@
     }
     function render(){
       if(!item){notFound.hidden=false;return}
-      page.hidden=false;document.title=`${item.title} | someonehastosayyes`;document.querySelector('meta[name=description]').content=cardDescriptions[item.id];
-      document.getElementById('kicker').textContent=`${item.category} approval template`;
-      document.getElementById('title').textContent=item.title;
+      const platformName=platformList.find(platform=>platform.id===selectedPlatform)?.label||selectedPlatform;
+      const pageTitle=item.title.toLowerCase().includes(platformName.toLowerCase())?item.title:`${item.title} for ${platformName}`;
+      page.hidden=false;document.title=`${pageTitle} | someonehastosayyes`;document.querySelector('meta[name=description]').content=cardDescriptions[item.id];
+      document.getElementById('kicker').textContent=`${platformName} · ${item.category} approval template`;
+      document.getElementById('title').textContent=pageTitle;
       document.getElementById('lead').textContent=cardDescriptions[item.id];
       document.getElementById('explanation').textContent=`The workflow starts when ${item.flow[0].toLowerCase()}. It pauses before ${item.flow[4].toLowerCase()} and continues only after the right person approves.`;
       document.getElementById('flow').innerHTML=item.flow.map((step,index)=>`<div class="flow-step ${index===1?'gate':''}">${step}</div>`).join('');
