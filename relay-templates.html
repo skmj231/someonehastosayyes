@@ -77,6 +77,11 @@
     .fact { padding:16px; background:var(--white); }
     .fact span { display:block; color:var(--muted); font:10px var(--mono); text-transform:uppercase; }
     .fact strong { display:block; margin-top:5px; font-size:13px; }
+    .platform-picker { display:flex; flex-wrap:wrap; gap:7px; margin:0 0 22px; }
+    .platform-button { min-height:40px; padding:0 13px; border:1px solid var(--line); background:var(--white); color:var(--muted); font-weight:750; cursor:pointer; }
+    .platform-button:hover { border-color:var(--ink); color:var(--ink); }
+    .platform-button[aria-pressed=true] { border-color:var(--ink); background:var(--ink); color:var(--white); }
+    .platform-note { margin:-10px 0 22px; color:var(--muted); font-size:13px; }
     .setup { margin:26px 0; }
     .setup h3 { font-size:15px; }
     .setup li { margin:8px 0; }
@@ -97,7 +102,7 @@
   <main class="shell">
     <section class="intro">
       <h1>Choose what needs approval.</h1>
-      <p>Ready-to-import n8n workflow files. Using <a href="/?tool=make#integrations">Make</a> or <a href="/?tool=zapier#integrations">Zapier</a>? Use the API setup guide.</p>
+      <p>Pick an approval workflow, then use it in n8n, Make, Zapier, your API, or an AI agent.</p>
     </section>
     <section class="searchbar">
       <label for="search">Search templates</label><input id="search" type="search" placeholder="What needs approval? Email, refund, publishing, CRM..." autocomplete="off">
@@ -111,7 +116,7 @@
   </main>
   <dialog id="template-dialog" aria-labelledby="dialog-title">
     <div class="modal-head"><div><p id="dialog-category"></p><h2 id="dialog-title"></h2></div><button class="close" id="close-dialog" aria-label="Close">×</button></div>
-    <div class="modal-body"><p class="summary" id="dialog-summary"></p><div class="flow" id="dialog-flow"></div><div class="facts" id="dialog-facts"></div><section class="setup"><h3>Set it up</h3><ol><li>Download the workflow JSON and import it into n8n.</li><li>Replace <code>PASTE_YOUR_API_KEY</code> and <code>YOUR_APPROVER_EMAIL</code>.</li><li>Run one approval test. Connect your final action only after both outcomes work.</li></ol></section><div class="modal-actions"><a class="button primary" id="download" download>Download workflow JSON</a><button class="button" id="copy-prompt">Copy AI install prompt</button><a class="button signal" href="/?tool=n8n&amp;source=template-library#request">Get an API key</a></div></div>
+    <div class="modal-body"><p class="summary" id="dialog-summary"></p><div class="flow" id="dialog-flow"></div><div class="facts" id="dialog-facts"></div><div class="platform-picker" id="platform-picker" aria-label="Choose a platform"></div><p class="platform-note" id="platform-note"></p><section class="setup"><h3 id="setup-title">Set it up</h3><ol id="setup-steps"></ol></section><div class="modal-actions"><a class="button primary" id="download" download>Download n8n JSON</a><button class="button" id="copy-prompt">Copy build prompt</button><a class="button signal" id="api-key-link" href="/?tool=n8n&amp;source=template-library#request">Get an API key</a></div></div>
   </dialog>
   <div class="toast" id="toast" role="status" aria-live="polite"></div><footer><div class="shell">someonehastosayyes</div></footer>
   <script>
@@ -147,6 +152,14 @@
     const toast=document.getElementById('toast');
     let category='All';
     let current=null;
+    let selectedPlatform='n8n';
+    const platforms=[
+      {id:'n8n',label:'n8n'},
+      {id:'make',label:'Make'},
+      {id:'zapier',label:'Zapier'},
+      {id:'api',label:'API'},
+      {id:'agent',label:'AI agent'}
+    ];
     const categoryNames=['All',...new Set(templates.map(item=>item.category))];
     function renderCategories(){
       categories.innerHTML=categoryNames.map(name=>`<button class="category" data-category="${name}" aria-pressed="${name===category}"><span>${name}</span><span>${name==='All'?templates.length:templates.filter(item=>item.category===name).length}</span></button>`).join('');
@@ -181,10 +194,87 @@
         'Approved?':{main:[[{node:finalName,type:'main',index:0}],[{node:fallbackName,type:'main',index:0}]]}
       },settings:{executionOrder:'v1'}};
     }
+    function makeBlueprintFor(item){
+      return {
+        name:`Approval: ${item.title}`,
+        flow:[
+          {id:1,module:'webhooks:CustomWebhook',version:1,parameters:{},mapper:{},metadata:{designer:{x:0,y:0}}},
+          {id:2,module:'http:ActionSendData',version:3,parameters:{},mapper:{url:'https://someonehastosayyes.com/v1/approvals',method:'post',headers:[{name:'Authorization',value:'Bearer PASTE_YOUR_API_KEY'},{name:'Content-Type',value:'application/json'}],body:JSON.stringify({question:`Approve this ${item.protected} action?`,context:{action:item.protected,details:'Map the exact data the approver should review'},channel:'email',to:'YOUR_APPROVER_EMAIL',callback_url:'PASTE_YOUR_MAKE_APPROVAL_CALLBACK_WEBHOOK',timeout_minutes:parseInt(item.timeout,10),default_on_timeout:'rejected'})},metadata:{designer:{x:300,y:0}}}
+        ],
+        metadata:{instant:false,version:1,scenario:{roundtrips:1,maxErrors:3,autoCommit:true,autoCommitTriggerLast:true,sequential:false}}
+      };
+    }
+    function apiExampleFor(item){
+      return `const response = await fetch("https://someonehastosayyes.com/v1/approvals", {
+  method: "POST",
+  headers: {
+    "Authorization": "Bearer PASTE_YOUR_API_KEY",
+    "Content-Type": "application/json",
+    "Idempotency-Key": "REPLACE_WITH_RUN_ID"
+  },
+  body: JSON.stringify({
+    question: "Approve this ${item.protected} action?",
+    context: { action: "${item.protected}", details: "Replace with the data to review" },
+    channel: "email",
+    to: "YOUR_APPROVER_EMAIL",
+    callback_url: "YOUR_HTTPS_CALLBACK_URL",
+    timeout_minutes: ${parseInt(item.timeout,10)},
+    default_on_timeout: "rejected"
+  })
+});
+
+const approval = await response.json();
+console.log(approval);\n`;
+    }
+    function buildPromptFor(item,platform){
+      const common=`Build “${item.title}”. Start when ${item.flow[0].toLowerCase()}. Before ${item.flow[4].toLowerCase()}, POST an approval request to https://someonehastosayyes.com/v1/approvals using Bearer PASTE_YOUR_API_KEY. Ask “Approve this ${item.protected} action?”, include the exact record data in context, send it to YOUR_APPROVER_EMAIL, set timeout_minutes to ${parseInt(item.timeout,10)}, and default_on_timeout to rejected. Continue to ${item.flow[4].toLowerCase()} only when the callback decision is approved. On rejection or timeout, stop and notify the workflow owner. Test approve, reject, and timeout before connecting the live action.`;
+      if(platform==='make') return common+' In Make, use one scenario to request approval and a second custom-webhook scenario for the callback. Filter the callback so only approved=true reaches the live action.';
+      if(platform==='zapier') return common+' In Zapier, use Webhooks by Zapier for the request and a Catch Hook Zap for the callback. Add a Filter step requiring approved=true before the live action.';
+      if(platform==='agent') return common+' Implement the approval as a tool boundary. The agent may prepare the action but must never call the protected tool until an approved callback is verified.';
+      return common;
+    }
+    function downloadText(name,text,type){
+      const url=URL.createObjectURL(new Blob([text],{type}));
+      const link=document.createElement('a');
+      link.href=url; link.download=name; document.body.appendChild(link); link.click(); link.remove();
+      setTimeout(()=>URL.revokeObjectURL(url),1000);
+    }
+    function platformCopyText(item,platform){
+      if(platform==='api') return apiExampleFor(item);
+      return buildPromptFor(item,platform);
+    }
+    function renderPlatform(){
+      if(!current)return;
+      document.getElementById('platform-picker').innerHTML=platforms.map(platform=>`<button class="platform-button" data-platform="${platform.id}" aria-pressed="${platform.id===selectedPlatform}">${platform.label}</button>`).join('');
+      document.querySelectorAll('.platform-button').forEach(button=>button.addEventListener('click',()=>{selectedPlatform=button.dataset.platform;renderPlatform()}));
+      const download=document.getElementById('download');
+      const copy=document.getElementById('copy-prompt');
+      const key=document.getElementById('api-key-link');
+      const notes={
+        n8n:'Import a ready workflow JSON, then connect the final action after testing.',
+        make:'Import the request blueprint, then use the build prompt to add the approval callback scenario.',
+        zapier:'Zapier has no portable Zap file. Paste the build prompt into Copilot.',
+        api:'Use the JavaScript example in any service that can receive an HTTPS callback.',
+        agent:'Give the prompt to your coding agent and keep approval at the protected tool boundary.'
+      };
+      const steps={
+        n8n:['Download the JSON and import it into n8n.','Replace PASTE_YOUR_API_KEY and YOUR_APPROVER_EMAIL.','Test approve, reject, and timeout before connecting the live action.'],
+        make:['Download and import the Make blueprint.','Create a second custom webhook scenario for the decision callback.','Allow the live action only when approved is true.'],
+        zapier:['Copy the build prompt into Zapier Copilot.','Create one Zap for the request and one Catch Hook Zap for the callback.','Add a Filter requiring approved=true before the live action.'],
+        api:['Copy the JavaScript request example.','Replace the API key, approver, context, and callback URL.','Verify the callback signature and decision before running the action.'],
+        agent:['Copy the agent build prompt.','Expose the approval API and callback verification to the agent.','Block the protected tool until approval is verified.']
+      };
+      document.getElementById('platform-note').textContent=notes[selectedPlatform];
+      document.getElementById('setup-steps').innerHTML=steps[selectedPlatform].map(step=>`<li>${step}</li>`).join('');
+      key.href=`/?tool=${selectedPlatform==='agent'?'api':selectedPlatform}&source=template-library#request`;
+      if(selectedPlatform==='n8n'){download.hidden=false;download.textContent='Download n8n JSON';copy.hidden=false;copy.textContent='Copy build prompt'}
+      else if(selectedPlatform==='make'){download.hidden=false;download.textContent='Download Make blueprint';copy.hidden=false;copy.textContent='Copy build prompt'}
+      else {download.hidden=true;copy.hidden=false;copy.textContent=selectedPlatform==='api'?'Copy JavaScript example':'Copy build prompt'}
+    }
     function openTemplate(id){
       current=templates.find(item=>item.id===id);
       if(!current) return;
-      document.getElementById('dialog-category').textContent=`${current.category} · ${current.platform} workflow`;
+      document.getElementById('dialog-category').textContent=`${current.category} · approval workflow`;
       document.getElementById('dialog-title').textContent=current.title;
       document.getElementById('dialog-summary').textContent=current.summary;
       document.getElementById('dialog-flow').innerHTML=current.flow.map((step,index)=>`<span class="step ${index===1?'gate':''}">${step}</span>`).join('');
@@ -193,6 +283,8 @@
       document.getElementById('download').href='data:application/json;charset=utf-8,'+encodeURIComponent(workflow);
       document.getElementById('download').download=current.file.split('/').pop();
       history.replaceState(null,'','#'+current.id);
+      selectedPlatform='n8n';
+      renderPlatform();
       dialog.showModal();
     }
     function notify(message){toast.textContent=message;toast.classList.add('show');setTimeout(()=>toast.classList.remove('show'),1600)}
@@ -202,18 +294,11 @@
     document.getElementById('download').addEventListener('click',event=>{
       event.preventDefault();
       if(!current)return;
-      const workflow=JSON.stringify(workflowFor(current),null,2)+'\\n';
-      const url=URL.createObjectURL(new Blob([workflow],{type:'application/json'}));
-      const link=document.createElement('a');
-      link.href=url;
-      link.download=current.file.split('/').pop();
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      setTimeout(()=>URL.revokeObjectURL(url),1000);
-      notify('Workflow downloaded');
+      if(selectedPlatform==='n8n') downloadText(current.file.split('/').pop(),JSON.stringify(workflowFor(current),null,2)+'\\n','application/json');
+      if(selectedPlatform==='make') downloadText(`make-${current.id}-approval-blueprint.json`,JSON.stringify(makeBlueprintFor(current),null,2)+'\\n','application/json');
+      notify(selectedPlatform==='make'?'Make blueprint downloaded':'n8n workflow downloaded');
     });
-    document.getElementById('copy-prompt').addEventListener('click',async()=>{if(!current)return;try{await navigator.clipboard.writeText(current.prompt);notify('Install prompt copied')}catch{notify('Could not copy the prompt')}});
+    document.getElementById('copy-prompt').addEventListener('click',async()=>{if(!current)return;try{await navigator.clipboard.writeText(platformCopyText(current,selectedPlatform));notify(selectedPlatform==='api'?'JavaScript example copied':'Build prompt copied')}catch{notify('Could not copy')}});
     search.addEventListener('input',render);
     sort.addEventListener('change',render);
     renderCategories();
