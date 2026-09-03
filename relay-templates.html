@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Choose what needs approval | someonehastosayyes</title>
+  <title>n8n approval templates | someonehastosayyes</title>
   <meta name="description" content="Ready-to-import n8n workflows that pause email, refunds, publishing, and data changes until a person approves.">
   <style>
     :root { --ink:#171914; --muted:#666b62; --line:#dfe2da; --paper:#f7f8f4; --white:#fff; --signal:#e5ed4d; --signal-dark:#697000; --mono:ui-monospace,SFMono-Regular,Menlo,monospace; --sans:Inter,ui-sans-serif,system-ui,sans-serif; }
@@ -21,8 +21,9 @@
     .intro { max-width:820px; padding:34px 0 24px; }
     .kicker { margin:0 0 9px; color:var(--signal-dark); font:11px var(--mono); letter-spacing:.05em; text-transform:uppercase; }
     .intro h1 { margin:0; font-size:clamp(34px,4.2vw,54px); line-height:1.02; letter-spacing:-.05em; }
-    .intro p:last-child { max-width:720px; margin:12px 0 0; color:var(--muted); font-size:16px; }
-    .searchbar { display:grid; grid-template-columns:minmax(0,1fr) 190px 170px; gap:8px; padding:14px; background:var(--white); border:1px solid var(--line); }
+    .intro p:last-child { max-width:760px; margin:12px 0 0; color:var(--muted); font-size:15px; }
+    .intro p a { color:var(--ink); text-underline-offset:3px; }
+    .searchbar { display:grid; grid-template-columns:minmax(0,1fr) 170px; gap:8px; padding:14px; background:var(--white); border:1px solid var(--line); }
     .searchbar input,.searchbar select { height:46px; border:1px solid var(--line); background:var(--white); color:var(--ink); padding:0 14px; }
     .searchbar input:focus,.searchbar select:focus { outline:2px solid var(--signal); border-color:var(--ink); }
     .searchbar label { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0,0,0,0); }
@@ -53,6 +54,10 @@
     .empty { display:none; padding:70px 20px; border:1px dashed var(--line); background:var(--white); text-align:center; }
     .empty h3 { margin:0 0 6px; }
     .empty p { margin:0; color:var(--muted); }
+    .noscript-list { display:grid; gap:0; margin:0; padding:0; list-style:none; border-top:1px solid var(--line); }
+    .noscript-list li { padding:16px 0; border-bottom:1px solid var(--line); }
+    .noscript-list a { display:block; color:var(--ink); font-weight:800; text-decoration:none; }
+    .noscript-list span { display:block; margin-top:3px; color:var(--muted); font-size:13px; }
     .request { display:flex; align-items:center; justify-content:space-between; gap:24px; margin:0 0 80px; padding:24px 26px; border:1px solid var(--line); background:var(--white); }
     .request h2 { margin:0 0 4px; font-size:20px; letter-spacing:-.025em; }
     .request p { margin:0; color:var(--muted); font-size:13px; }
@@ -92,15 +97,15 @@
   <main class="shell">
     <section class="intro">
       <h1>Choose what needs approval.</h1>
+      <p>Ready-to-import n8n workflow files. Using <a href="/?tool=make#integrations">Make</a> or <a href="/?tool=zapier#integrations">Zapier</a>? Use the API setup guide.</p>
     </section>
     <section class="searchbar">
       <label for="search">Search templates</label><input id="search" type="search" placeholder="What needs approval? Email, refund, publishing, CRM..." autocomplete="off">
-      <label for="app-filter">Platform</label><select id="app-filter"><option value="all">All platforms</option><option value="n8n">n8n</option></select>
       <label for="sort">Sort templates</label><select id="sort"><option value="recommended">Recommended</option><option value="title">Title A to Z</option></select>
     </section>
     <section class="catalog">
       <aside class="sidebar"><div class="category-list" id="categories"></div></aside>
-      <div><div class="grid" id="grid"></div><div class="empty" id="empty"><h3>No matching templates</h3><p>Try a broader search or choose another category.</p></div></div>
+      <div><div class="grid" id="grid"></div><div class="empty" id="empty"></div><noscript><ul class="noscript-list" aria-label="n8n approval templates"><li><a href="#ai-email">Customer email approval</a><span>Review an email draft before it is sent.</span></li><li><a href="#refund">High-value refund approval</a><span>Approve the amount before money moves.</span></li><li><a href="#content-publish">Content publishing approval</a><span>Review content before it is published.</span></li><li><a href="#crm-bulk-change">Bulk CRM change approval</a><span>Check the operation and record count before an update.</span></li><li><a href="#pipeline-digest">Sales pipeline digest approval</a><span>Check the numbers before a digest is posted.</span></li><li><a href="#meeting-followup">Meeting follow-up approval</a><span>Review a recap before attendees receive it.</span></li><li><a href="#sales-quote">Sales quote approval</a><span>Check pricing, discounts, and terms before sending.</span></li><li><a href="#candidate-progress">Candidate progression approval</a><span>Let a recruiter decide before an ATS update.</span></li><li><a href="#account-provisioning">Employee account provisioning approval</a><span>Confirm role and start date before access is created.</span></li><li><a href="#order-fulfillment">Order fulfillment approval</a><span>Check the order, stock, and destination before release.</span></li><li><a href="#payment-receipt">Payment receipt approval</a><span>Verify payment and customer details before sending.</span></li><li><a href="#performance-review">Performance review approval</a><span>Keep an AI draft private until the manager decides.</span></li><li><a href="#reddit-outreach">Reddit lead outreach approval</a><span>Review context before outreach or CRM creation.</span></li><li><a href="#lead-qualification">Qualified lead routing approval</a><span>Check AI evidence before creating a sales lead.</span></li><li><a href="#support-response">Customer support response approval</a><span>Review diagnosis and tone before replying.</span></li><li><a href="#health-escalation">Customer health escalation approval</a><span>Confirm risk signals before escalating.</span></li><li><a href="#email-triage">Email triage action approval</a><span>Approve reply, archive, or task creation after triage.</span></li><li><a href="#ticket-backlog-digest">Ticket backlog digest approval</a><span>Check SLA and workload numbers before posting.</span></li></ul></noscript></div>
     </section>
     <section class="request"><div><h2>Have a workflow in mind?</h2><p>Send it over. We will build the approval version.</p></div><a href="https://github.com/skmj231/someonehastosayyes/issues/new?title=Template%20request%3A%20">Request a template</a></section>
   </main>
@@ -128,15 +133,11 @@
       {id:'support-response',title:'Customer support response approval',summary:'Keep the answer unsent. Reply to the customer only after an agent checks the diagnosis and tone.',category:'Support',platform:'n8n',apps:['n8n','Support'],color:'#f36f21',tags:['Support','Email','AI'],flow:['Response ready','Request approval','Wait','Yes or no','Send reply'],protected:'support_reply.send',timeout:'60 minutes, then reject',replace:'API key and approver email',connect:'Zendesk, Intercom, or email node',file:'/templates/n8n-support-response-approval.json',prompt:'Download the Customer support response approval workflow from someonehastosayyes. Replace PASTE_YOUR_API_KEY and YOUR_APPROVER_EMAIL. Test yes and no before connecting the support reply.'},
       {id:'health-escalation',title:'Customer health escalation approval',summary:'Hold the escalation. Contact the account team only after a CSM confirms the risk signals.',category:'Support',platform:'n8n',apps:['n8n','Escalate'],color:'#ff1f69',actionInk:'#fff',tags:['Customer success','Risk','CRM'],flow:['Risk detected','Request approval','Wait','Yes or no','Escalate'],protected:'customer_health.escalate',timeout:'240 minutes, then reject',replace:'API key and approver email',connect:'Slack, email, or CRM task node',file:'/templates/n8n-health-escalation-approval.json',prompt:'Download the Customer health escalation approval workflow from someonehastosayyes. Replace PASTE_YOUR_API_KEY and YOUR_APPROVER_EMAIL. Test yes and no before connecting the escalation.'},
       {id:'email-triage',title:'Email triage action approval',summary:'Pause after AI triage. Reply, archive, or create a task only after a person confirms the action.',category:'Operations',platform:'n8n',apps:['n8n','Triage'],color:'#00a67e',actionInk:'#fff',tags:['Email','Triage','AI'],flow:['Email classified','Request approval','Wait','Yes or no','Run action'],protected:'email_triage.execute',timeout:'60 minutes, then reject',replace:'API key and approver email',connect:'Gmail, Outlook, or task node',file:'/templates/n8n-email-triage-approval.json',prompt:'Download the Email triage action approval workflow from someonehastosayyes. Replace PASTE_YOUR_API_KEY and YOUR_APPROVER_EMAIL. Test yes and no before connecting the email action.'},
-      {id:'ticket-backlog-digest',title:'Ticket backlog digest approval',summary:'Hold the support digest. Post it only after the support lead checks the SLA and workload numbers.',category:'Support',platform:'n8n',apps:['n8n','Backlog'],color:'#7857ff',actionInk:'#fff',tags:['Support','Reporting','Slack'],flow:['Digest ready','Request approval','Wait','Yes or no','Post digest'],protected:'support_digest.post',timeout:'120 minutes, then reject',replace:'API key and approver email',connect:'Slack or Teams node',file:'/templates/n8n-ticket-backlog-digest-approval.json',prompt:'Download the Ticket backlog digest approval workflow from someonehastosayyes. Replace PASTE_YOUR_API_KEY and YOUR_APPROVER_EMAIL. Test yes and no before connecting the digest post.'},
-      {id:'review-reply',title:'Google review reply approval',summary:'Keep the reply unpublished. Post it only after the location owner checks the facts and tone.',category:'Support',platform:'n8n',apps:['n8n','Reviews'],color:'#ffd400',tags:['Google Business','Reviews','AI'],flow:['Reply drafted','Request approval','Wait','Yes or no','Post reply'],protected:'review_reply.publish',timeout:'120 minutes, then reject',replace:'API key and approver email',connect:'Google Business Profile reply node',file:'/templates/n8n-review-reply-approval.json',prompt:'Download the Google review reply approval workflow from someonehastosayyes. Replace PASTE_YOUR_API_KEY and YOUR_APPROVER_EMAIL. Test yes and no before connecting the Google Business Profile reply.'},
-      {id:'action-items',title:'Action item creation approval',summary:'Hold the extracted tasks. Create them only after the meeting owner confirms each assignee and due date.',category:'Operations',platform:'n8n',apps:['n8n','Tasks'],color:'#ff2d20',actionInk:'#fff',tags:['Asana','Meeting','AI'],flow:['Tasks extracted','Request approval','Wait','Yes or no','Create tasks'],protected:'tasks.bulk_create',timeout:'240 minutes, then reject',replace:'API key and approver email',connect:'Asana, Linear, or ClickUp node',file:'/templates/n8n-action-items-approval.json',prompt:'Download the Action item creation approval workflow from someonehastosayyes. Replace PASTE_YOUR_API_KEY and YOUR_APPROVER_EMAIL. Test yes and no before connecting task creation.'},
-      {id:'order-calendar',title:'Order calendar event approval',summary:'Keep the parsed order off the calendar. Create the event only after someone checks the date, customer, and order details.',category:'Operations',platform:'n8n',apps:['n8n','Calendar'],color:'#00d4ff',tags:['Order','Calendar','AI'],flow:['Order parsed','Request approval','Wait','Yes or no','Create event'],protected:'calendar_event.create',timeout:'120 minutes, then reject',replace:'API key and approver email',connect:'Google Calendar or Outlook node',file:'/templates/n8n-order-calendar-approval.json',prompt:'Download the Order calendar event approval workflow from someonehastosayyes. Replace PASTE_YOUR_API_KEY and YOUR_APPROVER_EMAIL. Test yes and no before connecting calendar event creation.'}
+      {id:'ticket-backlog-digest',title:'Ticket backlog digest approval',summary:'Hold the support digest. Post it only after the support lead checks the SLA and workload numbers.',category:'Support',platform:'n8n',apps:['n8n','Backlog'],color:'#7857ff',actionInk:'#fff',tags:['Support','Reporting','Slack'],flow:['Digest ready','Request approval','Wait','Yes or no','Post digest'],protected:'support_digest.post',timeout:'120 minutes, then reject',replace:'API key and approver email',connect:'Slack or Teams node',file:'/templates/n8n-ticket-backlog-digest-approval.json',prompt:'Download the Ticket backlog digest approval workflow from someonehastosayyes. Replace PASTE_YOUR_API_KEY and YOUR_APPROVER_EMAIL. Test yes and no before connecting the digest post.'}
     ];
     const grid=document.getElementById('grid');
     const categories=document.getElementById('categories');
     const search=document.getElementById('search');
-    const appFilter=document.getElementById('app-filter');
     const sort=document.getElementById('sort');
     const empty=document.getElementById('empty');
     const dialog=document.getElementById('template-dialog');
@@ -150,9 +151,10 @@
     }
     function render(){
       const query=search.value.trim().toLowerCase();
-      let list=templates.filter(item=>(category==='All'||item.category===category)&&(appFilter.value==='all'||item.platform===appFilter.value)&&(!query||[item.title,item.summary,item.category,...item.tags,...item.apps].join(' ').toLowerCase().includes(query)));
+      let list=templates.filter(item=>(category==='All'||item.category===category)&&(!query||[item.title,item.summary,item.category,...item.tags,...item.apps].join(' ').toLowerCase().includes(query)));
       if(sort.value==='title') list=[...list].sort((a,b)=>a.title.localeCompare(b.title));
       grid.innerHTML=list.map(item=>{const subject=item.title.replace(/\s+approval$/i,'');return `<article class="card" style="--action-color:${item.color};--action-ink:${item.actionInk||'#111'}"><div class="apps"><span class="app">${item.apps[0]}</span><span class="app action">${item.apps[1]}</span></div><h3>${subject} <span class="approval-label">approval</span></h3><div class="card-footer"><span>${item.flow.length} steps</span><button class="view" data-id="${item.id}">View template ›</button></div></article>`}).join('');
+      empty.innerHTML=list.length?'':'<h3>No matching templates</h3><p>Try a broader search or choose another category.</p>';
       empty.style.display=list.length?'none':'block';
       grid.querySelectorAll('.view').forEach(button=>button.addEventListener('click',()=>openTemplate(button.dataset.id)));
     }
@@ -194,23 +196,9 @@
     document.getElementById('close-dialog').addEventListener('click',()=>dialog.close());
     dialog.addEventListener('click',event=>{if(event.target===dialog)dialog.close()});
     dialog.addEventListener('close',()=>history.replaceState(null,'',location.pathname+location.search));
-    document.getElementById('download').addEventListener('click',event=>{
-      event.preventDefault();
-      if(!current)return;
-      const workflow=JSON.stringify(workflowFor(current),null,2)+'\\n';
-      const url=URL.createObjectURL(new Blob([workflow],{type:'application/json'}));
-      const link=document.createElement('a');
-      link.href=url;
-      link.download=current.file.split('/').pop();
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      setTimeout(()=>URL.revokeObjectURL(url),1000);
-      notify('Workflow downloaded');
-    });
+    document.getElementById('download').addEventListener('click',()=>notify('Workflow downloaded'));
     document.getElementById('copy-prompt').addEventListener('click',async()=>{if(!current)return;try{await navigator.clipboard.writeText(current.prompt);notify('Install prompt copied')}catch{notify('Could not copy the prompt')}});
     search.addEventListener('input',render);
-    appFilter.addEventListener('change',render);
     sort.addEventListener('change',render);
     renderCategories();
     render();
