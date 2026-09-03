@@ -1845,6 +1845,7 @@ const PUBLIC_FILES = new Map([
   ["/status", "status.html"],
   ["/relay", "relay.html"],
   ["/relay/templates", "relay-templates.html"],
+  ["/guides/zapier-winston-content-approval", "zapier-winston-content-approval.html"],
   ["/starters/n8n-email-approval.json", "examples/n8n-email-approval-starter.json"],
   ["/starters/n8n-slack-approval.json", "examples/n8n-approval-demo.json"],
   ["/templates/n8n-ai-email-approval.json", "examples/n8n-ai-email-approval.json"],
