@@ -41,11 +41,12 @@
     .grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; }
     .card { display:flex; flex-direction:column; min-height:210px; padding:20px; border:1px solid var(--line); background:var(--white); }
     .card:hover { border-color:#aeb3a7; box-shadow:0 8px 24px rgba(29,32,24,.06); }
-    .apps { display:flex; align-items:center; gap:0; }
-    .app { display:grid; place-items:center; width:34px; height:34px; border-radius:50%; background:#20231d; color:var(--white); font:700 10px var(--mono); box-shadow:0 0 0 2px var(--white); }
-    .app.action { width:auto; min-width:52px; padding:0 10px; margin-left:-7px; border-radius:999px; background:var(--action-color); color:var(--action-ink,#111); border:1px solid rgba(0,0,0,.18); white-space:nowrap; }
-    .type { margin-left:auto; color:var(--muted); font:10px var(--mono); text-transform:uppercase; }
-    .card h3 { margin:22px 0 9px; font-size:21px; line-height:1.14; letter-spacing:-.025em; }
+    .card-top { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+    .action-pill { display:inline-grid; place-items:center; min-height:34px; padding:0 12px; border-radius:999px; background:var(--action-color); color:var(--action-ink,#111); border:1px solid rgba(0,0,0,.18); font:700 11px var(--mono); white-space:nowrap; }
+    .platform-count { color:var(--muted); font:10px var(--mono); text-transform:uppercase; }
+    .card h3 { margin:18px 0 12px; font-size:21px; line-height:1.14; letter-spacing:-.025em; }
+    .card-platforms { display:flex; flex-wrap:wrap; gap:5px; margin:0 0 18px; }
+    .card-platform { padding:4px 7px; border:1px solid #cfd3ca; border-radius:999px; background:#f8f9f6; color:#454a42; font:700 9px var(--mono); white-space:nowrap; }
     .approval-label { color:#777c74; }
     .card-footer { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:auto; padding-top:16px; border-top:1px solid var(--line); }
     .card-footer span { color:var(--muted); font:10px var(--mono); }
@@ -158,7 +159,10 @@
       {id:'make',label:'Make'},
       {id:'zapier',label:'Zapier'},
       {id:'api',label:'API'},
-      {id:'agent',label:'AI agent'}
+      {id:'agent',label:'AI agent'},
+      {id:'pipedream',label:'Pipedream'},
+      {id:'activepieces',label:'Activepieces'},
+      {id:'node-red',label:'Node-RED'}
     ];
     const categoryNames=['All',...new Set(templates.map(item=>item.category))];
     function renderCategories(){
@@ -169,7 +173,7 @@
       const query=search.value.trim().toLowerCase();
       let list=templates.filter(item=>(category==='All'||item.category===category)&&(!query||[item.title,item.summary,item.category,...item.tags,...item.apps].join(' ').toLowerCase().includes(query)));
       if(sort.value==='title') list=[...list].sort((a,b)=>a.title.localeCompare(b.title));
-      grid.innerHTML=list.map(item=>{const subject=item.title.replace(/\s+approval$/i,'');return `<article class="card" style="--action-color:${item.color};--action-ink:${item.actionInk||'#111'}"><div class="apps"><span class="app">${item.apps[0]}</span><span class="app action">${item.apps[1]}</span></div><h3>${subject} <span class="approval-label">approval</span></h3><div class="card-footer"><span>${item.flow.length} steps</span><button class="view" data-id="${item.id}">View template ›</button></div></article>`}).join('');
+      grid.innerHTML=list.map(item=>{const subject=item.title.replace(/\s+approval$/i,'');return `<article class="card" style="--action-color:${item.color};--action-ink:${item.actionInk||'#111'}"><div class="card-top"><span class="action-pill">${item.apps[1]}</span><span class="platform-count">${platforms.length} platforms</span></div><h3>${subject} <span class="approval-label">approval</span></h3><div class="card-platforms" aria-label="Available for ${platforms.map(platform=>platform.label).join(', ')}">${platforms.map(platform=>`<span class="card-platform">${platform.label}</span>`).join('')}</div><div class="card-footer"><span>${item.flow.length} steps</span><button class="view" data-id="${item.id}">View template ›</button></div></article>`}).join('');
       empty.innerHTML=list.length?'':'<h3>No matching templates</h3><p>Try a broader search or choose another category.</p>';
       empty.style.display=list.length?'none':'block';
       grid.querySelectorAll('.view').forEach(button=>button.addEventListener('click',()=>openTemplate(button.dataset.id)));
@@ -231,6 +235,9 @@ console.log(approval);\n`;
       if(platform==='make') return common+' In Make, use one scenario to request approval and a second custom-webhook scenario for the callback. Filter the callback so only approved=true reaches the live action.';
       if(platform==='zapier') return common+' In Zapier, use Webhooks by Zapier for the request and a Catch Hook Zap for the callback. Add a Filter step requiring approved=true before the live action.';
       if(platform==='agent') return common+' Implement the approval as a tool boundary. The agent may prepare the action but must never call the protected tool until an approved callback is verified.';
+      if(platform==='pipedream') return common+' In Pipedream, use an HTTP trigger or app event for the request workflow and a second HTTP endpoint for the callback. Continue only when approved=true.';
+      if(platform==='activepieces') return common+' In Activepieces, use an HTTP action to create the approval and a webhook flow for the callback. Add a branch requiring approved=true before the live action.';
+      if(platform==='node-red') return common+' In Node-RED, use an HTTP request node for the approval and an HTTP In callback flow. Route only approved=true to the protected action.';
       return common;
     }
     function downloadText(name,text,type){
@@ -255,18 +262,24 @@ console.log(approval);\n`;
         make:'Import the request blueprint, then use the build prompt to add the approval callback scenario.',
         zapier:'Zapier has no portable Zap file. Paste the build prompt into Copilot.',
         api:'Use the JavaScript example in any service that can receive an HTTPS callback.',
-        agent:'Give the prompt to your coding agent and keep approval at the protected tool boundary.'
+        agent:'Give the prompt to your coding agent and keep approval at the protected tool boundary.',
+        pipedream:'Use two workflows: one requests approval and one receives the decision callback.',
+        activepieces:'Use an HTTP request piece and a webhook flow, then branch on the approved value.',
+        'node-red':'Use an HTTP request node and a separate callback flow before the protected node.'
       };
       const steps={
         n8n:['Download the JSON and import it into n8n.','Replace PASTE_YOUR_API_KEY and YOUR_APPROVER_EMAIL.','Test approve, reject, and timeout before connecting the live action.'],
         make:['Download and import the Make blueprint.','Create a second custom webhook scenario for the decision callback.','Allow the live action only when approved is true.'],
         zapier:['Copy the build prompt into Zapier Copilot.','Create one Zap for the request and one Catch Hook Zap for the callback.','Add a Filter requiring approved=true before the live action.'],
         api:['Copy the JavaScript request example.','Replace the API key, approver, context, and callback URL.','Verify the callback signature and decision before running the action.'],
-        agent:['Copy the agent build prompt.','Expose the approval API and callback verification to the agent.','Block the protected tool until approval is verified.']
+        agent:['Copy the agent build prompt.','Expose the approval API and callback verification to the agent.','Block the protected tool until approval is verified.'],
+        pipedream:['Copy the Pipedream build prompt.','Create separate request and callback workflows.','Run the live step only when approved is true.'],
+        activepieces:['Copy the Activepieces build prompt.','Create the approval request and callback flows.','Branch on approved=true before the live action.'],
+        'node-red':['Copy the Node-RED build prompt.','Create the request and HTTP callback flows.','Route only approved decisions to the protected node.']
       };
       document.getElementById('platform-note').textContent=notes[selectedPlatform];
       document.getElementById('setup-steps').innerHTML=steps[selectedPlatform].map(step=>`<li>${step}</li>`).join('');
-      key.href=`/?tool=${selectedPlatform==='agent'?'api':selectedPlatform}&source=template-library#request`;
+      key.href=`/?tool=${['n8n','make','zapier'].includes(selectedPlatform)?selectedPlatform:'api'}&source=template-library#request`;
       if(selectedPlatform==='n8n'){download.hidden=false;download.textContent='Download n8n JSON';copy.hidden=false;copy.textContent='Copy build prompt'}
       else if(selectedPlatform==='make'){download.hidden=false;download.textContent='Download Make blueprint';copy.hidden=false;copy.textContent='Copy build prompt'}
       else {download.hidden=true;copy.hidden=false;copy.textContent=selectedPlatform==='api'?'Copy JavaScript example':'Copy build prompt'}
