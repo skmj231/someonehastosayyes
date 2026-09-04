@@ -267,6 +267,22 @@
       categories.innerHTML=categoryNames.map(name=>`<button class="category" data-category="${name}" aria-pressed="${name===category}"><span>${name}</span><span>${countFor(name)}</span></button>`).join('');
       categories.querySelectorAll('button').forEach(button=>button.addEventListener('click',()=>{category=button.dataset.category;renderCategories();render()}));
     }
+    function stableScore(value){let hash=2166136261;for(let index=0;index<value.length;index++){hash^=value.charCodeAt(index);hash=Math.imul(hash,16777619)}return hash>>>0}
+    function mixRecommended(list){
+      if(filterPlatform!=='all') return list;
+      const groups={n8n:[],make:[],zapier:[]};
+      const rest=[];
+      list.forEach(variant=>(groups[variant.platformId]||rest).push(variant));
+      Object.entries(groups).forEach(([platformId,variants])=>variants.sort((a,b)=>stableScore(`${a.item.id}:${platformId}`)-stableScore(`${b.item.id}:${platformId}`)));
+      const rowOrders=[['n8n','zapier','make'],['make','n8n','zapier'],['zapier','make','n8n'],['make','zapier','n8n'],['zapier','n8n','make'],['n8n','make','zapier']];
+      const mixed=[];
+      let row=0;
+      while(Object.values(groups).some(variants=>variants.length)){
+        rowOrders[row%rowOrders.length].forEach(platformId=>{const next=groups[platformId].shift();if(next)mixed.push(next)});
+        row++;
+      }
+      return mixed.concat(rest.sort((a,b)=>stableScore(`${a.item.id}:${a.platformId}`)-stableScore(`${b.item.id}:${b.platformId}`)));
+    }
     function render(){
       const normalize=value=>String(value||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
       const query=normalize(search.value);
@@ -280,6 +296,7 @@
         return (category==='All'||item.category===category)&&matchesPlatform&&matchesSearch;
       });
       if(sort.value==='title') list=[...list].sort((a,b)=>a.item.title.localeCompare(b.item.title)||a.platformId.localeCompare(b.platformId));
+      else list=mixRecommended(list);
       grid.innerHTML=list.map(({item,platformId})=>{const subject=item.title.replace(/\s+approval$/i,'').replace(/^Zapier \+ /i,'');const platform=platforms.find(entry=>entry.id===platformId);const target=destinations[item.id]||{label:'Your app',icon:null};const path=item.guide?item.guide:`/templates/${item.id}`;const icon=entry=>entry?.mask?`<i class="flow-logo" style="--flow-icon:url('${entry.mask}')"></i>`:`<b class="flow-word">${entry?.mark||entry?.label}</b>`;const targetIcon=target.icon?`<i class="flow-logo" style="--flow-icon:url('https://cdn.jsdelivr.net/npm/simple-icons@14.15.0/icons/${target.icon}.svg')"></i>`:`<b class="flow-word">${target.short||target.label}</b>`;return `<a class="card" href="${path}?platform=${platformId}" style="--platform-color:${platform.color||item.color};--platform-wash:${platformWash[platformId]||'#eef0ea'}"><div class="card-visual"><div class="card-flow"><span class="flow-app platform">${icon(platform)}<small>${platform.label}</small></span><span class="flow-arrow">→</span><span class="flow-app approval"><b class="flow-word">SHSY</b><small>Approval</small></span><span class="flow-arrow">→</span><span class="flow-app">${targetIcon}<small>${target.label}</small></span></div></div><div class="card-body"><h3>${subject} <span class="approval-label">approval for ${platform.label}</span></h3><p class="card-description">${cardDescriptions[item.id]}</p><div class="card-footer"><span class="card-platform">${platform.label} setup guide</span><span class="view">View template ›</span></div></div></a>`}).join('');
       const platformName=platforms.find(platform=>platform.id===filterPlatform)?.label;
       empty.innerHTML=list.length?'':`<h3>No matching templates</h3><p>Try a broader search${platformName?' or clear the '+platformName+' filter':''}.</p>`;
