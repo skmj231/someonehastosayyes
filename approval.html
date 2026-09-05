@@ -17,6 +17,7 @@
     button,a{-webkit-tap-highlight-color:transparent}
     .topbar{position:fixed;inset:0 0 auto;z-index:20;display:flex;align-items:center;justify-content:space-between;height:62px;padding:0 24px;background:linear-gradient(var(--paper) 76%,transparent)}
     .brand{color:var(--ink);font-size:13px;font-weight:760;letter-spacing:-.02em;text-decoration:none}
+    .top-purpose{position:absolute;left:50%;transform:translateX(-50%);color:var(--muted);font-size:10px;font-weight:750;letter-spacing:.1em;text-transform:uppercase;white-space:nowrap}
     .quiet-link{border:0;padding:8px;background:transparent;color:var(--muted);cursor:pointer;font-size:12px}
     .quiet-link:hover{color:var(--ink)}
     main{width:min(760px,calc(100% - 36px));margin:0 auto;padding:18vh 0 96px}
@@ -115,13 +116,14 @@
     .undo.visible{display:flex}.undo button{border:0;padding:3px;background:transparent;color:#fff;cursor:pointer;font-weight:750;text-decoration:underline;text-underline-offset:3px}
     .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
     @media(max-width:600px){
-      .topbar{height:54px;padding:0 16px} main{width:min(100% - 28px,760px);padding-top:12vh}.hero{min-height:650px}.hero>h1{height:190px}.hero>.intro{height:64px;margin-top:12px;font-size:14px}.question-area{height:285px}.composer{border-radius:20px}textarea{min-height:92px;font-size:15px}.field-line{grid-template-columns:1fr;gap:1px}.field-line input{padding:5px 0 9px}.plan-row{grid-template-columns:1fr;gap:7px;padding:17px 0}.path{align-items:flex-start;gap:7px;font-size:11px}.protections{grid-template-columns:1fr}.approval-card{padding:20px}.verified{margin-top:80px}.verified-grid{grid-template-columns:1fr}.about{inset:54px 14px auto;width:auto}.undo{bottom:15px}}
+      .topbar{height:54px;padding:0 16px}.top-purpose{font-size:9px;letter-spacing:.07em}.brand{font-size:0}.brand::after{content:"shsy";font-size:12px} main{width:min(100% - 28px,760px);padding-top:12vh}.hero{min-height:650px}.hero>h1{height:190px}.hero>.intro{height:64px;margin-top:12px;font-size:14px}.question-area{height:285px}.composer{border-radius:20px}textarea{min-height:92px;font-size:15px}.field-line{grid-template-columns:1fr;gap:1px}.field-line input{padding:5px 0 9px}.plan-row{grid-template-columns:1fr;gap:7px;padding:17px 0}.path{align-items:flex-start;gap:7px;font-size:11px}.protections{grid-template-columns:1fr}.approval-card{padding:20px}.verified{margin-top:80px}.verified-grid{grid-template-columns:1fr}.about{inset:54px 14px auto;width:auto}.undo{bottom:15px}}
     @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.composer,.submit,.history-card{transition:none}}
   </style>
 </head>
 <body>
   <header class="topbar">
     <a class="brand" href="/approval">someonehastosayyes</a>
+    <span class="top-purpose">Human approval for automations</span>
     <button class="quiet-link" id="aboutButton" type="button" aria-expanded="false">What we do</button>
   </header>
 
@@ -132,9 +134,9 @@
 
   <main>
     <section class="hero" id="wizard" aria-labelledby="questionTitle">
-      <p class="eyebrow" id="eyebrow">Human approval for automations</p>
+      <p class="eyebrow" id="eyebrow">Question 1 of 7</p>
       <h1 id="questionTitle">What should never happen without a person saying yes?</h1>
-      <p class="intro" id="intro">Describe the exact approval problem. Get one safer step to insert into the automation you already have.</p>
+      <p class="intro" id="intro"></p>
       <div class="question-area">
         <div class="history" id="history" aria-hidden="true"></div>
         <form id="questionForm" novalidate>
@@ -219,7 +221,7 @@
 
   <script>
     const questions = [
-      {key:"situation",title:"What should never happen without a person saying yes?",intro:"Describe the exact approval problem. Get one safer step to insert into the automation you already have.",placeholder:"Refunds over $500 should wait for Finance before Stripe sends the money.",help:"Name the situation, the action, and why a person should check it.",min:20},
+      {key:"situation",title:"What should never happen without a person saying yes?",intro:"",placeholder:"Refunds over $500 should wait for Finance before Stripe sends the money.",help:"Name the situation, the action, and why a person should check it.",min:20},
       {key:"protected_action",title:"What exact action must wait?",intro:"Name the real action, not the general workflow.",placeholder:"Send the Stripe refund",help:"Example: Send the Stripe refund, publish the WordPress post, or create the employee accounts.",min:8},
       {key:"trigger",title:"What makes this approval necessary?",intro:"Describe the event or condition immediately before the stop.",placeholder:"A support agent requests a refund over $500",help:"Include the event and any threshold or condition that matters.",min:10},
       {key:"approver",title:"Who should make the decision?",intro:"Use a role if the exact person can change.",placeholder:"Finance manager for the customer account",help:"Example: Account owner, Finance manager, hiring manager, or the requesting client.",min:4},
@@ -248,7 +250,7 @@
       }
     }
     function renderQuestion(){
-      const q=questions[state.step]; title.textContent=q.title;intro.textContent=q.intro;eyebrow.textContent=state.step===0?"Human approval for automations":`Question ${state.step+1} of ${questions.length}`;guide.textContent=state.step===0?"Do not include API keys, private URLs, customer data, or employee data.":q.help;guide.classList.remove("more");composer.classList.remove("needs-more");showExample.hidden=state.step!==0;backButton.hidden=state.step===0;
+      const q=questions[state.step]; title.textContent=q.title;intro.textContent=q.intro;eyebrow.textContent=`Question ${state.step+1} of ${questions.length}`;guide.textContent=state.step===0?"Do not include API keys, private URLs, customer data, or employee data.":q.help;guide.classList.remove("more");composer.classList.remove("needs-more");showExample.hidden=state.step!==0;backButton.hidden=state.step===0;
       if(q.type==="outcomes"){
         fields.innerHTML=`<div class="field-group"><div class="field-line"><label for="approved_result">If approved</label><input id="approved_result" name="approved_result" placeholder="Send the refund once" autocomplete="off"></div><div class="field-line"><label for="rejected_result">If rejected</label><input id="rejected_result" name="rejected_result" placeholder="Keep the payment unchanged" autocomplete="off"></div><div class="field-line"><label for="timeout_result">No response</label><input id="timeout_result" name="timeout_result" placeholder="Do not send and notify Finance" autocomplete="off"></div></div>`;
       }else if(q.type==="platforms"){
