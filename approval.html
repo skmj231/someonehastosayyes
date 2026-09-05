@@ -1,0 +1,303 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Describe the exact approval problem in your automation. Get one safer approval step to insert into n8n, Make, Zapier, or an API workflow.">
+  <title>Build your approval step | someonehastosayyes</title>
+  <style>
+    :root {
+      --paper:#f7f7f3; --ink:#171714; --muted:#71716b; --line:#d9d9d2;
+      --white:#fff; --nudge:#9a8250; --nudge-soft:#f3efe4; --green:#176b46;
+    }
+    *{box-sizing:border-box}
+    html{color-scheme:light;scroll-behavior:smooth}
+    body{margin:0;min-height:100vh;background:var(--paper);color:var(--ink);font-family:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
+    button,input,textarea{font:inherit}
+    button,a{-webkit-tap-highlight-color:transparent}
+    .topbar{position:fixed;inset:0 0 auto;z-index:20;display:flex;align-items:center;justify-content:space-between;height:62px;padding:0 24px;background:linear-gradient(var(--paper) 76%,transparent)}
+    .brand{color:var(--ink);font-size:13px;font-weight:760;letter-spacing:-.02em;text-decoration:none}
+    .quiet-link{border:0;padding:8px;background:transparent;color:var(--muted);cursor:pointer;font-size:12px}
+    .quiet-link:hover{color:var(--ink)}
+    main{width:min(760px,calc(100% - 36px));margin:0 auto;padding:18vh 0 96px}
+    .hero{min-height:620px;text-align:center}
+    .eyebrow{margin:0 0 18px;color:var(--muted);font-size:11px;font-weight:750;letter-spacing:.12em;text-transform:uppercase}
+    h1{max-width:700px;margin:0 auto;font-size:clamp(36px,6.5vw,64px);font-weight:550;letter-spacing:-.055em;line-height:.99}
+    .hero>h1{display:grid;place-items:center;height:172px}
+    .intro{max-width:520px;margin:18px auto 22px;color:var(--muted);font-size:15px;line-height:1.55}
+    .hero>.intro{height:48px}
+    .question-area{position:relative;height:255px;margin:0 auto;max-width:680px;padding-top:18px}
+    .history{position:absolute;inset:0 18px auto;z-index:0;height:70px;pointer-events:none}
+    .history-card{position:absolute;inset:0;border:1px solid var(--line);border-radius:22px;background:#efefe9;color:#8b8b84;font-size:12px;line-height:1.4;text-align:left;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;padding:14px 18px;transition:transform 220ms ease,opacity 220ms ease}
+    .history-card:nth-last-child(1){transform:translateY(-16px) scale(.96);opacity:.9}
+    .history-card:nth-last-child(2){transform:translateY(-29px) scale(.91);opacity:.55}
+    .history-card:nth-last-child(-n+2)~.history-card{display:none}
+    .composer{position:relative;z-index:2;display:grid;grid-template-columns:1fr auto;gap:10px;align-items:end;padding:14px 14px 14px 18px;border:1px solid var(--line);border-radius:24px;background:var(--white);box-shadow:0 10px 30px rgb(22 22 18 / 5%);text-align:left;transition:border-color 180ms ease,box-shadow 180ms ease,background 180ms ease}
+    .composer.needs-more{border-color:#c9b98e;background:#fffefb;box-shadow:0 10px 30px rgb(154 130 80 / 8%)}
+    textarea,input{width:100%;border:0;outline:0;background:transparent;color:var(--ink);font-size:16px;line-height:1.5}
+    textarea{min-height:72px;max-height:170px;resize:none;padding:4px 0}
+    textarea::placeholder,input::placeholder{color:#9b9b94}
+    .submit{display:grid;place-items:center;width:42px;height:42px;border:0;border-radius:50%;background:var(--ink);color:var(--white);cursor:pointer;transition:transform 160ms ease,opacity 160ms ease}
+    .submit:hover{transform:translateY(-1px)}
+    .field-group{display:grid;gap:12px;padding:3px 0 1px}
+    .field-line{display:grid;grid-template-columns:92px 1fr;gap:10px;align-items:center}
+    .field-line label{color:var(--muted);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em}
+    .field-line input{padding:7px 0;border-bottom:1px solid #e7e7e1;font-size:14px}
+    .field-line:last-child input{border-bottom:0}
+    .form-meta{display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:start;min-height:42px;margin-top:10px}
+    .back{border:0;padding:2px 7px 2px 0;background:transparent;color:var(--muted);cursor:pointer;font-size:11px}
+    .back:hover{color:var(--ink)}
+    .guide{min-height:36px;margin:0 8px 0;color:#888881;font-size:11px;line-height:1.5;text-align:left}
+    .guide.more{color:#74623e}
+    .example{border:0;padding:3px;background:transparent;color:#8b8b84;cursor:pointer;font-size:11px;text-decoration:underline;text-decoration-color:#c8c8c0;text-underline-offset:3px}
+    .example:hover{color:var(--ink)}
+    .progress{display:flex;justify-content:center;gap:5px;margin-top:18px}
+    .progress span{width:5px;height:5px;border-radius:50%;background:#d7d7d0}
+    .progress span.done{background:var(--ink)}
+    .result{display:none;text-align:left}
+    .result.visible{display:block}
+    .result-head{margin-bottom:44px;text-align:center}
+    .result-head h1{font-size:clamp(34px,5.6vw,56px)}
+    .result-summary{max-width:560px;margin:18px auto 0;color:var(--muted);font-size:15px;line-height:1.6}
+    .plan{border-top:1px solid var(--line)}
+    .plan-row{display:grid;grid-template-columns:120px 1fr;gap:28px;padding:19px 0;border-bottom:1px solid var(--line)}
+    .plan-row dt{color:var(--muted);font-size:12px}
+    .plan-row dd{margin:0;font-size:14px;line-height:1.55}
+    .use-next{margin-top:42px;padding-top:26px;border-top:1px solid var(--line)}
+    .use-next h2{margin:0;font-size:20px;font-weight:600;letter-spacing:-.025em}
+    .use-next p{max-width:570px;margin:9px 0 0;color:var(--muted);font-size:13px;line-height:1.6}
+    .brief-preview{margin-top:18px;padding:18px 0;border-top:1px solid #e5e5df;border-bottom:1px solid #e5e5df;color:#464640;font-size:13px;line-height:1.65;white-space:pre-wrap}
+    .result-note{margin:18px 0 0;color:var(--muted);font-size:11px;line-height:1.6}
+    .path{display:flex;align-items:center;gap:12px;margin:38px 0 4px;padding:21px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line);font-size:13px;line-height:1.4}
+    .path strong{font-weight:650}.path-arrow{color:#aaa;font-size:17px}.path-gate{color:var(--green)}
+    .section-block{padding:36px 0;border-bottom:1px solid var(--line)}
+    .section-block>h2{margin:0;font-size:20px;font-weight:600;letter-spacing:-.025em}
+    .section-block>.section-copy{max-width:570px;margin:9px 0 0;color:var(--muted);font-size:13px;line-height:1.6}
+    .approval-card{max-width:520px;margin:22px auto 0;padding:26px;border:1px solid var(--line);border-radius:18px;background:var(--white);box-shadow:0 10px 30px rgb(22 22 18 / 4%)}
+    .approval-card small{color:var(--muted);font-size:10px;font-weight:750;letter-spacing:.09em;text-transform:uppercase}
+    .approval-card h3{margin:11px 0 15px;font-size:22px;font-weight:600;letter-spacing:-.03em;line-height:1.2}
+    .approval-facts{margin:0;padding:0;list-style:none;border-top:1px solid #ecece6}
+    .approval-facts li{padding:9px 0;border-bottom:1px solid #ecece6;color:#4f4f49;font-size:12px}
+    .approval-outcome{margin:15px 0 0;color:var(--muted);font-size:12px;line-height:1.5}
+    .decision-buttons{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:18px}
+    .decision-buttons span{padding:10px;border-radius:999px;text-align:center;font-size:12px;font-weight:700}
+    .decision-buttons .yes{background:#183f2e;color:#fff}.decision-buttons .no{background:#efeee8;color:#4d4d47}
+    .protections{display:grid;grid-template-columns:1fr 1fr;gap:0 26px;margin:20px 0 0;padding:0;list-style:none}
+    .protections li{padding:12px 0;border-bottom:1px solid #e5e5df;font-size:12px;line-height:1.45}
+    .protections li::before{content:"✓";margin-right:9px;color:var(--green);font-weight:800}
+    .setup-steps{margin:20px 0 0;padding:0;list-style:none;counter-reset:steps}
+    .setup-steps li{display:grid;grid-template-columns:27px 1fr;gap:10px;padding:11px 0;font-size:13px;line-height:1.5;counter-increment:steps}
+    .setup-steps li::before{content:counter(steps);display:grid;place-items:center;width:22px;height:22px;border:1px solid var(--line);border-radius:50%;color:var(--muted);font-size:10px}
+    details{margin-top:15px;color:var(--muted);font-size:11px}
+    summary{cursor:pointer;width:max-content}
+    .actions{display:flex;flex-wrap:wrap;gap:9px;margin-top:25px}
+    .action{border:1px solid var(--line);border-radius:999px;padding:10px 15px;background:transparent;color:var(--ink);cursor:pointer;font-size:12px;font-weight:650;text-decoration:none}
+    .action:hover{border-color:#999990;background:var(--white)}
+    .action.primary{border-color:var(--ink);background:var(--ink);color:var(--white)}
+    .verified{margin-top:160px;padding-top:30px;border-top:1px solid var(--line)}
+    .verified h2{margin:0;font-size:20px;font-weight:600;letter-spacing:-.025em}
+    .verified-copy{max-width:520px;margin:9px 0 0;color:var(--muted);font-size:12px;line-height:1.6}
+    .verified-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:24px}
+    .verified-empty{grid-column:1/-1;padding:28px 0;color:#8c8c85;font-size:12px;line-height:1.6}
+    .about{display:none;position:fixed;inset:62px 18px auto auto;z-index:30;width:min(340px,calc(100% - 36px));padding:20px;border:1px solid var(--line);border-radius:16px;background:var(--white);box-shadow:0 16px 50px rgb(20 20 17 / 10%)}
+    .about.visible{display:block}
+    .about strong{display:block;margin-bottom:8px;font-size:13px}
+    .about p{margin:0;color:var(--muted);font-size:12px;line-height:1.6}
+    .undo{display:none;position:fixed;left:50%;bottom:24px;z-index:50;transform:translateX(-50%);align-items:center;gap:18px;padding:11px 14px 11px 16px;border:1px solid var(--line);border-radius:999px;background:var(--ink);color:#fff;box-shadow:0 12px 35px rgb(0 0 0 / 16%);font-size:11px}
+    .undo.visible{display:flex}.undo button{border:0;padding:3px;background:transparent;color:#fff;cursor:pointer;font-weight:750;text-decoration:underline;text-underline-offset:3px}
+    .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+    @media(max-width:600px){
+      .topbar{height:54px;padding:0 16px} main{width:min(100% - 28px,760px);padding-top:12vh}.hero{min-height:650px}.hero>h1{height:190px}.hero>.intro{height:64px;margin-top:12px;font-size:14px}.question-area{height:285px}.composer{border-radius:20px}textarea{min-height:92px;font-size:15px}.field-line{grid-template-columns:1fr;gap:1px}.field-line input{padding:5px 0 9px}.plan-row{grid-template-columns:1fr;gap:7px;padding:17px 0}.path{align-items:flex-start;gap:7px;font-size:11px}.protections{grid-template-columns:1fr}.approval-card{padding:20px}.verified{margin-top:80px}.verified-grid{grid-template-columns:1fr}.about{inset:54px 14px auto;width:auto}.undo{bottom:15px}}
+    @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.composer,.submit,.history-card{transition:none}}
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/approval">someonehastosayyes</a>
+    <button class="quiet-link" id="aboutButton" type="button" aria-expanded="false">What we do</button>
+  </header>
+
+  <aside class="about" id="about" aria-hidden="true">
+    <strong>We solve one moment.</strong>
+    <p>Your automation already exists. We give you the approval step to place before the action that should not happen on its own.</p>
+  </aside>
+
+  <main>
+    <section class="hero" id="wizard" aria-labelledby="questionTitle">
+      <p class="eyebrow" id="eyebrow">Human approval for automations</p>
+      <h1 id="questionTitle">What should never happen without a person saying yes?</h1>
+      <p class="intro" id="intro">Describe the exact approval problem. Get one safer step to insert into the automation you already have.</p>
+      <div class="question-area">
+        <div class="history" id="history" aria-hidden="true"></div>
+        <form id="questionForm" novalidate>
+          <div class="composer" id="composer">
+            <div id="fields"></div>
+            <button class="submit" type="submit" aria-label="Continue">
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true"><path d="M9 14.5V3.5M9 3.5L4.5 8M9 3.5L13.5 8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+          </div>
+          <div class="form-meta"><button class="back" id="backButton" type="button" hidden>← Back</button><p class="guide" id="guide">Do not include API keys, private URLs, customer data, or employee data.</p></div>
+        </form>
+        <div class="progress" id="progress" aria-label="Question progress"></div>
+        <button class="example" id="showExample" type="button">See an example result</button>
+      </div>
+    </section>
+
+    <section class="result" id="result" aria-labelledby="resultTitle">
+      <div class="result-head">
+        <p class="eyebrow">Your Approval Insert</p>
+        <h1 id="resultTitle"></h1>
+        <p class="result-summary" id="resultSummary"></p>
+      </div>
+      <dl class="plan" id="plan"></dl>
+      <div class="path" aria-label="Approval position"><strong id="pathBefore"></strong><span class="path-arrow">→</span><strong class="path-gate">SHSY approval</strong><span class="path-arrow">→</span><strong id="pathAfter"></strong></div>
+      <section class="section-block" aria-labelledby="approverPreviewTitle">
+        <h2 id="approverPreviewTitle">What the approver sees</h2>
+        <p class="section-copy">A clear decision, not workflow settings or raw JSON.</p>
+        <div class="approval-card">
+          <small>Approval requested</small>
+          <h3 id="approvalQuestion"></h3>
+          <ul class="approval-facts" id="approvalFacts"></ul>
+          <p class="approval-outcome" id="approvalOutcome"></p>
+          <div class="decision-buttons" aria-hidden="true"><span class="no">No</span><span class="yes">Yes</span></div>
+        </div>
+      </section>
+      <section class="section-block" aria-labelledby="safetyTitle">
+        <h2 id="safetyTitle">Protected by default</h2>
+        <p class="section-copy">The reliability work stays underneath the simple approval.</p>
+        <ul class="protections"><li>One decision per request</li><li>Email scanners cannot decide</li><li>Explicit no-response result</li><li>Authenticated final decision check</li><li>Callback retries after temporary failures</li><li>The same contract across platforms</li></ul>
+      </section>
+      <section class="use-next" aria-labelledby="useNextTitle">
+        <h2 id="useNextTitle">Add it to <span id="platformName">your automation</span></h2>
+        <p id="platformWorkload">Add only the approval request, decision return, verified decision, and approved route.</p>
+        <ol class="setup-steps" id="setupSteps"></ol>
+        <div class="actions">
+          <button class="action primary" id="copyPlan" type="button">Copy setup</button>
+          <button class="action" id="editAnswers" type="button">Back to answers</button>
+          <button class="action" id="startAgain" type="button">Start again</button>
+        </div>
+        <details>
+          <summary>Structured data for tools</summary>
+          <p>Download the same plan as JSON if a tool or future workflow needs structured fields.</p>
+          <button class="action" id="downloadJson" type="button">Download JSON</button>
+        </details>
+      </section>
+      <p class="result-note">This plan defines the approval. It does not claim the connected automation has been tested. Verified templates appear only after the real action passes an account-connected test.</p>
+    </section>
+
+    <section class="verified" id="verified" aria-labelledby="verifiedTitle">
+      <h2 id="verifiedTitle">Verified in real workflows</h2>
+      <p class="verified-copy">Only account-connected templates that completed the real action appear here.</p>
+      <div class="verified-grid">
+        <div class="verified-empty">The first connected tests are being prepared. Research drafts and generated files are intentionally not shown as verified.</div>
+      </div>
+    </section>
+  </main>
+
+  <div class="undo" id="undoReset" role="status"><span>Previous answers saved.</span><button type="button" id="undoButton">Undo</button></div>
+
+  <noscript>This page needs JavaScript to build the approval plan in your browser.</noscript>
+
+  <script>
+    const questions = [
+      {key:"situation",title:"What should never happen without a person saying yes?",intro:"Describe the exact approval problem. Get one safer step to insert into the automation you already have.",placeholder:"Refunds over $500 should wait for Finance before Stripe sends the money.",help:"Name the situation, the action, and why a person should check it.",min:20},
+      {key:"protected_action",title:"What exact action must wait?",intro:"Name the real action, not the general workflow.",placeholder:"Send the Stripe refund",help:"Example: Send the Stripe refund, publish the WordPress post, or create the employee accounts.",min:8},
+      {key:"trigger",title:"What makes this approval necessary?",intro:"Describe the event or condition immediately before the stop.",placeholder:"A support agent requests a refund over $500",help:"Include the event and any threshold or condition that matters.",min:10},
+      {key:"approver",title:"Who should make the decision?",intro:"Use a role if the exact person can change.",placeholder:"Finance manager for the customer account",help:"Example: Account owner, Finance manager, hiring manager, or the requesting client.",min:4},
+      {key:"review_information",title:"What must they see before deciding?",intro:"List only the facts needed to make this decision.",placeholder:"Order, amount, refund reason, customer history",help:"Enter at least two items, separated by commas.",min:7,type:"list"},
+      {key:"outcomes",title:"What should happen after the decision?",intro:"Define every route now so the automation never has to guess.",help:"Use a real action for each outcome, including no response.",type:"outcomes"},
+      {key:"platforms",title:"Which tools sit before and after approval?",intro:"This keeps the plan independent from any one automation platform.",help:"Enter the current tools. Use “none yet” if one side has not been chosen.",type:"platforms"}
+    ];
+
+    const state={step:0,answers:{}};
+    const wizard=document.getElementById("wizard"), result=document.getElementById("result"), fields=document.getElementById("fields"), form=document.getElementById("questionForm"), composer=document.getElementById("composer"), guide=document.getElementById("guide"), title=document.getElementById("questionTitle"), intro=document.getElementById("intro"), eyebrow=document.getElementById("eyebrow"), history=document.getElementById("history"), progress=document.getElementById("progress"), showExample=document.getElementById("showExample"), backButton=document.getElementById("backButton"), undoReset=document.getElementById("undoReset"), undoButton=document.getElementById("undoButton");
+
+    function esc(value){return String(value??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c])}
+    function firstValue(){const el=fields.querySelector("textarea,input");if(el)el.focus()}
+    function renderProgress(){progress.innerHTML=questions.map((_,i)=>`<span class="${i<=state.step?"done":""}"></span>`).join("")}
+    function fillSaved(q){
+      if(q.type==="outcomes"){
+        ["approved_result","rejected_result","timeout_result"].forEach(key=>{document.getElementById(key).value=state.answers[key]||""});
+      }else if(q.type==="platforms"){
+        ["platforms_before","platforms_after"].forEach(key=>{document.getElementById(key).value=state.answers[key]||""});
+      }else{
+        const value=state.answers[q.key];document.getElementById("answer").value=Array.isArray(value)?value.join(", "):(value||"");
+      }
+    }
+    function renderQuestion(){
+      const q=questions[state.step]; title.textContent=q.title;intro.textContent=q.intro;eyebrow.textContent=state.step===0?"Human approval for automations":`Question ${state.step+1} of ${questions.length}`;guide.textContent=state.step===0?"Do not include API keys, private URLs, customer data, or employee data.":q.help;guide.classList.remove("more");composer.classList.remove("needs-more");showExample.hidden=state.step!==0;backButton.hidden=state.step===0;
+      if(q.type==="outcomes"){
+        fields.innerHTML=`<div class="field-group"><div class="field-line"><label for="approved_result">If approved</label><input id="approved_result" name="approved_result" placeholder="Send the refund once" autocomplete="off"></div><div class="field-line"><label for="rejected_result">If rejected</label><input id="rejected_result" name="rejected_result" placeholder="Keep the payment unchanged" autocomplete="off"></div><div class="field-line"><label for="timeout_result">No response</label><input id="timeout_result" name="timeout_result" placeholder="Do not send and notify Finance" autocomplete="off"></div></div>`;
+      }else if(q.type==="platforms"){
+        fields.innerHTML=`<div class="field-group"><div class="field-line"><label for="platforms_before">Before</label><input id="platforms_before" name="platforms_before" placeholder="Zendesk, Make" autocomplete="off"></div><div class="field-line"><label for="platforms_after">After</label><input id="platforms_after" name="platforms_after" placeholder="Stripe" autocomplete="off"></div></div>`;
+      }else{
+        fields.innerHTML=`<label class="sr-only" for="answer">${esc(q.title)}</label><textarea id="answer" name="answer" maxlength="1000" placeholder="${esc(q.placeholder)}"></textarea>`;
+        const area=document.getElementById("answer");area.addEventListener("input",()=>{area.style.height="auto";area.style.height=`${Math.min(area.scrollHeight,170)}px`});
+      }
+      fillSaved(q);renderProgress();window.setTimeout(firstValue,50);
+    }
+
+    function needMore(message){composer.classList.add("needs-more");guide.textContent=`One more detail: ${message}`;guide.classList.add("more");firstValue()}
+    function meaningful(value,min){return value.trim().length>=min&&value.trim().split(/\s+/).length>=2}
+    function readAnswer(){
+      const q=questions[state.step];
+      if(q.type==="outcomes"){
+        const values={approved_result:document.getElementById("approved_result").value.trim(),rejected_result:document.getElementById("rejected_result").value.trim(),timeout_result:document.getElementById("timeout_result").value.trim()};
+        if(Object.values(values).some(v=>!meaningful(v,6))){needMore("Describe a concrete result for approval, rejection, and no response.");return null}return values;
+      }
+      if(q.type==="platforms"){
+        const values={platforms_before:document.getElementById("platforms_before").value.trim(),platforms_after:document.getElementById("platforms_after").value.trim()};
+        if(Object.values(values).some(v=>!v)){needMore("Enter both sides. Use “none yet” when a tool has not been chosen.");return null}return values;
+      }
+      const value=document.getElementById("answer").value.trim();
+      if(!meaningful(value,q.min)){needMore(q.help);return null}
+      if(q.type==="list"&&value.split(/,|\n/).filter(Boolean).length<2){needMore("Enter at least two facts, separated by commas.");return null}
+      return value;
+    }
+
+    function addHistory(answer){
+      const q=questions[state.step];let value=typeof answer==="string"?answer:Object.values(answer).join(" · ");const card=document.createElement("div");card.className="history-card";card.textContent=value;history.appendChild(card);while(history.children.length>2)history.removeChild(history.firstChild)
+    }
+
+    function persist(){try{localStorage.setItem("shsy-approval-plan-draft",JSON.stringify(state))}catch(_){}}
+    form.addEventListener("submit",event=>{
+      event.preventDefault();const answer=readAnswer();if(answer===null)return;addHistory(answer);const q=questions[state.step];
+      if(typeof answer==="object")Object.assign(state.answers,answer);else state.answers[q.key]=q.type==="list"?answer.split(/,|\n/).map(v=>v.trim()).filter(Boolean):answer;
+      state.step+=1;persist();
+      if(state.step<questions.length){renderQuestion()}else{showResult()}
+    });
+    backButton.addEventListener("click",()=>{if(state.step===0)return;state.step-=1;if(history.lastElementChild)history.lastElementChild.remove();persist();renderQuestion()});
+
+    function arrayFrom(value){return String(value).split(/,|\+|→|->/).map(v=>v.trim()).filter(Boolean)}
+    function packet(){return {protected_action:state.answers.protected_action,trigger:state.answers.trigger,approver:state.answers.approver,review_information:state.answers.review_information,approved_result:state.answers.approved_result,rejected_result:state.answers.rejected_result,timeout_result:state.answers.timeout_result,platforms_before:arrayFrom(state.answers.platforms_before),platforms_after:arrayFrom(state.answers.platforms_after),unknowns:[]}}
+    function platformConfig(){
+      const text=`${state.answers.platforms_before} ${state.answers.platforms_after}`.toLowerCase();
+      if(text.includes("make"))return {id:"make",name:"Make",workload:"One request scenario and one short callback scenario.",steps:["Create the receiving scenario with Webhooks → Custom webhook.","In the existing scenario, use HTTP v4 with a secure keychain to create the SHSY approval. Add a stable run ID as the Idempotency-Key.","Capture one real callback, then use its approval ID in an authenticated GET request to SHSY.","Add a Router. Only verified approved = true may reach the protected action."]};
+      if(text.includes("zapier"))return {id:"zapier",name:"Zapier",workload:"One request Zap and one short callback Zap.",steps:["Create the receiving Zap with Webhooks by Zapier → Catch Hook.","In the existing Zap, use API by Zapier with a secure app connection to create the SHSY approval and a stable idempotency key.","Capture one real callback, then use its approval ID in an authenticated GET request to SHSY.","Add Filter by Zapier. Only verified approved = true may reach the protected action."]};
+      if(text.includes("n8n"))return {id:"n8n",name:"n8n",workload:"One reusable request, wait, verification, and decision branch.",steps:["Create one n8n HTTP Header Auth credential for the SHSY key.","POST the approval with an Idempotency-Key and use the Wait resume URL as the private callback.","Capture one real callback, then map its approval ID into an authenticated GET request to SHSY.","Use an IF node. Only verified approved = true may reach the protected action."]};
+      return {id:"api",name:"your automation",workload:"One approval request, one callback, and one verified decision check.",steps:["POST the approval request with a unique Idempotency-Key.","Keep the callback URL private and capture its approval ID.","Authenticate GET /v1/approvals/{id} before trusting the decision.","Only approved = true may reach the protected action."]};
+    }
+    function showResult(){
+      wizard.style.display="none";result.classList.add("visible");document.getElementById("resultTitle").textContent=`Stop before: ${state.answers.protected_action}`;document.getElementById("resultSummary").textContent=`${state.answers.approver} decides after seeing ${state.answers.review_information.join(", ")}.`;
+      const rows=[["When",state.answers.trigger],["Ask",state.answers.approver],["Show",state.answers.review_information.join(", ")],["Yes",state.answers.approved_result],["No",state.answers.rejected_result],["No response",state.answers.timeout_result]];
+      document.getElementById("plan").innerHTML=rows.map(([k,v])=>`<div class="plan-row"><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join("");
+      document.getElementById("pathBefore").textContent=state.answers.platforms_before;document.getElementById("pathAfter").textContent=state.answers.platforms_after;
+      document.getElementById("approvalQuestion").textContent=`Approve: ${state.answers.protected_action}?`;document.getElementById("approvalFacts").innerHTML=state.answers.review_information.map(value=>`<li>${esc(value)}</li>`).join("");document.getElementById("approvalOutcome").textContent=`If yes: ${state.answers.approved_result}. If no: ${state.answers.rejected_result}.`;
+      const config=platformConfig();document.getElementById("platformName").textContent=config.name;document.getElementById("platformWorkload").textContent=config.workload;document.getElementById("setupSteps").innerHTML=config.steps.map(step=>`<li>${esc(step)}</li>`).join("");document.getElementById("copyPlan").textContent=`Copy ${config.name} setup`;
+      try{localStorage.removeItem("shsy-approval-plan-draft")}catch(_){}window.scrollTo({top:0,behavior:"smooth"})
+    }
+
+    function planText(){const p=packet(),config=platformConfig();return `ADD THIS APPROVAL TO ${config.name.toUpperCase()}\n\nPut it here:\n${p.platforms_before.join(", ")} → SHSY approval → ${p.platforms_after.join(", ")}\n\nDecision:\nWhen: ${p.trigger}\nStop before: ${p.protected_action}\nAsk: ${p.approver}\nShow: ${p.review_information.join(", ")}\nYes: ${p.approved_result}\nNo: ${p.rejected_result}\nNo response: ${p.timeout_result}\n\nSetup:\n${config.steps.map((step,index)=>`${index+1}. ${step}`).join("\n")}\n\nBuilt-in safeguards:\n- One decision per request\n- GET links never decide\n- Explicit no-response result\n- Authenticated final decision check\n- Callback retry after temporary failures\n\nBefore going live, use harmless data to confirm approval, rejection, no response, and duplicate retry. Do not connect the real action until those paths behave correctly.`}
+    document.getElementById("copyPlan").addEventListener("click",async event=>{const config=platformConfig();try{await navigator.clipboard.writeText(planText());event.currentTarget.textContent=`Copied. Return to ${config.name}.`;setTimeout(()=>event.currentTarget.textContent=`Copy ${config.name} setup`,1900)}catch(_){event.currentTarget.textContent="Copy unavailable"}});
+    document.getElementById("downloadJson").addEventListener("click",()=>{const blob=new Blob([JSON.stringify(packet(),null,2)],{type:"application/json"}),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download="approval-plan.json";document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000)});
+    document.getElementById("editAnswers").addEventListener("click",()=>{state.step=questions.length-1;result.classList.remove("visible");wizard.style.display="block";renderQuestion();window.scrollTo({top:0,behavior:"smooth"})});
+    let resetSnapshot=null,undoTimer=null;
+    document.getElementById("startAgain").addEventListener("click",()=>{resetSnapshot=JSON.parse(JSON.stringify(state));state.step=0;state.answers={};history.innerHTML="";result.classList.remove("visible");wizard.style.display="block";renderQuestion();undoReset.classList.add("visible");clearTimeout(undoTimer);undoTimer=setTimeout(()=>{undoReset.classList.remove("visible");resetSnapshot=null},8000);window.scrollTo({top:0,behavior:"smooth"})});
+    undoButton.addEventListener("click",()=>{if(!resetSnapshot)return;state.step=resetSnapshot.step;state.answers=resetSnapshot.answers;resetSnapshot=null;clearTimeout(undoTimer);undoReset.classList.remove("visible");wizard.style.display="none";showResult()});
+    showExample.addEventListener("click",()=>{state.answers={situation:"Refunds over $500 should wait for Finance before Stripe sends the money.",protected_action:"Send the Stripe refund",trigger:"A support agent requests a refund over $500",approver:"Finance manager",review_information:["order","amount","refund reason","customer history"],approved_result:"Send the refund once",rejected_result:"Keep the payment unchanged",timeout_result:"Do not send and notify Finance",platforms_before:"Zendesk, Make",platforms_after:"Stripe"};showResult()});
+    const aboutButton=document.getElementById("aboutButton"),about=document.getElementById("about");aboutButton.addEventListener("click",()=>{const open=!about.classList.contains("visible");about.classList.toggle("visible",open);about.setAttribute("aria-hidden",String(!open));aboutButton.setAttribute("aria-expanded",String(open))});document.addEventListener("click",event=>{if(!about.contains(event.target)&&event.target!==aboutButton){about.classList.remove("visible");about.setAttribute("aria-hidden","true");aboutButton.setAttribute("aria-expanded","false")}});
+    renderQuestion();
+  </script>
+</body>
+</html>
+
