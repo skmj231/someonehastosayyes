@@ -101,7 +101,9 @@
     .template-card{display:flex;min-height:178px;flex-direction:column;align-items:flex-start;padding:22px;border:1px solid var(--line);border-radius:18px;background:var(--white);color:var(--ink);text-align:left;cursor:pointer;transition:transform 160ms ease,border-color 160ms ease,box-shadow 160ms ease}
     .template-card:hover{transform:translateY(-2px);border-color:#b8b8af;box-shadow:0 12px 28px rgb(22 22 18 / 6%)}
     .template-meta{color:#818179;font:9px var(--mono);letter-spacing:.055em;text-transform:uppercase}
-    .template-card strong{display:block;max-width:290px;margin-top:15px;font-size:19px;line-height:1.15;letter-spacing:-.025em}
+    .template-title-row{display:flex;flex-wrap:wrap;align-items:flex-end;gap:8px 10px;margin-top:15px}
+    .template-title-row strong{display:block;max-width:310px;font-size:19px;line-height:1.15;letter-spacing:-.025em}
+    .approval-tag{display:inline-flex;align-items:center;min-height:21px;margin-bottom:1px;padding:0 8px;border-radius:999px;background:var(--template-accent);color:#fff;font:750 9px var(--mono);letter-spacing:.035em;text-transform:uppercase}
     .template-card p{margin:9px 0 20px;color:var(--muted);font-size:12px;line-height:1.55}
     .template-use{margin-top:auto;font-size:11px;font-weight:750}
     .about{display:none;position:fixed;inset:62px 18px auto auto;z-index:30;width:min(340px,calc(100% - 36px));padding:20px;border:1px solid var(--line);border-radius:16px;background:var(--white);box-shadow:0 16px 50px rgb(20 20 17 / 10%)}
@@ -192,17 +194,17 @@
 
     <section class="verified" id="verified" aria-labelledby="verifiedTitle">
       <h2 id="verifiedTitle">Templates from real workflow problems</h2>
-      <p class="verified-copy">Built from specific problems people described. Each card stays marked as pending until its connected workflow passes every outcome.</p>
+      <p class="verified-copy">Built from specific problems people described. Testing stays visible until the connected workflow passes every outcome.</p>
       <div class="verified-grid">
-        <button class="template-card" type="button" data-template="candidate-rejection-email">
-          <span class="template-meta">Recruiting · E2E test pending</span>
-          <strong>Approve bulk candidate rejection emails</strong>
+        <button class="template-card" type="button" data-template="candidate-rejection-email" style="--template-accent:#f05a47">
+          <span class="template-meta">Recruiting · Testing</span>
+          <span class="template-title-row"><strong>Bulk candidate rejection emails</strong><span class="approval-tag">Approval</span></span>
           <p>Check the candidate batch, decision basis, and final message before an irreversible send.</p>
           <span class="template-use">Use this template →</span>
         </button>
-        <button class="template-card" type="button" data-template="shopify-refund-release">
-          <span class="template-meta">Shopify · E2E test pending</span>
-          <strong>Approve refunds requested by outsourced support</strong>
+        <button class="template-card" type="button" data-template="shopify-refund-release" style="--template-accent:#008060">
+          <span class="template-meta">Shopify · Testing</span>
+          <span class="template-title-row"><strong>Refunds requested by outsourced support</strong><span class="approval-tag">Approval</span></span>
           <p>Let support request a refund without letting money move before the store manager checks it.</p>
           <span class="template-use">Use this template →</span>
         </button>
