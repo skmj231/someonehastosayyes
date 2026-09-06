@@ -210,8 +210,8 @@ body{
           <span class="sq" id="platSq">n8</span>
           <span class="lbl" id="platName">n8n workflow</span>
         </div>
-        <div class="node-title">Refund requested</div>
-        <div class="node-meta">Order A-184 · $380</div>
+        <div class="node-title">Outreach ready</div>
+        <div class="node-meta">Send scheduled in 60 sec</div>
         <div class="waiting" id="waiting">
           <span class="dots"><i></i><i></i><i></i></span>
           <span>run paused</span>
@@ -232,20 +232,20 @@ body{
         <div class="card" id="card">
           <span class="ring" id="ring"></span>
           <div class="card-row"><span class="sq">S</span><span class="lbl">approval requested</span></div>
-          <h4>Approve: Refund order A-184 for $380?</h4>
+          <h4>Hold this outreach email?</h4>
           <div class="facts">
-            <div class="fact"><span>Customer</span><b>Jane Smith</b></div>
-            <div class="fact"><span>Reason</span><b>Damaged item</b></div>
-            <div class="fact"><span>Requested by</span><b>Billing workflow</b></div>
-            <div class="fact"><span>Previous refunds</span><b>1</b></div>
+            <div class="fact"><span>Lead</span><b>Alex Kim · Northstar</b></div>
+            <div class="fact"><span>Message</span><b>Personalized follow-up</b></div>
+            <div class="fact"><span>Time left</span><b>00:42</b></div>
+            <div class="fact"><span>If unanswered</span><b>Send once</b></div>
           </div>
-          <p class="card-sub">Yes returns $380 through Stripe once. No leaves the payment unchanged.</p>
+          <p class="card-sub">Hold stops the send. If nobody responds before the window closes, SHSY returns one verified continue result.</p>
           <div class="btns">
             <button class="btn btn-approve" id="btnApprove" tabindex="-1" aria-hidden="true">
               <svg class="check" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3.5 8.5 L6.5 11.5 L12.5 4.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-              <span>Yes, refund</span>
+              <span>Hold send</span>
             </button>
-            <button class="btn btn-reject" id="btnReject" tabindex="-1" aria-hidden="true">No, keep payment</button>
+            <button class="btn btn-reject" id="btnReject" tabindex="-1" aria-hidden="true">Send now</button>
           </div>
           <span class="ripple" id="ripple"></span>
           <svg class="cursor" id="cursor" viewBox="0 0 20 20" aria-hidden="true">
@@ -268,7 +268,7 @@ body{
       <div class="node" id="nodeC">
         <div class="node-head"><span class="sq done">✓</span><span class="lbl">resume</span></div>
         <div class="node-title">Resume by callback</div>
-        <div class="node-meta late" id="metaC">approved · steve · 14:32</div>
+        <div class="node-meta late" id="metaC">held · steve · 14:32</div>
         <span class="chip" id="chip">
           <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2 6.3 L4.8 9 L10 3.2"/></svg>
           signed decision receipt
