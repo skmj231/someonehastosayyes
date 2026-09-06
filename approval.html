@@ -23,8 +23,9 @@
     main{width:min(760px,calc(100% - 36px));margin:0 auto;padding:12vh 0 96px}
     .hero{min-height:calc(70vh - 62px);text-align:left}
     .eyebrow{margin:0 0 18px;color:var(--muted);font-size:11px;font-weight:750;letter-spacing:.12em;text-transform:uppercase}
-    h1{max-width:700px;margin:0;font-size:clamp(36px,6.5vw,64px);font-weight:550;letter-spacing:-.055em;line-height:.99}
-    .hero>h1{display:flex;align-items:center;height:172px}
+    h1{max-width:760px;margin:0;font-size:clamp(36px,5.4vw,58px);font-weight:550;letter-spacing:-.052em;line-height:.98}
+    .hero>h1{display:block;height:116px;max-height:2em;overflow:hidden;text-wrap:pretty}
+    .hero>h1.long-question{font-size:clamp(34px,4.8vw,54px)}
     .intro{max-width:520px;margin:18px 0 22px;color:var(--muted);font-size:15px;line-height:1.55}
     .hero>.intro{height:48px}
     .question-area{position:relative;height:255px;margin:0 auto;max-width:680px;padding-top:18px}
@@ -119,7 +120,7 @@
     .undo.visible{display:flex}.undo button{border:0;padding:3px;background:transparent;color:#fff;cursor:pointer;font-weight:750;text-decoration:underline;text-underline-offset:3px}
     .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
     @media(max-width:600px){
-      .topbar{height:54px;padding:0 16px}.top-purpose{font-size:9px;letter-spacing:.07em}.brand{font-size:0}.brand::after{content:"shsy";font-size:12px} main{width:min(100% - 28px,760px);padding-top:12vh}.hero{min-height:650px}.hero>h1{height:190px}.hero>.intro{height:64px;margin-top:12px;font-size:14px}.question-area{height:285px}.composer{border-radius:20px}textarea{min-height:92px;font-size:15px}.field-line{grid-template-columns:1fr;gap:1px}.field-line input{padding:5px 0 9px}.plan-row{grid-template-columns:1fr;gap:7px;padding:17px 0}.path{align-items:flex-start;gap:7px;font-size:11px}.protections{grid-template-columns:1fr}.approval-card{padding:20px}.verified{margin-top:80px}.verified-grid{grid-template-columns:1fr}.about{inset:54px 14px auto;width:auto}.undo{bottom:15px}}
+      .topbar{height:54px;padding:0 16px}.top-purpose{font-size:9px;letter-spacing:.07em}.brand{font-size:0}.brand::after{content:"shsy";font-size:12px} main{width:min(100% - 28px,760px);padding-top:12vh}.hero{min-height:620px}.hero>h1{height:102px;font-size:clamp(30px,8.6vw,40px)}.hero>h1.long-question{font-size:26px}.hero>.intro{height:64px;margin-top:12px;font-size:14px}.question-area{height:285px}.composer{border-radius:20px}textarea{min-height:92px;font-size:15px}.field-line{grid-template-columns:1fr;gap:1px}.field-line input{padding:5px 0 9px}.plan-row{grid-template-columns:1fr;gap:7px;padding:17px 0}.path{align-items:flex-start;gap:7px;font-size:11px}.protections{grid-template-columns:1fr}.approval-card{padding:20px}.verified{margin-top:80px}.verified-grid{grid-template-columns:1fr}.about{inset:54px 14px auto;width:auto}.undo{bottom:15px}}
     @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.composer,.submit,.history-card{transition:none}}
   </style>
 </head>
@@ -266,7 +267,7 @@
       }
     }
     function renderQuestion(){
-      const q=questions[state.step];typeQuestion(q.title);intro.textContent=q.intro;eyebrow.textContent=`Q ${state.step+1} of ${questions.length}`;guide.textContent=state.step===0?"Answer all seven and get the exact stop, decision policy, approver view, safeguards, and setup for your platform.":q.help;guide.classList.remove("more");composer.classList.remove("needs-more");composer.classList.remove("entering");void composer.offsetWidth;composer.classList.add("entering");showExample.hidden=state.step!==0;backButton.hidden=state.step===0;nextCard.hidden=state.step>=questions.length-1;nextCard.textContent=state.step<questions.length-1?`Next · ${questions[state.step+1].title}`:"";
+      const q=questions[state.step];title.classList.toggle("long-question",q.title.length>48);typeQuestion(q.title);intro.textContent=q.intro;eyebrow.textContent=`Q ${state.step+1} of ${questions.length}`;guide.textContent=state.step===0?"Answer all seven and get the exact stop, decision policy, approver view, safeguards, and setup for your platform.":q.help;guide.classList.remove("more");composer.classList.remove("needs-more");composer.classList.remove("entering");void composer.offsetWidth;composer.classList.add("entering");showExample.hidden=state.step!==0;backButton.hidden=state.step===0;nextCard.hidden=state.step>=questions.length-1;nextCard.textContent=state.step<questions.length-1?`Next · ${questions[state.step+1].title}`:"";
       if(q.type==="outcomes"){
         fields.innerHTML=`<div class="field-group"><div class="field-line"><label for="approved_result">If approved</label><input id="approved_result" name="approved_result" placeholder="Send the refund once" autocomplete="off"></div><div class="field-line"><label for="rejected_result">If rejected</label><input id="rejected_result" name="rejected_result" placeholder="Keep the payment unchanged" autocomplete="off"></div><div class="field-line"><label for="timeout_result">No response</label><input id="timeout_result" name="timeout_result" placeholder="Do not send and notify Finance" autocomplete="off"></div></div>`;
       }else if(q.type==="platforms"){
