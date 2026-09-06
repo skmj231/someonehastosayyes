@@ -251,6 +251,14 @@ CREATE TABLE IF NOT EXISTS analytics_events (
   event_name TEXT NOT NULL, subject_id TEXT, metadata TEXT, at INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_analytics_event ON analytics_events(event_name, at);
+CREATE TABLE IF NOT EXISTS site_visits (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  visitor_hash TEXT NOT NULL,
+  path TEXT NOT NULL,
+  day TEXT NOT NULL,
+  at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_site_visits_day ON site_visits(day, path);
 CREATE TABLE IF NOT EXISTS account_milestones (
   account_id TEXT PRIMARY KEY, demo_started_at INTEGER, demo_completed_at INTEGER,
   key_created_at INTEGER, first_request_at INTEGER, first_decision_at INTEGER,
@@ -418,6 +426,22 @@ function rateLimited(bucket, max, windowMs) {
 }
 const ip = (req) => (req.headers["x-forwarded-for"] || req.socket.remoteAddress || "").toString().split(",")[0].trim();
 const clientFingerprint = (req) => crypto.createHmac("sha256", SIGNING_SECRET).update(ip(req)).digest("hex").slice(0, 24);
+
+// Public-page analytics deliberately excludes known bots, previews, monitors and
+// prefetches. Only an anonymous hash is stored; raw IPs and user agents
+// never enter the database.
+function recordHumanVisit(req) {
+  const userAgent = String(req.headers["user-agent"] || "");
+  const purpose = String(req.headers.purpose || req.headers["sec-purpose"] || "");
+  if (!userAgent || /bot|crawl|spider|slurp|preview|headless|lighthouse|monitor|uptime|curl|wget|python-requests|facebookexternalhit|slackbot|discordbot|whatsapp/i.test(userAgent)) return;
+  if (/prefetch|prerender|preview/i.test(purpose)) return;
+  const day = new Date().toISOString().slice(0, 10);
+  const visitorHash = crypto.createHmac("sha256", SIGNING_SECRET)
+    .update(`${ip(req)}:${userAgent}`)
+    .digest("hex").slice(0, 24);
+  db.prepare("INSERT INTO site_visits (visitor_hash,path,day,at) VALUES (?,?,?,?)")
+    .run(visitorHash, req.path, day, now());
+}
 
 // 짧게 살아 있는 익명 heartbeat만 보관한다. 방문자 수나 식별자는 저장하지 않는다.
 const relayPresence = new Map();
@@ -1658,7 +1682,15 @@ app.patch("/admin/incidents/:id", adminAuth, (req, res) => {
   recordEvent("incident.updated", { credentialId: incident.credential_id, subjectType: "incident", subjectId: incident.id, outcome: status, metadata: { source: "admin_ui" } });
   res.json(db.prepare("SELECT * FROM incidents WHERE id=?").get(incident.id));
 });
-app.get("/admin/traffic", adminAuth, (_req, res) => res.json(db.prepare("SELECT * FROM daily_usage ORDER BY day DESC,credential_id LIMIT 500").all()));
+app.get("/admin/traffic", adminAuth, (_req, res) => {
+  const daily = db.prepare(`SELECT day,COUNT(*) visits,COUNT(DISTINCT visitor_hash) visitors
+    FROM site_visits WHERE day>=date('now','-29 days') GROUP BY day ORDER BY day`).all();
+  const byPath = db.prepare(`SELECT path,COUNT(*) visits,COUNT(DISTINCT visitor_hash) visitors
+    FROM site_visits WHERE day>=date('now','-6 days') GROUP BY path ORDER BY visitors DESC,visits DESC LIMIT 8`).all();
+  const totals = db.prepare(`SELECT COUNT(*) visits,COUNT(DISTINCT visitor_hash) visitors
+    FROM site_visits WHERE day>=date('now','-6 days')`).get();
+  res.json({ daily, by_path: byPath, totals, definition: "Browser visits with known bots, previews, monitors and prefetches excluded. Visitors are anonymous HMAC hashes; no raw IP or user agent is stored." });
+});
 app.get("/admin/reliability", adminAuth, (_req, res) => res.json({ callbacks: db.prepare("SELECT state,COUNT(*) count FROM outbox GROUP BY state").all(), recent_deliveries: db.prepare("SELECT * FROM deliveries ORDER BY id DESC LIMIT 100").all() }));
 app.get("/admin/accounts", adminAuth, (_req, res) => res.json(db.prepare(`SELECT a.id,a.email,a.email_verified_at,a.status,a.created_at,m.* FROM accounts a LEFT JOIN account_milestones m ON m.account_id=a.id ORDER BY a.created_at DESC LIMIT 200`).all()));
 app.get("/admin/goals", adminAuth, (_req, res) => {
@@ -1947,6 +1979,7 @@ app.post("/presence/relay", (req, res) => {
   res.json(relayPresenceResponse(req));
 });
 app.get([...PUBLIC_FILES.keys()], (req, res, next) => {
+  if (!req.path.startsWith("/templates/") && !req.path.startsWith("/starters/")) recordHumanVisit(req);
   res.set("Cache-Control", "public, max-age=300");
   if (req.path.startsWith("/templates/")) {
     const filename = PUBLIC_FILES.get(req.path).split("/").pop();
@@ -1965,7 +1998,10 @@ app.get("/templates/:templateId", (req, res, next) => {
   res.set("Cache-Control", "public, max-age=300");
   res.sendFile(__dirname + "/template-guide.html", (error) => error ? next(error) : undefined);
 });
-app.get("/", (_req, res) => res.type("html").send(LANDING.replaceAll("{{BASE_URL}}", BASE_URL)));
+app.get("/", (req, res) => {
+  recordHumanVisit(req);
+  res.type("html").send(LANDING.replaceAll("{{BASE_URL}}", BASE_URL));
+});
 
 app.get("/health", (_req, res) => {
   const check = db.pragma("quick_check", { simple: true });
