@@ -13,7 +13,8 @@ const PORT = process.env.PORT || 3000;
 const BASE_URL = (process.env.BASE_URL || `http://localhost:${PORT}`).replace(/\/$/, "");
 const API_KEYS = (process.env.API_KEYS || (process.env.NODE_ENV === "production" ? "" : "dev-key")).split(",").map((s) => s.trim()).filter(Boolean);
 const SIGNING_SECRET = process.env.SIGNING_SECRET || "change-me"; // 내부 상태 토큰용 (슬랙 OAuth state)
-// 서명키: 환경변수 SIGNING_KEY (PEM). 없으면 DB에 하나 만들어 보관.
+const DATA_ENCRYPTION_SECRET = process.env.DATA_ENCRYPTION_KEY || SIGNING_SECRET;
+// 서명키: 환경변수 SIGNING_KEY (PEM). 없으면 암호화해 DB에 보관.
 let SIGN_PRIV = null, SIGN_PUB_PEM = null, SIGN_KEY_ID = null;
 const RESEND_API_KEY = process.env.RESEND_API_KEY || "";
 const RESEND_API_URL = process.env.RESEND_API_URL || "https://api.resend.com/emails";
@@ -62,12 +63,31 @@ function validateProductionConfig() {
   if (!BASE_URL.startsWith("https://")) problems.push("BASE_URL must use https");
   if (API_KEYS.includes("dev-key")) problems.push("API_KEYS must not use the development default");
   if (SIGNING_SECRET === "change-me" || SIGNING_SECRET.length < 32) problems.push("SIGNING_SECRET must be at least 32 characters");
+  if (DATA_ENCRYPTION_SECRET.length < 32) problems.push("DATA_ENCRYPTION_KEY (or SIGNING_SECRET fallback) must be at least 32 characters");
   if (ADMIN_SECRET.length < 24) problems.push("ADMIN_SECRET must be at least 24 characters");
   const slackValues = [SLACK_CLIENT_ID, SLACK_CLIENT_SECRET, SLACK_SIGNING_SECRET];
   if (slackValues.some(Boolean) && !slackValues.every(Boolean)) problems.push("Slack OAuth requires CLIENT_ID, CLIENT_SECRET, and SIGNING_SECRET together");
   if (problems.length) throw new Error("Unsafe production configuration:\n- " + problems.join("\n- "));
 }
 validateProductionConfig();
+
+const DATA_KEY = crypto.createHash("sha256").update(DATA_ENCRYPTION_SECRET, "utf8").digest();
+function protectSecret(value) {
+  if (!value || String(value).startsWith("enc:v1:")) return value;
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv("aes-256-gcm", DATA_KEY, iv);
+  const encrypted = Buffer.concat([cipher.update(String(value), "utf8"), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return `enc:v1:${iv.toString("base64url")}:${tag.toString("base64url")}:${encrypted.toString("base64url")}`;
+}
+function revealSecret(value) {
+  if (!value || !String(value).startsWith("enc:v1:")) return value;
+  const parts = String(value).split(":");
+  if (parts.length !== 5) throw new Error("Invalid encrypted secret envelope");
+  const decipher = crypto.createDecipheriv("aes-256-gcm", DATA_KEY, Buffer.from(parts[2], "base64url"));
+  decipher.setAuthTag(Buffer.from(parts[3], "base64url"));
+  return Buffer.concat([decipher.update(Buffer.from(parts[4], "base64url")), decipher.final()]).toString("utf8");
+}
 
 const db = new Database(process.env.DB_PATH || "askhuman.db");
 db.pragma("journal_mode = WAL");
@@ -291,6 +311,21 @@ const seedProductGoal = db.prepare(`INSERT OR IGNORE INTO product_goals
   (id,horizon,title,outcome,metric_key,target_value,status,sort_order,updated_at) VALUES (?,?,?,?,?,?,?,?,?)`);
 for (const goal of defaultProductGoals) seedProductGoal.run(...goal, Date.now());
 
+(function encryptStoredSecrets() {
+  const rows = db.prepare("SELECT api_key,bot_token FROM slack_installs").all();
+  const update = db.prepare("UPDATE slack_installs SET bot_token=? WHERE api_key=?");
+  let migrated = 0;
+  db.transaction(() => {
+    for (const row of rows) {
+      if (row.bot_token && !String(row.bot_token).startsWith("enc:v1:")) {
+        update.run(protectSecret(row.bot_token), row.api_key);
+        migrated += 1;
+      }
+    }
+  })();
+  if (migrated) console.log(`[storage] encrypted ${migrated} existing Slack token(s)`);
+})();
+
 // Existing SQLite files are migrated in place. The optional key lets an
 // automation safely retry approval creation without making a second request.
 if (!db.prepare("PRAGMA table_info(approvals)").all().some((c) => c.name === "idempotency_key")) {
@@ -355,12 +390,15 @@ db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_keys_hash ON keys(key_hash) WHERE
   let priv = process.env.SIGNING_KEY || null;
   if (!priv) {
     const row = db.prepare("SELECT v FROM meta WHERE k='signing_key'").get();
-    if (row) priv = row.v;
+    if (row) {
+      priv = revealSecret(row.v);
+      if (!String(row.v).startsWith("enc:v1:")) db.prepare("UPDATE meta SET v=? WHERE k='signing_key'").run(protectSecret(priv));
+    }
     else {
       const kp = crypto.generateKeyPairSync("ed25519");
       priv = kp.privateKey.export({ type: "pkcs8", format: "pem" });
-      db.prepare("INSERT INTO meta (k,v) VALUES ('signing_key',?)").run(priv);
-      console.log("[sign] generated a new Ed25519 signing key and stored it in the database");
+      db.prepare("INSERT INTO meta (k,v) VALUES ('signing_key',?)").run(protectSecret(priv));
+      console.log("[sign] generated a new Ed25519 signing key and stored it encrypted");
     }
   }
   SIGN_PRIV = crypto.createPrivateKey(priv);
@@ -1239,7 +1277,10 @@ function slackBlocks(a) {
 
 function slackTokenFor(apiKey) {
   const row = db.prepare("SELECT bot_token FROM slack_installs WHERE api_key=?").get(apiKey);
-  return (row && row.bot_token) || SLACK_BOT_TOKEN;
+  if (!row) return SLACK_BOT_TOKEN;
+  const token = revealSecret(row.bot_token);
+  if (!String(row.bot_token).startsWith("enc:v1:")) db.prepare("UPDATE slack_installs SET bot_token=? WHERE api_key=?").run(protectSecret(token), apiKey);
+  return token;
 }
 
 function issueSlackInstallToken(apiKey) {
@@ -1365,7 +1406,7 @@ app.get("/slack/oauth/callback", asyncRoute(async (req, res) => {
   const j = await (await fetch("https://slack.com/api/oauth.v2.access", { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: form })).json();
   if (!j.ok) return res.status(400).send(page("Slack error", `<p>${esc(j.error)}</p>`));
   db.transaction(() => {
-    db.prepare("INSERT OR REPLACE INTO slack_installs (api_key,team_id,team_name,bot_token,installed_at) VALUES (?,?,?,?,?)").run(install.api_key, j.team?.id, j.team?.name, j.access_token, now());
+    db.prepare("INSERT OR REPLACE INTO slack_installs (api_key,team_id,team_name,bot_token,installed_at) VALUES (?,?,?,?,?)").run(install.api_key, j.team?.id, j.team?.name, protectSecret(j.access_token), now());
     db.prepare("UPDATE slack_install_tokens SET used_at=? WHERE token=?").run(now(), token);
   })();
   res.send(page("Slack connected", `<h1>Slack connected</h1><p><b>${esc(j.team?.name || j.team?.id)}</b> is now linked to your key.</p><p>Send an approval with <code>"channel": "slack", "to": "C…"</code>. Invite the bot to private channels first.</p>`));
@@ -1692,7 +1733,7 @@ app.get("/admin/events", adminAuth, (req, res) => {
 // 서명 비밀키 내보내기 (한 번만 쓰고 Railway 환경변수 SIGNING_KEY에 넣는다. 그러면 볼륨이 날아가도 키는 산다)
 app.get("/admin/signing-key-export", adminAuth, (req, res) => {
   const row = db.prepare("SELECT v FROM meta WHERE k='signing_key'").get();
-  res.type("text/plain").send(process.env.SIGNING_KEY || (row && row.v) || "");
+  res.type("text/plain").send(process.env.SIGNING_KEY || (row && revealSecret(row.v)) || "");
 });
 // DB 스냅샷 다운로드 (무료 백업: 주 1회 내려받아 보관)
 app.get("/admin/backup", adminAuth, asyncRoute(async (req, res) => {

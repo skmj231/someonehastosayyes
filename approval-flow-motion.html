@@ -72,7 +72,7 @@ body{
 }
 .fit.stacked .flow{position:static; width:auto; transform:none; flex-direction:column}
 
-.node{position:relative; width:214px; flex:0 0 auto; opacity:0; transform:translateY(10px);
+.node{position:relative; width:180px; flex:0 0 auto; opacity:0; transform:translateY(10px);
   transition:opacity var(--d3) var(--ease-out), transform var(--d3) var(--ease-out)}
 .node.on{opacity:1; transform:none}
 .node.out{opacity:0; transform:translateY(-6px); transition-duration:var(--d2); transition-timing-function:var(--ease-exit)}
@@ -108,7 +108,7 @@ body{
 @keyframes pulse{0%,100%{opacity:.2}50%{opacity:1}}
 
 /* connectors */
-.link{width:138px; height:22px; flex:0 0 auto; position:relative}
+.link{width:90px; height:22px; flex:0 0 auto; position:relative}
 .link-inner{position:absolute; inset:0}
 .fit.stacked .link{width:22px; height:66px; margin:18px 0}
 .fit.stacked .link-inner{width:66px; height:22px; top:50%; left:50%; transform:translate(-50%,-50%) rotate(90deg)}
@@ -126,8 +126,8 @@ body{
 /* card */
 .card-slot{flex:0 0 auto; position:relative}
 .card{
-  position:relative; width:334px; background:var(--paper);
-  border:1px solid var(--green); border-radius:1px; padding:19px;
+  position:relative; width:500px; background:var(--paper);
+  border:1px solid var(--rule-strong); border-radius:24px; padding:34px 34px 28px;
   opacity:0; transform:translateY(6px) scale(.966); transform-origin:50% 42%; box-shadow:none;
   transition:opacity var(--d3) var(--ease-out), transform var(--d3) var(--ease-spring),
              box-shadow var(--d4) var(--ease-in-out);
@@ -136,18 +136,21 @@ body{
 .card.pending{box-shadow:var(--card-shadow-lift), 0 0 0 4px var(--green-soft)}
 .card.resolved{opacity:.5; box-shadow:var(--card-shadow)}
 .card.out{opacity:0; transform:translateY(-5px) scale(.99); transition-duration:var(--d2); transition-timing-function:var(--ease-exit)}
-.fit.stacked .card{width:min(320px,100%)}
+.fit.stacked .card{width:min(500px,100%);padding:28px 22px 23px}.fit.stacked .fact{grid-template-columns:105px 1fr}
 
-.ring{position:absolute; inset:-1px; border:1px solid var(--green); border-radius:1px; opacity:0; pointer-events:none}
+.ring{position:absolute; inset:-1px; border:1px solid var(--green); border-radius:24px; opacity:0; pointer-events:none}
 .ring.fire{animation:ringOut 640ms var(--ease-out) forwards}
 @keyframes ringOut{0%{opacity:.5; transform:scale(1)} 100%{opacity:0; transform:scale(1.085)}}
 
-.card-row{display:flex; align-items:center; gap:9px; margin-bottom:12px}
-.card h4{margin:0; font-size:20px; font-weight:600; letter-spacing:-.018em}
-.card-sub{margin:6px 0 0; font-size:13px; color:var(--muted)}
-.btns{display:flex; gap:9px; margin-top:17px}
+.card-row{display:flex; align-items:center; gap:9px; margin-bottom:18px}
+.card h4{margin:0; font-size:27px; line-height:1.12; font-weight:600; letter-spacing:-.035em}
+.facts{margin:24px 0 0;border-top:1px solid var(--rule-strong)}
+.fact{display:grid;grid-template-columns:130px 1fr;gap:16px;padding:11px 0;border-bottom:1px solid var(--rule-strong);font-size:13px}
+.fact span{color:var(--muted)}.fact b{font-weight:500;text-align:right}
+.card-sub{margin:18px 0 0; font-size:13px; color:var(--muted)}
+.btns{display:flex; gap:12px; margin-top:20px}
 .btn{
-  flex:1; border:0; border-radius:1px; padding:11px 10px; cursor:default;
+  flex:1; border:0; border-radius:999px; padding:12px 10px; cursor:default;
   font-family:var(--sans); font-size:13.5px; font-weight:600; letter-spacing:-.005em;
   display:flex; align-items:center; justify-content:center; gap:6px;
   transition:transform 120ms var(--ease-out), opacity var(--d2) var(--ease-in-out),
@@ -228,15 +231,21 @@ body{
       <div class="card-slot">
         <div class="card" id="card">
           <span class="ring" id="ring"></span>
-          <div class="card-row"><span class="sq">S</span><span class="lbl">slack approval</span></div>
-          <h4>Refund $380?</h4>
-          <p class="card-sub">Requested by the billing workflow</p>
+          <div class="card-row"><span class="sq">S</span><span class="lbl">approval requested</span></div>
+          <h4>Approve: Refund order A-184 for $380?</h4>
+          <div class="facts">
+            <div class="fact"><span>Customer</span><b>Jane Smith</b></div>
+            <div class="fact"><span>Reason</span><b>Damaged item</b></div>
+            <div class="fact"><span>Requested by</span><b>Billing workflow</b></div>
+            <div class="fact"><span>Previous refunds</span><b>1</b></div>
+          </div>
+          <p class="card-sub">Yes returns $380 through Stripe once. No leaves the payment unchanged.</p>
           <div class="btns">
             <button class="btn btn-approve" id="btnApprove" tabindex="-1" aria-hidden="true">
               <svg class="check" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3.5 8.5 L6.5 11.5 L12.5 4.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-              <span>Approve</span>
+              <span>Yes, refund</span>
             </button>
-            <button class="btn btn-reject" id="btnReject" tabindex="-1" aria-hidden="true">Reject</button>
+            <button class="btn btn-reject" id="btnReject" tabindex="-1" aria-hidden="true">No, keep payment</button>
           </div>
           <span class="ripple" id="ripple"></span>
           <svg class="cursor" id="cursor" viewBox="0 0 20 20" aria-hidden="true">
@@ -354,7 +363,7 @@ body{
     cl(cursor,"on", visible);
     if(visible){
       var e=easeOut(clamp01((t-3700)/720));
-      var sx=88, sy=128, ex=25, ey=77;
+      var sx=88, sy=118, ex=25, ey=91;
       cursor.style.left=(sx+(ex-sx)*e).toFixed(2)+"%";
       cursor.style.top =(sy+(ey-sy)*e).toFixed(2)+"%";
     }
@@ -363,7 +372,7 @@ body{
     cl(btnA,"confirmed", t>=4530);
     cl(btnR,"receded", t>=4460);
     if(t>=4440 && t<4500 && firedRip!==loops){
-      ripple.style.left="26%"; ripple.style.top="79%";
+      ripple.style.left="26%"; ripple.style.top="92%";
       ripple.style.color=getComputedStyle(document.documentElement).getPropertyValue("--green");
       ripple.classList.remove("fire"); void ripple.offsetWidth; ripple.classList.add("fire"); firedRip=loops;
     }

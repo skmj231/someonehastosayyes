@@ -1,53 +1,70 @@
-# SHSY data storage
+# SHSY data storage and secret controls
 
-This document describes the data stored by the current SHSY application, where it is stored, and how long it is retained.
+This is the current storage map and the checklist used to verify it. It applies to the hosted service and self-hosted copies of the same application.
 
 ## Storage location
 
-SHSY uses one SQLite database.
+SHSY uses one SQLite database in WAL mode.
 
-- Local/default: `askhuman.db` in the application working directory.
-- Production: the path set in `DB_PATH`. Railway should mount a persistent volume at `/data` and set `DB_PATH` to a file inside that volume, for example `/data/someonehastosayyes.db`.
-- SQLite runs in WAL mode. The database file and its WAL files must remain on the persistent volume.
+- Local default: `askhuman.db` in the application working directory.
+- Production: `DB_PATH`, normally `/data/someonehastosayyes.db` on a persistent Railway volume.
+- The database, `-wal`, `-shm`, snapshots and downloaded backups must all be treated as sensitive production data.
+- Application secrets belong in the deployment secret manager, never source control or approval context.
 
-The application does not send approval records to a separate analytics warehouse. Operational and product events are stored in the same SQLite database.
+## Stored data
 
-## What is stored
+| Area | Stored fields | Purpose | Default retention |
+| --- | --- | --- | --- |
+| Approval | question, minimum decision context, labels, recipient, callback URL, timeout rule, status and timestamps | present and enforce one decision | completed records: 90 days |
+| Decision | result, decider label, time and optional comment | return and audit the human answer | 90 days |
+| Delivery | email/Slack attempts, provider reference and errors | retry and diagnose delivery | 30 days |
+| Callback | endpoint, signed body, attempts and errors | reliably return the result | 30 days |
+| Receipt | signed decision receipt and key id | detect alteration after the decision | 365 days |
+| Account access | email, platform choice, verification and review state | issue and manage access | while the account/key is active |
+| Operations | usage, risk, incidents, cost and goal progress | operate limits and measure product outcomes | policy-specific |
 
-| Area | Stored data | Why it is needed |
+## Secret protection
+
+| Secret | Stored form | Control |
 | --- | --- | --- |
-| Approval request | Question, structured context, action labels, delivery channel, recipient, callback URL, timeout policy, status, timestamps and idempotency key | Display the decision, enforce one decision, and resume the original automation |
-| Decision | Approved/rejected/expired state, decider label, decision time and optional comment | Return and audit the final human decision |
-| Delivery | Email/Slack attempts, delivery status, retry count, provider references and errors | Retry failed delivery and diagnose missing notifications |
-| Callback | Callback attempts, response status, retry count and errors | Reliably return the decision to Make, Zapier, n8n or another caller |
-| Receipt | Signed authorization receipt and archived receipt metadata | Prove which decision was recorded and detect later alteration |
-| Account and key request | Email, selected platform, requested delivery method, verification state and review state | Issue and manage API access |
-| API credential | Key prefix, one-way key hash, state, plan, permissions and usage limits | Authenticate API calls without retaining the raw API key |
-| Verification | One-way verification-token hash, expiry and used time | Confirm email ownership without letting link scanners issue a key |
-| Slack installation | Workspace/team identifiers, installation metadata and bot token | Deliver approval requests to the connected Slack workspace |
-| Operations | Usage counters, risk signals, incidents, cost ledger and operational events | Enforce limits and operate the service safely |
-| Product progress | Anonymous funnel events and account milestones | Measure whether users reach a real approval and production action |
-| Product goals | Long-term, short-term and current goal definitions, targets and status | Keep product work aligned with the current objective |
+| API key | never stored raw | SHA-256 hash plus a short display prefix |
+| Email verification token | never stored raw | SHA-256 hash, expiry and one-use timestamp |
+| Slack bot token | encrypted at rest | AES-256-GCM envelope (`enc:v1`) before SQLite write |
+| Ed25519 signing private key | deployment secret or encrypted at rest | `SIGNING_KEY`; otherwise an AES-256-GCM envelope in `meta` |
+| Slack/Resend/admin credentials | not stored in SQLite | deployment environment secrets only |
 
-## Secrets and sensitive fields
+`DATA_ENCRYPTION_KEY` is the dedicated encryption secret. It must be at least 32 characters and remain stable across deploys. For backward-compatible deployments, the already-required `SIGNING_SECRET` is used only when `DATA_ENCRYPTION_KEY` is absent. New production installations should set a separate `DATA_ENCRYPTION_KEY`.
 
-- The raw API key is displayed once and is not stored. Only a one-way hash and a short prefix are retained.
-- Email verification tokens are stored as one-way hashes.
-- Approval and callback URLs may contain customer identifiers or payload context. Users should send only the information the approver needs.
-- Slack bot tokens are currently stored in the SQLite database so the service can deliver messages. Protect the production volume and database backups as secrets.
-- If `SIGNING_PRIVATE_KEY` is not supplied as an environment secret, the generated signing key is stored in the database metadata. Production should supply the signing key through the secret manager.
+At startup, existing plaintext Slack tokens and a legacy plaintext database signing key are migrated in place to encrypted envelopes. Changing or losing the encryption secret makes those values unrecoverable, so rotate it only through a planned decrypt-and-re-encrypt migration.
 
-## Retention and deletion
+## Data minimization
 
-Current service policy:
+An approval should contain only:
 
-- Pending requests: until decided, cancelled or timed out, with a maximum of 90 days.
-- Completed approval records: 90 days.
-- Notification and callback attempt history: 30 days.
-- Signed authorization receipts: 1 year.
+1. the action about to happen;
+2. the few fields needed to judge it; and
+3. a stable reference to the source system.
 
-The API exposes the current policy at `GET /v1/retention`. A caller can delete one approval or request deletion of all data associated with its credential through the documented deletion endpoints.
+Never put passwords, API keys, session tokens, full customer records, health data, payment card data or unrelated conversation history in `question` or `context`.
 
-## Data minimization rule
+## Verification checklist
 
-An approval should contain the smallest useful decision packet: the action about to happen, the fields required to judge it, and a stable reference back to the source system. Full customer records, credentials, secrets and unrelated conversation history should not be placed in approval context.
+Run this against a copy of the production database, not the live file:
+
+```bash
+node storage-audit.js /path/to/snapshot.db
+```
+
+It fails when a Slack token or stored signing key is plaintext, or when an API/verification credential is not represented by a one-way hash.
+
+Production review:
+
+- `DB_PATH` points inside the persistent volume.
+- `DATA_ENCRYPTION_KEY`, `SIGNING_SECRET`, `ADMIN_SECRET`, provider credentials and optional `SIGNING_KEY` are deployment secrets.
+- database and backup access is limited to operators who need it.
+- a restored snapshot passes `storage-audit.js` before use.
+- `GET /v1/retention` matches the policy above.
+- deletion endpoints are tested with non-production records.
+- encryption-secret recovery is included in the backup procedure separately from the database backup.
+
+This audit intentionally reports structure and protection state without printing secret values.
