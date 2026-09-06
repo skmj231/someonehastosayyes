@@ -269,7 +269,27 @@ CREATE TABLE IF NOT EXISTS credential_request_fingerprints (
   PRIMARY KEY (credential_id, fingerprint)
 );
 CREATE INDEX IF NOT EXISTS idx_request_fingerprint_recent ON credential_request_fingerprints(last_seen_at, fingerprint);
+CREATE TABLE IF NOT EXISTS product_goals (
+  id TEXT PRIMARY KEY,
+  horizon TEXT NOT NULL,
+  title TEXT NOT NULL,
+  outcome TEXT NOT NULL,
+  metric_key TEXT,
+  target_value INTEGER,
+  status TEXT NOT NULL DEFAULT 'ACTIVE',
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  updated_at INTEGER NOT NULL
+);
 `);
+
+const defaultProductGoals = [
+  ["goal_long_term", "LONG_TERM", "Build the decision layer for trustworthy automation", "Accumulate reusable, structured evidence about where human judgment belongs and what an authorized decision must contain.", null, null, "ACTIVE", 1],
+  ["goal_short_term", "SHORT_TERM", "Become the reusable HITL step across automation platforms", "A practitioner can add one reliable human decision to Make, Zapier or n8n without rebuilding delivery, waiting, timeout, duplicate protection and result verification.", "verified_templates", 10, "ACTIVE", 2],
+  ["goal_current", "CURRENT", "Get 10 real workflows safely through their first decision", "Start from a specific public workflow problem, issue a key, return one verified decision, publish the tested template, then invite the original practitioner to use it.", "first_production_action", 10, "ACTIVE", 3],
+];
+const seedProductGoal = db.prepare(`INSERT OR IGNORE INTO product_goals
+  (id,horizon,title,outcome,metric_key,target_value,status,sort_order,updated_at) VALUES (?,?,?,?,?,?,?,?,?)`);
+for (const goal of defaultProductGoals) seedProductGoal.run(...goal, Date.now());
 
 // Existing SQLite files are migrated in place. The optional key lets an
 // automation safely retry approval creation without making a second request.
@@ -1600,6 +1620,33 @@ app.patch("/admin/incidents/:id", adminAuth, (req, res) => {
 app.get("/admin/traffic", adminAuth, (_req, res) => res.json(db.prepare("SELECT * FROM daily_usage ORDER BY day DESC,credential_id LIMIT 500").all()));
 app.get("/admin/reliability", adminAuth, (_req, res) => res.json({ callbacks: db.prepare("SELECT state,COUNT(*) count FROM outbox GROUP BY state").all(), recent_deliveries: db.prepare("SELECT * FROM deliveries ORDER BY id DESC LIMIT 100").all() }));
 app.get("/admin/accounts", adminAuth, (_req, res) => res.json(db.prepare(`SELECT a.id,a.email,a.email_verified_at,a.status,a.created_at,m.* FROM accounts a LEFT JOIN account_milestones m ON m.account_id=a.id ORDER BY a.created_at DESC LIMIT 200`).all()));
+app.get("/admin/goals", adminAuth, (_req, res) => {
+  const firstProductionActions = db.prepare("SELECT COUNT(*) c FROM account_milestones WHERE first_production_action_at IS NOT NULL").get().c;
+  const firstCallbacks = db.prepare("SELECT COUNT(*) c FROM account_milestones WHERE first_callback_at IS NOT NULL").get().c;
+  const verifiedAccounts = db.prepare("SELECT COUNT(*) c FROM accounts WHERE email_verified_at IS NOT NULL").get().c;
+  const verifiedTemplates = 1;
+  const metricValues = { first_production_action: firstProductionActions, first_callback: firstCallbacks, verified_accounts: verifiedAccounts, verified_templates: verifiedTemplates };
+  const goals = db.prepare("SELECT * FROM product_goals ORDER BY sort_order,id").all().map((goal) => ({
+    ...goal,
+    current_value: goal.metric_key ? Number(metricValues[goal.metric_key] || 0) : null,
+    completion: goal.metric_key && goal.target_value ? Math.min(100, Math.round(Number(metricValues[goal.metric_key] || 0) / goal.target_value * 100)) : null,
+  }));
+  res.json({ goals, evidence: { verified_accounts: verifiedAccounts, first_callbacks: firstCallbacks, first_production_actions: firstProductionActions, verified_templates: verifiedTemplates } });
+});
+app.patch("/admin/goals/:id", adminAuth, (req, res) => {
+  const current = db.prepare("SELECT * FROM product_goals WHERE id=?").get(req.params.id);
+  if (!current) return res.status(404).json({ error: "goal not found" });
+  const title = String(req.body?.title ?? current.title).trim().slice(0, 240);
+  const outcome = String(req.body?.outcome ?? current.outcome).trim().slice(0, 2000);
+  const targetValue = req.body?.target_value == null ? current.target_value : Number(req.body.target_value);
+  const status = String(req.body?.status ?? current.status).toUpperCase();
+  if (!title || !outcome) return res.status(400).json({ error: "title and outcome are required" });
+  if (targetValue != null && (!Number.isInteger(targetValue) || targetValue < 1 || targetValue > 1000000)) return res.status(400).json({ error: "target_value must be a positive integer" });
+  if (!["ACTIVE", "PAUSED", "ACHIEVED"].includes(status)) return res.status(400).json({ error: "status must be ACTIVE, PAUSED or ACHIEVED" });
+  db.prepare("UPDATE product_goals SET title=?,outcome=?,target_value=?,status=?,updated_at=? WHERE id=?").run(title, outcome, targetValue, status, now(), current.id);
+  recordEvent("product_goal.updated", { subjectType: "product_goal", subjectId: current.id, outcome: status, metadata: { title, target_value: targetValue } });
+  res.json(db.prepare("SELECT * FROM product_goals WHERE id=?").get(current.id));
+});
 app.get("/admin/costs", adminAuth, (req, res) => {
   const startToday = new Date(); startToday.setUTCHours(0, 0, 0, 0);
   const startMonth = Date.UTC(startToday.getUTCFullYear(), startToday.getUTCMonth(), 1);

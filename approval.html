@@ -20,21 +20,25 @@
     .top-purpose{position:absolute;left:50%;transform:translateX(-50%);color:var(--muted);font-size:10px;font-weight:750;letter-spacing:.1em;text-transform:uppercase;white-space:nowrap}
     .quiet-link{border:0;padding:8px;background:transparent;color:var(--muted);cursor:pointer;font-size:12px}
     .quiet-link:hover{color:var(--ink)}
-    main{width:min(760px,calc(100% - 36px));margin:0 auto;padding:18vh 0 96px}
-    .hero{min-height:620px;text-align:center}
+    main{width:min(760px,calc(100% - 36px));margin:0 auto;padding:12vh 0 96px}
+    .hero{min-height:calc(70vh - 62px);text-align:center}
     .eyebrow{margin:0 0 18px;color:var(--muted);font-size:11px;font-weight:750;letter-spacing:.12em;text-transform:uppercase}
     h1{max-width:700px;margin:0 auto;font-size:clamp(36px,6.5vw,64px);font-weight:550;letter-spacing:-.055em;line-height:.99}
     .hero>h1{display:grid;place-items:center;height:172px}
     .intro{max-width:520px;margin:18px auto 22px;color:var(--muted);font-size:15px;line-height:1.55}
     .hero>.intro{height:48px}
     .question-area{position:relative;height:255px;margin:0 auto;max-width:680px;padding-top:18px}
-    .history{position:absolute;inset:0 18px auto;z-index:0;height:70px;pointer-events:none}
-    .history-card{position:absolute;inset:0;border:1px solid var(--line);border-radius:22px;background:#efefe9;color:#8b8b84;font-size:12px;line-height:1.4;text-align:left;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;padding:14px 18px;transition:transform 220ms ease,opacity 220ms ease}
-    .history-card:nth-last-child(1){transform:translateY(-16px) scale(.96);opacity:.9}
-    .history-card:nth-last-child(2){transform:translateY(-29px) scale(.91);opacity:.55}
+    .history{position:absolute;inset:18px auto auto -12%;z-index:0;width:100%;height:106px;pointer-events:none}
+    .history-card{position:absolute;inset:0;border:1px solid var(--line);border-radius:22px;background:#efefe9;color:#8b8b84;font-size:12px;line-height:1.4;text-align:left;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;padding:18px;transition:transform 260ms ease,opacity 260ms ease}
+    .history-card:nth-last-child(1){transform:translateX(-9%) scale(.94);opacity:.48}
+    .history-card:nth-last-child(2){transform:translateX(-17%) scale(.88);opacity:.2}
     .history-card:nth-last-child(-n+2)~.history-card{display:none}
     .composer{position:relative;z-index:2;display:grid;grid-template-columns:1fr auto;gap:10px;align-items:end;padding:14px 14px 14px 18px;border:1px solid var(--line);border-radius:24px;background:var(--white);box-shadow:0 10px 30px rgb(22 22 18 / 5%);text-align:left;transition:border-color 180ms ease,box-shadow 180ms ease,background 180ms ease}
     .composer.needs-more{border-color:#c9b98e;background:#fffefb;box-shadow:0 10px 30px rgb(154 130 80 / 8%)}
+    .composer.entering{animation:card-in 280ms cubic-bezier(.22,.8,.24,1)}
+    .next-card{position:absolute;z-index:0;top:18px;right:-12%;width:100%;height:102px;padding:18px;border:1px solid #e5e5df;border-radius:22px;background:#f0f0eb;color:#a5a59e;text-align:left;font-size:12px;opacity:.42;transform:scale(.94);overflow:hidden}
+    .next-card[hidden]{display:none}
+    @keyframes card-in{from{transform:translateX(12%);opacity:.55}to{transform:translateX(0);opacity:1}}
     textarea,input{width:100%;border:0;outline:0;background:transparent;color:var(--ink);font-size:16px;line-height:1.5}
     textarea{min-height:72px;max-height:170px;resize:none;padding:4px 0}
     textarea::placeholder,input::placeholder{color:#9b9b94}
@@ -52,9 +56,7 @@
     .guide.more{color:#74623e}
     .example{border:0;padding:3px;background:transparent;color:#8b8b84;cursor:pointer;font-size:11px;text-decoration:underline;text-decoration-color:#c8c8c0;text-underline-offset:3px}
     .example:hover{color:var(--ink)}
-    .progress{display:flex;justify-content:center;gap:5px;margin-top:18px}
-    .progress span{width:5px;height:5px;border-radius:50%;background:#d7d7d0}
-    .progress span.done{background:var(--ink)}
+    .progress{display:none}
     .result{display:none;text-align:left}
     .result.visible{display:block}
     .result-head{margin-bottom:44px;text-align:center}
@@ -95,19 +97,20 @@
     .action{border:1px solid var(--line);border-radius:999px;padding:10px 15px;background:transparent;color:var(--ink);cursor:pointer;font-size:12px;font-weight:650;text-decoration:none}
     .action:hover{border-color:#999990;background:var(--white)}
     .action.primary{border-color:var(--ink);background:var(--ink);color:var(--white)}
-    .verified{margin-top:160px;padding-top:30px;border-top:1px solid var(--line)}
+    .verified{margin-top:0;padding-top:30px;border-top:1px solid var(--line)}
     .verified h2{margin:0;font-size:20px;font-weight:600;letter-spacing:-.025em}
     .verified-copy{max-width:520px;margin:9px 0 0;color:var(--muted);font-size:12px;line-height:1.6}
     .verified-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:24px}
-    .template-card{display:flex;min-height:178px;flex-direction:column;align-items:flex-start;padding:22px;border:1px solid var(--line);border-radius:18px;background:var(--white);color:var(--ink);text-align:left;cursor:pointer;transition:transform 160ms ease,border-color 160ms ease,box-shadow 160ms ease}
+    .template-card{position:relative;display:flex;min-height:178px;flex-direction:column;align-items:flex-start;padding:22px;border:1px solid var(--line);border-radius:18px;background:var(--white);color:var(--ink);text-align:left;transition:transform 160ms ease,border-color 160ms ease,box-shadow 160ms ease}
     .template-card:hover{transform:translateY(-2px);border-color:#b8b8af;box-shadow:0 12px 28px rgb(22 22 18 / 6%)}
-    .template-meta{display:flex;align-items:center;gap:7px;color:#818179;font:9px var(--mono);letter-spacing:.055em;text-transform:uppercase}
+    .template-meta{display:flex;align-items:center;gap:7px;color:#818179;font:9px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.055em;text-transform:uppercase}
     .template-category{color:var(--template-accent);font-weight:800}
     .template-title-row{display:block;margin-top:15px}
     .template-title-row strong{display:block;max-width:310px;font-size:19px;line-height:1.15;letter-spacing:-.025em}
     .approval-tag{color:#9a9a93;font:inherit;letter-spacing:inherit}
     .template-card p{margin:9px 0 20px;color:var(--muted);font-size:12px;line-height:1.55}
     .template-use{margin-top:auto;font-size:11px;font-weight:750}
+    .template-open{position:absolute;inset:0;border:0;border-radius:18px;background:transparent;cursor:pointer;font-size:0}.template-card>*:not(.template-open):not(.template-share){position:relative;z-index:1;pointer-events:none}.template-status{position:absolute!important;z-index:2!important;top:15px;right:15px;padding:5px 8px;border:1px solid #d7d7d0;border-radius:999px;background:#fafaf7;color:#777770;font:750 8px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.07em;text-transform:uppercase}.template-status.verified-badge{border-color:#bad3c3;background:#f0f7f2;color:var(--green)}.template-share{position:absolute;z-index:3;right:14px;bottom:14px;border:0;background:transparent;color:#92928b;cursor:pointer;font-size:11px;padding:5px}.template-share:hover{color:var(--ink)}.result-nav{display:flex;justify-content:space-between;align-items:center;margin-bottom:28px}.result-nav button{border:0;background:transparent;color:var(--muted);font-size:11px;cursor:pointer;padding:4px 0}
     .about{display:none;position:fixed;inset:62px 18px auto auto;z-index:30;width:min(340px,calc(100% - 36px));padding:20px;border:1px solid var(--line);border-radius:16px;background:var(--white);box-shadow:0 16px 50px rgb(20 20 17 / 10%)}
     .about.visible{display:block}
     .about strong{display:block;margin-bottom:8px;font-size:13px}
@@ -134,11 +137,12 @@
 
   <main>
     <section class="hero" id="wizard" aria-labelledby="questionTitle">
-      <p class="eyebrow" id="eyebrow">Question 1 of 7</p>
+      <p class="eyebrow" id="eyebrow">Q 1 of 7</p>
       <h1 id="questionTitle">What should never happen without a person saying yes?</h1>
       <p class="intro" id="intro"></p>
       <div class="question-area">
         <div class="history" id="history" aria-hidden="true"></div>
+        <div class="next-card" id="nextCard" aria-hidden="true"></div>
         <form id="questionForm" novalidate>
           <div class="composer" id="composer">
             <div id="fields"></div>
@@ -154,6 +158,7 @@
     </section>
 
     <section class="result" id="result" aria-labelledby="resultTitle">
+      <div class="result-nav"><button id="returnFromResult" type="button">← Return</button><button id="shareResult" type="button">Share this result</button></div>
       <div class="result-head">
         <p class="eyebrow">Your Approval Insert</p>
         <h1 id="resultTitle"></h1>
@@ -196,27 +201,29 @@
     </section>
 
     <section class="verified" id="verified" aria-labelledby="verifiedTitle">
-      <h2 id="verifiedTitle">Templates from real workflow problems</h2>
-      <p class="verified-copy">Built from specific problems people described. Testing stays visible until the connected workflow passes every outcome.</p>
+      <h2 id="verifiedTitle">Problems people are trying to solve</h2>
       <div class="verified-grid">
-        <button class="template-card" type="button" data-template="candidate-rejection-email" style="--template-accent:#f05a47">
-          <span class="template-meta"><span class="template-category">Recruiting</span><span>·</span><span>Testing</span></span>
+        <article class="template-card" data-template="candidate-rejection-email" style="--template-accent:#f05a47">
+          <button class="template-open" type="button" aria-label="Open bulk candidate rejection email approval template"></button><span class="template-status">Testing</span>
+          <span class="template-meta"><span class="template-category">Recruiting</span></span>
           <span class="template-title-row"><strong>Bulk candidate rejection emails <span class="approval-tag">approval</span></strong></span>
           <p>Check the candidate batch, decision basis, and final message before an irreversible send.</p>
-          <span class="template-use">Use this template →</span>
-        </button>
-        <button class="template-card" type="button" data-template="shopify-refund-release" style="--template-accent:#008060">
-          <span class="template-meta"><span class="template-category">Shopify</span><span>·</span><span>Testing</span></span>
+          <span class="template-use">Use this template →</span><button class="template-share" type="button" aria-label="Share template">Share</button>
+        </article>
+        <article class="template-card" data-template="shopify-refund-release" style="--template-accent:#008060">
+          <button class="template-open" type="button" aria-label="Open Shopify refund approval template"></button><span class="template-status">Testing</span>
+          <span class="template-meta"><span class="template-category">Shopify</span></span>
           <span class="template-title-row"><strong>Refunds requested by outsourced support <span class="approval-tag">approval</span></strong></span>
           <p>Let support request a refund without letting money move before the store manager checks it.</p>
-          <span class="template-use">Use this template →</span>
-        </button>
-        <button class="template-card" type="button" data-template="timed-outreach-veto" style="--template-accent:#6b4eff">
-          <span class="template-meta"><span class="template-category">Sales outreach</span><span>·</span><span>Verified</span></span>
+          <span class="template-use">Use this template →</span><button class="template-share" type="button" aria-label="Share template">Share</button>
+        </article>
+        <article class="template-card" data-template="timed-outreach-veto" style="--template-accent:#6b4eff">
+          <button class="template-open" type="button" aria-label="Open last-minute outreach hold approval template"></button><span class="template-status verified-badge">✓ Verified</span>
+          <span class="template-meta"><span class="template-category">Sales outreach</span></span>
           <span class="template-title-row"><strong>Last-minute hold before outreach sends <span class="approval-tag">approval</span></strong></span>
           <p>Give a rep 60 seconds to stop an outbound email. If nobody intervenes, let the existing automation continue once.</p>
-          <span class="template-use">Use this template →</span>
-        </button>
+          <span class="template-use">Use this template →</span><button class="template-share" type="button" aria-label="Share template">Share</button>
+        </article>
       </div>
     </section>
   </main>
@@ -242,11 +249,13 @@
       "shopify-refund-release":{situation:"Refunds requested by outsourced support must not return money until the store manager reviews the exact order and amount.",protected_action:"Issue the Shopify refund",trigger:"An outsourced support agent requests a refund above the store threshold",approver:"Customer support manager for the Shopify store",review_information:["order ID","refund amount","refund reason","payment status","customer refund history","requesting agent"],approved_result:"Issue the approved refund once and record the decision",rejected_result:"Leave the payment unchanged and notify the requesting agent",timeout_result:"Leave the payment unchanged and notify the store manager",platforms_before:"Shopify Flow, Make",platforms_after:"Shopify"},
       "timed-outreach-veto":{situation:"An outbound sales email should pause briefly so the rep can stop a message that needs a call or a final correction.",protected_action:"Send the outbound email",trigger:"The outreach automation finishes a personalized email draft",approver:"Sales representative who owns the lead",review_information:["recipient","company","subject","final email draft","lead context","time remaining"],approved_result:"Send the exact approved email once",rejected_result:"Hold the email and return the lead to the sales representative",timeout_result:"Continue to the send route after 60 seconds",platforms_before:"Make, CRM, email drafting tool",platforms_after:"Email provider"}
     };
-    const wizard=document.getElementById("wizard"), result=document.getElementById("result"), fields=document.getElementById("fields"), form=document.getElementById("questionForm"), composer=document.getElementById("composer"), guide=document.getElementById("guide"), title=document.getElementById("questionTitle"), intro=document.getElementById("intro"), eyebrow=document.getElementById("eyebrow"), history=document.getElementById("history"), progress=document.getElementById("progress"), showExample=document.getElementById("showExample"), backButton=document.getElementById("backButton"), undoReset=document.getElementById("undoReset"), undoButton=document.getElementById("undoButton");
+    const wizard=document.getElementById("wizard"), result=document.getElementById("result"), fields=document.getElementById("fields"), form=document.getElementById("questionForm"), composer=document.getElementById("composer"), guide=document.getElementById("guide"), title=document.getElementById("questionTitle"), intro=document.getElementById("intro"), eyebrow=document.getElementById("eyebrow"), history=document.getElementById("history"), progress=document.getElementById("progress"), nextCard=document.getElementById("nextCard"), showExample=document.getElementById("showExample"), backButton=document.getElementById("backButton"), undoReset=document.getElementById("undoReset"), undoButton=document.getElementById("undoButton");
+    let resultSource="answers",resultSnapshot=null,currentTemplateId=null,typeRun=0;
 
     function esc(value){return String(value??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c])}
     function firstValue(){const el=fields.querySelector("textarea,input");if(el)el.focus()}
-    function renderProgress(){progress.innerHTML=questions.map((_,i)=>`<span class="${i<=state.step?"done":""}"></span>`).join("")}
+    function renderProgress(){progress.innerHTML=""}
+    function typeQuestion(text){const run=++typeRun;if(matchMedia("(prefers-reduced-motion: reduce)").matches){title.textContent=text;return}title.textContent="";let i=0;const tick=()=>{if(run!==typeRun)return;title.textContent=text.slice(0,++i);if(i<text.length)setTimeout(tick,Math.max(11,26-Math.floor(i/8)))};tick()}
     function fillSaved(q){
       if(q.type==="outcomes"){
         ["approved_result","rejected_result","timeout_result"].forEach(key=>{document.getElementById(key).value=state.answers[key]||""});
@@ -257,7 +266,7 @@
       }
     }
     function renderQuestion(){
-      const q=questions[state.step]; title.textContent=q.title;intro.textContent=q.intro;eyebrow.textContent=`Question ${state.step+1} of ${questions.length}`;guide.textContent=state.step===0?"Do not include API keys, private URLs, customer data, or employee data.":q.help;guide.classList.remove("more");composer.classList.remove("needs-more");showExample.hidden=state.step!==0;backButton.hidden=state.step===0;
+      const q=questions[state.step];typeQuestion(q.title);intro.textContent=q.intro;eyebrow.textContent=`Q ${state.step+1} of ${questions.length}`;guide.textContent=state.step===0?"Answer all seven and get the exact stop, decision policy, approver view, safeguards, and setup for your platform.":q.help;guide.classList.remove("more");composer.classList.remove("needs-more");composer.classList.remove("entering");void composer.offsetWidth;composer.classList.add("entering");showExample.hidden=state.step!==0;backButton.hidden=state.step===0;nextCard.hidden=state.step>=questions.length-1;nextCard.textContent=state.step<questions.length-1?`Next · ${questions[state.step+1].title}`:"";
       if(q.type==="outcomes"){
         fields.innerHTML=`<div class="field-group"><div class="field-line"><label for="approved_result">If approved</label><input id="approved_result" name="approved_result" placeholder="Send the refund once" autocomplete="off"></div><div class="field-line"><label for="rejected_result">If rejected</label><input id="rejected_result" name="rejected_result" placeholder="Keep the payment unchanged" autocomplete="off"></div><div class="field-line"><label for="timeout_result">No response</label><input id="timeout_result" name="timeout_result" placeholder="Do not send and notify Finance" autocomplete="off"></div></div>`;
       }else if(q.type==="platforms"){
@@ -296,7 +305,7 @@
       event.preventDefault();const answer=readAnswer();if(answer===null)return;addHistory(answer);const q=questions[state.step];
       if(typeof answer==="object")Object.assign(state.answers,answer);else state.answers[q.key]=q.type==="list"?answer.split(/,|\n/).map(v=>v.trim()).filter(Boolean):answer;
       state.step+=1;persist();
-      if(state.step<questions.length){renderQuestion()}else{showResult()}
+      if(state.step<questions.length){renderQuestion()}else{showResult({source:"answers"})}
     });
     backButton.addEventListener("click",()=>{if(state.step===0)return;state.step-=1;if(history.lastElementChild)history.lastElementChild.remove();persist();renderQuestion()});
 
@@ -309,14 +318,17 @@
       if(text.includes("n8n"))return {id:"n8n",name:"n8n",workload:"One reusable request, wait, verification, and decision branch.",steps:["Create one n8n HTTP Header Auth credential for the SHSY key.","POST the approval with an Idempotency-Key and use the Wait resume URL as the private callback.","Capture one real callback, then map its approval ID into an authenticated GET request to SHSY.","Use an IF node. Only verified approved = true may reach the protected action."]};
       return {id:"api",name:"your automation",workload:"One approval request, one callback, and one verified decision check.",steps:["POST the approval request with a unique Idempotency-Key.","Keep the callback URL private and capture its approval ID.","Authenticate GET /v1/approvals/{id} before trusting the decision.","Only approved = true may reach the protected action."]};
     }
-    function showResult(){
+    function showResult(options={}){
+      resultSource=options.source||resultSource||"answers";currentTemplateId=options.templateId||null;
       wizard.style.display="none";result.classList.add("visible");document.getElementById("resultTitle").textContent=`Stop before: ${state.answers.protected_action}`;document.getElementById("resultSummary").textContent=`${state.answers.approver} decides after seeing ${state.answers.review_information.join(", ")}.`;
       const rows=[["When",state.answers.trigger],["Ask",state.answers.approver],["Show",state.answers.review_information.join(", ")],["Yes",state.answers.approved_result],["No",state.answers.rejected_result],["No response",state.answers.timeout_result]];
       document.getElementById("plan").innerHTML=rows.map(([k,v])=>`<div class="plan-row"><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join("");
       document.getElementById("pathBefore").textContent=state.answers.platforms_before;document.getElementById("pathAfter").textContent=state.answers.platforms_after;
       document.getElementById("approvalQuestion").textContent=`Approve: ${state.answers.protected_action}?`;document.getElementById("approvalFacts").innerHTML=state.answers.review_information.map(value=>`<li>${esc(value)}</li>`).join("");document.getElementById("approvalOutcome").textContent=`If yes: ${state.answers.approved_result}. If no: ${state.answers.rejected_result}.`;
       const config=platformConfig();document.getElementById("platformName").textContent=config.name;document.getElementById("platformWorkload").textContent=config.workload;document.getElementById("setupSteps").innerHTML=config.steps.map(step=>`<li>${esc(step)}</li>`).join("");document.getElementById("copyPlan").textContent=`Copy ${config.name} setup`;
-      try{localStorage.removeItem("shsy-approval-plan-draft")}catch(_){}window.scrollTo({top:0,behavior:"smooth"})
+      document.getElementById("returnFromResult").textContent=resultSource==="example"?"← Return to your question":resultSource==="template"?"← Return to templates":"← Back to answers";
+      if(!options.skipHistory)window.history.pushState({approvalResult:true,source:resultSource,templateId:currentTemplateId},"",currentTemplateId?`?template=${encodeURIComponent(currentTemplateId)}`:"#result");
+      if(resultSource==="answers")try{localStorage.removeItem("shsy-approval-plan-draft")}catch(_){}window.scrollTo({top:0,behavior:"smooth"})
     }
 
     function planText(){const p=packet(),config=platformConfig();return `ADD THIS APPROVAL TO ${config.name.toUpperCase()}\n\nPut it here:\n${p.platforms_before.join(", ")} → SHSY approval → ${p.platforms_after.join(", ")}\n\nDecision:\nWhen: ${p.trigger}\nStop before: ${p.protected_action}\nAsk: ${p.approver}\nShow: ${p.review_information.join(", ")}\nYes: ${p.approved_result}\nNo: ${p.rejected_result}\nNo response: ${p.timeout_result}\n\nSetup:\n${config.steps.map((step,index)=>`${index+1}. ${step}`).join("\n")}\n\nBuilt-in safeguards:\n- One decision per request\n- GET links never decide\n- Explicit no-response result\n- Authenticated final decision check\n- Callback retry after temporary failures\n\nBefore going live, use harmless data to confirm approval, rejection, no response, and duplicate retry. Do not connect the real action until those paths behave correctly.`}
@@ -325,11 +337,16 @@
     document.getElementById("editAnswers").addEventListener("click",()=>{state.step=questions.length-1;result.classList.remove("visible");wizard.style.display="block";renderQuestion();window.scrollTo({top:0,behavior:"smooth"})});
     let resetSnapshot=null,undoTimer=null;
     document.getElementById("startAgain").addEventListener("click",()=>{resetSnapshot=JSON.parse(JSON.stringify(state));state.step=0;state.answers={};history.innerHTML="";result.classList.remove("visible");wizard.style.display="block";renderQuestion();undoReset.classList.add("visible");clearTimeout(undoTimer);undoTimer=setTimeout(()=>{undoReset.classList.remove("visible");resetSnapshot=null},8000);window.scrollTo({top:0,behavior:"smooth"})});
-    undoButton.addEventListener("click",()=>{if(!resetSnapshot)return;state.step=resetSnapshot.step;state.answers=resetSnapshot.answers;resetSnapshot=null;clearTimeout(undoTimer);undoReset.classList.remove("visible");wizard.style.display="none";showResult()});
-    showExample.addEventListener("click",()=>{state.answers={situation:"Refunds over $500 should wait for Finance before Stripe sends the money.",protected_action:"Send the Stripe refund",trigger:"A support agent requests a refund over $500",approver:"Finance manager",review_information:["order","amount","refund reason","customer history"],approved_result:"Send the refund once",rejected_result:"Keep the payment unchanged",timeout_result:"Do not send and notify Finance",platforms_before:"Zendesk, Make",platforms_after:"Stripe"};showResult()});
-    document.querySelectorAll("[data-template]").forEach(card=>card.addEventListener("click",()=>{const selected=savedTemplates[card.dataset.template];if(!selected)return;state.answers=JSON.parse(JSON.stringify(selected));state.step=questions.length;history.innerHTML="";showResult()}));
+    undoButton.addEventListener("click",()=>{if(!resetSnapshot)return;state.step=resetSnapshot.step;state.answers=resetSnapshot.answers;resetSnapshot=null;clearTimeout(undoTimer);undoReset.classList.remove("visible");wizard.style.display="none";showResult({source:"answers"})});
+    function returnFromResult(){result.classList.remove("visible");if(resultSource==="example"&&resultSnapshot){state.step=resultSnapshot.step;state.answers=resultSnapshot.answers;resultSnapshot=null;wizard.style.display="block";renderQuestion();window.scrollTo({top:0,behavior:"smooth"});return}if(resultSource==="template"){wizard.style.display="block";state.step=0;state.answers={};renderQuestion();document.getElementById("verified").scrollIntoView({behavior:"smooth"});return}state.step=Math.max(0,questions.length-1);wizard.style.display="block";renderQuestion();window.scrollTo({top:0,behavior:"smooth"})}
+    document.getElementById("returnFromResult").addEventListener("click",()=>{if(window.history.state?.approvalResult)window.history.back();else{returnFromResult();window.history.replaceState({},"",location.pathname)}});
+    document.getElementById("shareResult").addEventListener("click",async event=>{const url=currentTemplateId?`${location.origin}${location.pathname}?template=${encodeURIComponent(currentTemplateId)}`:location.href;try{if(navigator.share)await navigator.share({title:document.getElementById("resultTitle").textContent,url});else{await navigator.clipboard.writeText(url);event.currentTarget.textContent="Link copied";setTimeout(()=>event.currentTarget.textContent="Share this result",1500)}}catch(_){}});
+    showExample.addEventListener("click",()=>{resultSnapshot=JSON.parse(JSON.stringify(state));state.answers={situation:"Refunds over $500 should wait for Finance before Stripe sends the money.",protected_action:"Send the Stripe refund",trigger:"A support agent requests a refund over $500",approver:"Finance manager",review_information:["order","amount","refund reason","customer history"],approved_result:"Send the refund once",rejected_result:"Keep the payment unchanged",timeout_result:"Do not send and notify Finance",platforms_before:"Zendesk, Make",platforms_after:"Stripe"};showResult({source:"example"})});
+    document.querySelectorAll(".template-open").forEach(button=>button.addEventListener("click",()=>{const card=button.closest("[data-template]"),selected=savedTemplates[card.dataset.template];if(!selected)return;state.answers=JSON.parse(JSON.stringify(selected));state.step=questions.length;history.innerHTML="";showResult({source:"template",templateId:card.dataset.template})}));
+    document.querySelectorAll(".template-share").forEach(button=>button.addEventListener("click",async()=>{const card=button.closest("[data-template]"),url=`${location.origin}${location.pathname}?template=${encodeURIComponent(card.dataset.template)}`;try{if(navigator.share)await navigator.share({title:card.querySelector("strong").textContent.trim(),url});else{await navigator.clipboard.writeText(url);button.textContent="Copied";setTimeout(()=>button.textContent="Share",1300)}}catch(_){}}));
+    window.addEventListener("popstate",()=>{if(result.classList.contains("visible"))returnFromResult()});
     const aboutButton=document.getElementById("aboutButton"),about=document.getElementById("about");aboutButton.addEventListener("click",()=>{const open=!about.classList.contains("visible");about.classList.toggle("visible",open);about.setAttribute("aria-hidden",String(!open));aboutButton.setAttribute("aria-expanded",String(open))});document.addEventListener("click",event=>{if(!about.contains(event.target)&&event.target!==aboutButton){about.classList.remove("visible");about.setAttribute("aria-hidden","true");aboutButton.setAttribute("aria-expanded","false")}});
-    renderQuestion();
+    const requestedTemplate=new URLSearchParams(location.search).get("template");if(requestedTemplate&&savedTemplates[requestedTemplate]){state.answers=JSON.parse(JSON.stringify(savedTemplates[requestedTemplate]));state.step=questions.length;showResult({source:"template",templateId:requestedTemplate,skipHistory:true})}else{renderQuestion()}
   </script>
 </body>
 </html>
