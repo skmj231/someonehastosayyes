@@ -901,7 +901,11 @@ const fmt = (t) => new Date(t).toLocaleString("en-GB", { day: "numeric", month: 
 
 function renderApproval(a) {
   const ctx = a.context ? JSON.parse(a.context) : null;
-  const ctxHtml = ctx && !(ctx.demo) ? `<pre>${esc(typeof ctx === "string" ? ctx : JSON.stringify(ctx, null, 2))}</pre>` : "";
+  const reviewUrl = ctx && typeof ctx === "object" ? [ctx.draft_url, ctx.review_url, ctx.preview_url].find((value) => {
+    try { const url = new URL(value); return url.protocol === "https:" || url.protocol === "http:"; } catch { return false; }
+  }) : null;
+  const reviewLink = reviewUrl ? `<p class="review-link"><a href="${esc(reviewUrl)}" target="_blank" rel="noopener noreferrer">Open the exact draft being reviewed ↗</a></p>` : "";
+  const ctxHtml = ctx && !(ctx.demo) ? `${reviewLink}<pre>${esc(typeof ctx === "string" ? ctx : JSON.stringify(ctx, null, 2))}</pre>` : "";
   if (a.status !== "pending") {
     const word = { approved: a.approve_label, rejected: a.reject_label, timed_out: "no answer in time", canceled: "withdrawn" }[a.status] || a.status;
     const cls = a.status === "approved" ? "yes" : "no";
@@ -936,7 +940,7 @@ input{width:100%;border:0;border-bottom:1px solid var(--rule);font:inherit;paddi
 button.yes{background:var(--ink);color:#fff}button:hover{filter:brightness(.92)}
 input:focus-visible,button:focus-visible{outline:2px solid var(--ink);outline-offset:3px}
 .verdict{font-size:clamp(40px,10vw,64px);letter-spacing:-.04em;line-height:1;margin:8px 0 12px;font-weight:500}.verdict.yes{color:var(--yes)}.verdict.no{color:var(--no)}
-.muted{color:var(--ink2);font-size:15px;margin:14px 0 0}</style></head><body>${body}</body></html>`;
+.review-link{margin:0 0 16px}.review-link a{display:inline-flex;align-items:center;padding:10px 14px;border:1px solid var(--ink);border-radius:999px;color:var(--ink);font-size:15px;font-weight:500;text-decoration:none}.review-link a:hover{background:var(--ink);color:#fff}.muted{color:var(--ink2);font-size:15px;margin:14px 0 0}</style></head><body>${body}</body></html>`;
 }
 
 // ---------- 콜백 (n8n resumeUrl / Make 웹훅) ----------

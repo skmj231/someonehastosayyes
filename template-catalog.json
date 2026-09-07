@@ -674,6 +674,38 @@
     "description": "Confirm assignees and due dates before creating tasks."
   },
   {
+    "id": "ai-video-draft-release",
+    "status": "verified",
+    "title": "AI video draft release approval",
+    "summary": "Release only the exact video version, hash, and destination a creative lead reviewed.",
+    "category": "Creative",
+    "platform": "make",
+    "apps": [
+      "Make",
+      "AI video"
+    ],
+    "color": "#1473e6",
+    "actionInk": "#fff",
+    "tags": [
+      "AI video",
+      "Version binding",
+      "Publishing",
+      "Idempotency"
+    ],
+    "flow": [
+      "Draft URL ready",
+      "Request approval",
+      "Verify exact version",
+      "Yes or no",
+      "Release video"
+    ],
+    "protected": "video.publish",
+    "timeout": "1440 minutes, then reject",
+    "replace": "SHSY key, callback webhook, approver, draft URL, version, hash, and destination",
+    "connect": "Final renderer, CMS, or social publishing module",
+    "description": "Bind the decision to the exact draft before it can be rendered or published."
+  },
+  {
     "id": "order-calendar",
     "title": "Order calendar event approval",
     "summary": "Keep the parsed order off the calendar. Create the event only after someone checks the date, customer, and order details.",
