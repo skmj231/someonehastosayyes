@@ -82,6 +82,12 @@
     .section-block>h2{margin:0;font-size:20px;font-weight:600;letter-spacing:-.025em}
     .section-block>.section-copy{max-width:570px;margin:9px 0 0;color:var(--muted);font-size:13px;line-height:1.6}
     .approval-card{max-width:520px;margin:22px auto 0;padding:26px;border:1px solid var(--line);border-radius:18px;background:var(--white);box-shadow:0 10px 30px rgb(22 22 18 / 4%)}
+    .delivery-picker{display:flex;gap:7px;margin-top:18px;flex-wrap:wrap}
+    .delivery-option{display:inline-flex;align-items:center;gap:7px;min-height:38px;padding:8px 12px;border:1px solid var(--line);border-radius:999px;background:transparent;color:var(--muted);cursor:pointer;font-size:11px;font-weight:650}
+    .delivery-option[aria-pressed="true"]{border-color:var(--ink);background:var(--ink);color:var(--white)}
+    .delivery-option i{font-style:normal;font-size:10px;text-transform:uppercase;letter-spacing:.04em}
+    .delivery-channel{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;color:var(--muted);font-size:10px;font-weight:750;letter-spacing:.08em;text-transform:uppercase}
+    .delivery-channel span:last-child{font-weight:500;letter-spacing:0;text-transform:none}
     .approval-card small{color:var(--muted);font-size:10px;font-weight:750;letter-spacing:.09em;text-transform:uppercase}
     .approval-card h3{margin:11px 0 15px;font-size:22px;font-weight:600;letter-spacing:-.03em;line-height:1.2}
     .approval-facts{margin:0;padding:0;list-style:none;border-top:1px solid #ecece6}
@@ -102,8 +108,8 @@
     .tested-panel h3,.handled-panel h3{margin:0;font-size:16px;font-weight:650;letter-spacing:-.02em}
     .tested-panel>p,.handled-panel>p{margin:7px 0 0;color:var(--muted);font-size:12px;line-height:1.55}
     .test-results{margin-top:18px;border-top:1px solid #e7e7e1}
-    .test-result{display:grid;grid-template-columns:145px 1fr;gap:24px;padding:13px 0;border-bottom:1px solid #e7e7e1;font-size:11px;line-height:1.55}
-    .test-result strong{font-weight:700}.test-result span{color:#585852}
+    .test-result{display:grid;grid-template-columns:130px 1fr;gap:18px;align-items:center;padding:13px 0;border-bottom:1px solid #e7e7e1;font-size:11px;line-height:1.45}
+    .test-result strong{font-weight:700}.test-flow{display:flex;align-items:center;gap:7px;flex-wrap:wrap;color:#585852}.test-flow-step{padding:5px 8px;border-radius:7px;background:#f3f3ef}.test-flow-arrow{color:#aaa}
     .handled-panel{margin-top:46px}
     .responsibility-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:20px}
     .responsibility-card{padding:22px;border:1px solid var(--line);border-radius:16px;background:var(--white)}
@@ -120,8 +126,14 @@
     .make-remains li::before{content:counter(make-steps);display:grid;place-items:center;width:20px;height:20px;border:1px solid var(--line);border-radius:50%;color:var(--muted);font-size:9px}
     .capability-takeaway{margin:27px 0 0;padding:17px 19px;border-left:3px solid var(--green);background:#f1f5f2;color:#244936;font-size:13px;font-weight:650;line-height:1.5}
     .setup-steps{margin:20px 0 0;padding:0;list-style:none;counter-reset:steps}
-    .setup-steps li{display:grid;grid-template-columns:27px 1fr;gap:10px;padding:11px 0;font-size:13px;line-height:1.5;counter-increment:steps}
-    .setup-steps li::before{content:counter(steps);display:grid;place-items:center;width:22px;height:22px;border:1px solid var(--line);border-radius:50%;color:var(--muted);font-size:10px}
+    .setup-steps li{display:grid;grid-template-columns:32px 1fr;gap:13px;padding:16px 0;border-bottom:1px solid #e5e5df;font-size:14px;line-height:1.55;counter-increment:steps}
+    .setup-steps li::before{content:counter(steps);display:grid;place-items:center;width:27px;height:27px;border:1px solid #cbd8cf;border-radius:50%;background:#f2f7f3;color:var(--green);font-size:11px;font-weight:750}
+    .setup-summary{display:grid;grid-template-columns:128px 1fr;gap:22px;margin-top:22px;padding:20px;border:1px solid #d7e1da;border-radius:15px;background:#f2f7f3}
+    .setup-summary[hidden]{display:none}
+    .setup-kicker{color:var(--green);font:750 10px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.08em;text-transform:uppercase}
+    .setup-needs{display:flex;flex-wrap:wrap;gap:7px}
+    .setup-need{padding:7px 10px;border:1px solid #cbd8cf;border-radius:999px;background:#fff;color:#304b3c;font-size:11px;font-weight:650}
+    .setup-help{grid-column:2;margin:2px 0 0;color:#52675b;font-size:11px;line-height:1.55}
     details{margin-top:15px;color:var(--muted);font-size:11px}
     summary{cursor:pointer;width:max-content}
     .actions{display:flex;flex-wrap:wrap;gap:9px;margin-top:25px}
@@ -150,7 +162,7 @@
     .undo.visible{display:flex}.undo button{border:0;padding:3px;background:transparent;color:#fff;cursor:pointer;font-weight:750;text-decoration:underline;text-underline-offset:3px}
     .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
     @media(max-width:600px){
-      .topbar{height:54px;padding:0 16px}.top-purpose{font-size:9px;letter-spacing:.07em}.brand{font-size:0}.brand::after{content:"shsy";font-size:12px} main{width:min(100% - 28px,760px);padding-top:12vh}.hero{min-height:620px}.hero>h1{height:102px;font-size:clamp(30px,8.6vw,40px)}.hero>h1.long-question{font-size:26px}.hero>.intro{height:64px;margin-top:12px;font-size:14px}.question-area{height:285px}.composer{border-radius:20px}textarea{min-height:92px;font-size:15px}.field-line{grid-template-columns:1fr;gap:1px}.field-line input{padding:5px 0 9px}.plan-row{grid-template-columns:1fr;gap:7px;padding:17px 0}.path{align-items:flex-start;gap:7px;font-size:11px}.protections,.capability-list,.responsibility-grid,.make-remains{grid-template-columns:1fr}.approval-card{padding:20px}.verified-capabilities{padding:38px 0 42px}.tested-panel{padding:20px}.test-result{grid-template-columns:1fr;gap:3px}.verified{margin-top:92px;padding-top:38px}.verified-grid{grid-template-columns:1fr}.about{inset:54px 14px auto;width:auto}.undo{bottom:15px}}
+      .topbar{height:54px;padding:0 16px}.top-purpose{font-size:9px;letter-spacing:.07em}.brand{font-size:0}.brand::after{content:"shsy";font-size:12px} main{width:min(100% - 28px,760px);padding-top:12vh}.hero{min-height:620px}.hero>h1{height:102px;font-size:clamp(30px,8.6vw,40px)}.hero>h1.long-question{font-size:26px}.hero>.intro{height:64px;margin-top:12px;font-size:14px}.question-area{height:285px}.composer{border-radius:20px}textarea{min-height:92px;font-size:15px}.field-line{grid-template-columns:1fr;gap:1px}.field-line input{padding:5px 0 9px}.plan-row{grid-template-columns:1fr;gap:7px;padding:17px 0}.path{align-items:flex-start;gap:7px;font-size:11px}.protections,.capability-list,.responsibility-grid,.make-remains{grid-template-columns:1fr}.approval-card{padding:20px}.verified-capabilities{padding:38px 0 42px}.tested-panel{padding:20px}.test-result{grid-template-columns:1fr;gap:3px}.setup-summary{grid-template-columns:1fr;gap:10px}.setup-help{grid-column:1}.verified{margin-top:92px;padding-top:38px}.verified-grid{grid-template-columns:1fr}.about{inset:54px 14px auto;width:auto}.undo{bottom:15px}}
     @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.composer,.submit,.history-card{transition:none}}
   </style>
 </head>
@@ -200,8 +212,14 @@
       <a class="shsy-summary-link" id="shsySummaryLink" href="#verifiedCapabilities" hidden><strong>You set the approval rules.</strong> SHSY handles the page, waiting, safeguards and result delivery. <span>See what SHSY handles ↓</span></a>
       <section class="section-block" aria-labelledby="approverPreviewTitle">
         <h2 id="approverPreviewTitle">What the approver sees</h2>
-        <p class="section-copy">A clear decision, not workflow settings or raw JSON.</p>
+        <p class="section-copy">Choose where they receive it. The review stays the same.</p>
+        <div class="delivery-picker" id="deliveryPicker" aria-label="Approval delivery method">
+          <button class="delivery-option" type="button" data-delivery="email" aria-pressed="true"><i aria-hidden="true">E</i>Email</button>
+          <button class="delivery-option" type="button" data-delivery="slack" aria-pressed="false"><i aria-hidden="true">S</i>Slack</button>
+          <button class="delivery-option" type="button" data-delivery="link" aria-pressed="false"><i aria-hidden="true">L</i>Private link</button>
+        </div>
         <div class="approval-card">
+          <div class="delivery-channel"><span id="deliveryChannel">Email approval</span><span>No account needed</span></div>
           <small>Approval requested</small>
           <h3 id="approvalQuestion"></h3>
           <ul class="approval-facts" id="approvalFacts"></ul>
@@ -216,7 +234,6 @@
 
         <div class="tested-panel">
           <h3 id="testedTitle">Tested in a connected Make workflow</h3>
-          <p id="testedCopy"></p>
           <div class="test-results" id="testResults"></div>
         </div>
 
@@ -246,8 +263,13 @@
         <ul class="protections"><li>One decision per request</li><li>Email scanners cannot decide</li><li>Explicit no-response result</li><li>Authenticated final decision check</li><li>Callback retries after temporary failures</li><li>The same contract across platforms</li></ul>
       </section>
       <section class="use-next" aria-labelledby="useNextTitle">
-        <h2 id="useNextTitle">Add it to <span id="platformName">your automation</span></h2>
+        <h2 id="useNextTitle">Use this template in <span id="platformName">your automation</span></h2>
         <p id="platformWorkload">Add only the approval request, decision return, verified decision, and approved route.</p>
+        <div class="setup-summary" id="setupSummary" hidden>
+          <span class="setup-kicker">Before you start</span>
+          <div class="setup-needs" id="setupNeeds"></div>
+          <p class="setup-help" id="setupHelp"></p>
+        </div>
         <ol class="setup-steps" id="setupSteps"></ol>
         <div class="actions">
           <button class="action primary" id="copyPlan" type="button">Copy setup</button>
@@ -255,7 +277,7 @@
           <button class="action" id="startAgain" type="button">Start again</button>
         </div>
         <details>
-          <summary>Structured data for tools</summary>
+          <summary>Advanced setup and structured data</summary>
           <p>Download the same plan as JSON if a tool or future workflow needs structured fields.</p>
           <button class="action" id="downloadJson" type="button">Download JSON</button>
         </details>
@@ -323,22 +345,30 @@
     const verifiedDetails={
       "ai-video-draft-release":{
         capabilityCopy:"This does more than ask whether a video can be published.",
-        capabilities:["The reviewer sees the exact preview, original request, prompt summary, version, file hash and destination together.","The version, hash and destination must still match immediately before the workflow continues.","If the video changes, the old approval cannot be reused for the new version.","Reviewers can decide from email, Slack or a private link without a Make account.","A rejection blocks publishing and returns the draft for revision.","No response never becomes an accidental approval.","Duplicate requests and repeated clicks resolve to one approval record."],
+        capabilities:["The reviewer sees the preview, request, prompt, version, file hash and destination together.","Only the exact approved version, hash and destination can continue.","Email, Slack or a private link works without a Make account.","Reject, no response, retries and repeated clicks all end in one clear result."],
         testedCopy:"Checked from the first approval request through Make's final release decision.",
-        tests:[["Email approval","Delivered → approved → returned to Make → authenticated state checked → release allowed"],["Slack rejection","Delivered → rejected → returned to Make → authenticated state checked → release blocked"],["60-second no response","Automatically rejected → returned to Make → release blocked"],["Duplicate request","Returned the same approval ID instead of creating another request"],["Version, hash and destination","Release allowed only when all three values matched"],["Final decision","Make checked the authenticated SHSY record instead of trusting the callback text"]],
-        userChoices:["Who should approve","What the reviewer should see","How long to wait","What no response should mean","The Make webhook that receives the result"],
-        shsyHandles:["Private approval page and email or Slack delivery","Pending state and automatic timeout","Protection against scanner-triggered decisions","One decision across retries and repeated clicks","Callback retries and an authenticated final record"],
+        tests:[["Email approval","Email → Approve → Make callback → Verified lookup → Release"],["Slack rejection","Slack → Reject → Make callback → Verified lookup → Block"],["No response","60 seconds → Reject → Make callback → Block"],["Duplicate request","Same request → Same approval ID"],["Release match","Version + hash + destination → Match → Release"],["Final decision","Callback ID → SHSY lookup → Verified state"]],
+        userChoices:["Who approves and what they see","How long to wait","What no response means","Where Make receives the result"],
+        shsyHandles:["Approval page and email, Slack or private-link delivery","Waiting and automatic timeout","One decision across retries and repeated clicks","Callback retries and authenticated final result"],
         makeSteps:["Send the draft to SHSY for approval.","Receive the completed result at one webhook.","Check the authenticated final state.","Publish only when the approved version, hash and destination still match."],
+        setupIntro:"You are adding one stop between the finished draft and the publish action. SHSY carries the waiting and decision; Make only sends the request and receives the result.",
+        setupNeeds:["An existing Make scenario","A SHSY API key","Approver email or Slack","One Make webhook URL"],
+        setupHelp:"Make calls the URL a Custom webhook. Create it once, then paste the URL into the SHSY request as callback_url.",
+        beginnerSteps:["In Make, create a new Custom webhook. Copy the URL Make gives you. This is where SHSY returns the final decision.","In the existing video scenario, add HTTP → Make a request immediately before final render or publish. Send the preview, version, hash, destination and approver to SHSY.","Paste the Custom webhook URL into callback_url. Choose how long SHSY should wait and what no response should mean.","In the receiving scenario, check the final SHSY record. Continue only when it says approved and the version, hash and destination still match."],
         resultNote:"This template passed a connected Make test across approval, rejection, no response, duplicate request, notification delivery, callback and authenticated result lookup."
       },
       "timed-outreach-veto":{
         capabilityCopy:"This is a short chance to stop an email, not an approval that leaves Make waiting.",
-        capabilities:["The rep sees the recipient, company, subject, final draft, lead context and time remaining together.","The rep can hold the email from email, Slack or a private link without a Make account.","If nobody responds within 60 seconds, SHSY returns an approved result and Make continues once.","The waiting happens outside Make, so the scenario does not need to sleep, poll or hold a Data Store record.","Duplicate requests and repeated clicks resolve to one approval record.","Make checks the authenticated final state before the send route continues."],
+        capabilities:["The rep sees the recipient, subject, final draft, lead context and time remaining together.","Email, Slack or a private link works without a Make account.","Hold stops the email; no response after 60 seconds lets Make continue once.","SHSY holds the timer, deduplicates decisions and returns an authenticated result."],
         testedCopy:"Checked from approval creation through the 60-second result returning to Make.",
-        tests:[["Approval creation","The connected Make scenario created the SHSY approval"],["Email delivery","The approval request was accepted for delivery to the test inbox"],["Slack delivery","The approval request was accepted by the connected Slack workspace"],["60-second no response","SHSY returned approved and Make continued to the approved route once"],["Callback","The completed result reached the connected Make webhook"],["Final decision","Make checked the authenticated SHSY record before continuing"]],
-        userChoices:["Which rep should get the veto window","What email and lead context the rep should see","How long the window should stay open","What Hold and no response should do","The Make webhook that receives the result"],
-        shsyHandles:["Private approval page and email or Slack delivery","The 60-second pending state and automatic result","Protection against scanner-triggered decisions","One decision across retries and repeated clicks","Callback retries and an authenticated final record"],
+        tests:[["Email","SHSY → Email → Rep"],["Slack","SHSY → Slack → Rep"],["No response","60 seconds → Approved → Make callback → Send once"],["Callback","Final result → Make webhook"],["Final decision","Callback ID → SHSY lookup → Approved route"]],
+        userChoices:["Which rep gets the Hold window","What email context they see","How long to wait","Where Make receives the result"],
+        shsyHandles:["Approval page and email, Slack or private-link delivery","The 60-second timer and automatic result","One decision across retries and repeated clicks","Callback retries and authenticated final result"],
         makeSteps:["Send the prepared email to SHSY.","Receive the completed result at one webhook.","Check the authenticated final state.","Send the exact email once only when the result is approved."],
+        setupIntro:"You are adding a 60-second Hold window immediately before Make sends the email. The scenario does not wait: SHSY keeps the timer and returns one final result.",
+        setupNeeds:["Your existing Make scenario","A SHSY API key","Rep email or Slack","One Make webhook URL"],
+        setupHelp:"A webhook URL is simply the return address Make creates for the decision. You create it once and paste it into the SHSY request.",
+        beginnerSteps:["In Make, create a new Custom webhook. Copy the URL Make gives you. SHSY will send the final result back to this address.","In your outreach scenario, add HTTP → Make a request immediately before Send email. Map the recipient, company, subject, final draft, lead context and rep.","Set the window to 60 seconds. Use Hold as the rejected result and approved as the no-response result.","In the receiving scenario, check the final SHSY record. Send the exact email once only when approved is true. Hold sends nothing and returns the lead to the rep."],
         resultNote:"This template passed a connected Make test across approval creation, email and Slack delivery, the 60-second timeout, callback and approved routing."
       }
     };
@@ -414,11 +444,13 @@
     function renderVerifiedDetails(detail){
       document.getElementById("capabilityCopy").textContent=detail.capabilityCopy;
       document.getElementById("capabilityList").innerHTML=detail.capabilities.map(item=>`<li>${esc(item)}</li>`).join("");
-      document.getElementById("testedCopy").textContent=detail.testedCopy;
-      document.getElementById("testResults").innerHTML=detail.tests.map(([label,outcome])=>`<div class="test-result"><strong>${esc(label)}</strong><span>${esc(outcome)}</span></div>`).join("");
+      document.getElementById("testResults").innerHTML=detail.tests.map(([label,outcome])=>`<div class="test-result"><strong>${esc(label)}</strong><span class="test-flow">${String(outcome).split("→").map((step,index)=>`${index?'<span class="test-flow-arrow">→</span>':''}<span class="test-flow-step">${esc(step.trim())}</span>`).join("")}</span></div>`).join("");
       document.getElementById("userChoices").innerHTML=detail.userChoices.map(item=>`<li>${esc(item)}</li>`).join("");
       document.getElementById("shsyHandles").innerHTML=detail.shsyHandles.map(item=>`<li>${esc(item)}</li>`).join("");
       document.getElementById("makeSteps").innerHTML=detail.makeSteps.map(item=>`<li>${esc(item)}</li>`).join("");
+      const setupSummary=document.getElementById("setupSummary");setupSummary.hidden=!detail.setupNeeds;
+      document.getElementById("setupNeeds").innerHTML=(detail.setupNeeds||[]).map(item=>`<span class="setup-need">${esc(item)}</span>`).join("");
+      document.getElementById("setupHelp").textContent=detail.setupHelp||"";
     }
     function showResult(options={}){
       resultSource=options.source||resultSource||"answers";currentTemplateId=options.templateId||null;
@@ -426,20 +458,20 @@
       document.getElementById("shsySummaryLink").hidden=!verifiedDetail;
       document.getElementById("verifiedCapabilities").hidden=!verifiedDetail;
       document.getElementById("safetySection").hidden=Boolean(verifiedDetail);
-      if(verifiedDetail)renderVerifiedDetails(verifiedDetail);
+      if(verifiedDetail)renderVerifiedDetails(verifiedDetail);else document.getElementById("setupSummary").hidden=true;
       document.getElementById("resultNote").textContent=verifiedDetail?verifiedDetail.resultNote:"This plan defines the approval. It does not claim the connected automation has been tested. Verified templates appear only after the real action passes an account-connected test.";
       wizard.style.display="none";result.classList.add("visible");document.getElementById("resultTitle").textContent=`Stop before: ${state.answers.protected_action}`;document.getElementById("resultSummary").textContent=`${state.answers.approver} decides after seeing ${state.answers.review_information.join(", ")}.`;
       const rows=[["When",state.answers.trigger],["Ask",state.answers.approver],["Show",state.answers.review_information.join(", ")],["Yes",state.answers.approved_result],["No",state.answers.rejected_result],["No response",state.answers.timeout_result]];
       document.getElementById("plan").innerHTML=rows.map(([k,v])=>`<div class="plan-row"><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join("");
       document.getElementById("pathBefore").textContent=state.answers.platforms_before;document.getElementById("pathAfter").textContent=state.answers.platforms_after;
       document.getElementById("approvalQuestion").textContent=`Approve: ${state.answers.protected_action}?`;document.getElementById("approvalFacts").innerHTML=state.answers.review_information.map(value=>`<li>${esc(value)}</li>`).join("");document.getElementById("approvalOutcome").textContent=`If yes: ${state.answers.approved_result}. If no: ${state.answers.rejected_result}.`;
-      const config=platformConfig();document.getElementById("platformName").textContent=config.name;document.getElementById("platformWorkload").textContent=config.workload;document.getElementById("setupSteps").innerHTML=config.steps.map(step=>`<li>${esc(step)}</li>`).join("");document.getElementById("copyPlan").textContent=`Copy ${config.name} setup`;
+      const config=platformConfig(),displayName=verifiedDetail?"Make":config.name,displaySteps=verifiedDetail?.beginnerSteps||config.steps;document.getElementById("platformName").textContent=displayName;document.getElementById("platformWorkload").textContent=verifiedDetail?.setupIntro||config.workload;document.getElementById("setupSteps").innerHTML=displaySteps.map(step=>`<li>${esc(step)}</li>`).join("");document.getElementById("copyPlan").textContent=`Copy ${displayName} steps`;
       document.getElementById("returnFromResult").textContent=resultSource==="example"?"← Return to your question":resultSource==="template"?"← Return to templates":"← Back to answers";
       if(!options.skipHistory)window.history.pushState({approvalResult:true,source:resultSource,templateId:currentTemplateId},"",currentTemplateId?`?template=${encodeURIComponent(currentTemplateId)}`:"#result");
       if(resultSource==="answers")try{localStorage.removeItem("shsy-approval-plan-draft")}catch(_){}window.scrollTo({top:0,behavior:"smooth"})
     }
 
-    function planText(){const p=packet(),config=platformConfig();return `ADD THIS APPROVAL TO ${config.name.toUpperCase()}\n\nPut it here:\n${p.platforms_before.join(", ")} → SHSY approval → ${p.platforms_after.join(", ")}\n\nDecision:\nWhen: ${p.trigger}\nStop before: ${p.protected_action}\nAsk: ${p.approver}\nShow: ${p.review_information.join(", ")}\nYes: ${p.approved_result}\nNo: ${p.rejected_result}\nNo response: ${p.timeout_result}\n\nSetup:\n${config.steps.map((step,index)=>`${index+1}. ${step}`).join("\n")}\n\nBuilt-in safeguards:\n- One decision per request\n- GET links never decide\n- Explicit no-response result\n- Authenticated final decision check\n- Callback retry after temporary failures\n\nBefore going live, use harmless data to confirm approval, rejection, no response, and duplicate retry. Do not connect the real action until those paths behave correctly.`}
+    function planText(){const p=packet(),config=platformConfig(),detail=verifiedDetails[currentTemplateId],steps=detail?.beginnerSteps||config.steps;return `ADD THIS APPROVAL TO ${config.name.toUpperCase()}\n\nPut it here:\n${p.platforms_before.join(", ")} → SHSY approval → ${p.platforms_after.join(", ")}\n\nDelivery:\n${deliveryLabels[deliveryChoice]}\n\nDecision:\nWhen: ${p.trigger}\nStop before: ${p.protected_action}\nAsk: ${p.approver}\nShow: ${p.review_information.join(", ")}\nYes: ${p.approved_result}\nNo: ${p.rejected_result}\nNo response: ${p.timeout_result}\n\nSetup:\n${steps.map((step,index)=>`${index+1}. ${step}`).join("\n")}\n\nSHSY handles:\n- The approval page and email or Slack delivery\n- The waiting state and timeout\n- One decision across retries and repeated clicks\n- Callback retry and the authenticated final record\n\nBefore going live, use harmless data to confirm approval, rejection, no response, and duplicate retry. Do not connect the real action until those paths behave correctly.`}
     document.getElementById("copyPlan").addEventListener("click",async event=>{const config=platformConfig();try{await navigator.clipboard.writeText(planText());event.currentTarget.textContent=`Copied. Return to ${config.name}.`;setTimeout(()=>event.currentTarget.textContent=`Copy ${config.name} setup`,1900)}catch(_){event.currentTarget.textContent="Copy unavailable"}});
     document.getElementById("downloadJson").addEventListener("click",()=>{const blob=new Blob([JSON.stringify(packet(),null,2)],{type:"application/json"}),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download="approval-plan.json";document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000)});
     document.getElementById("editAnswers").addEventListener("click",()=>{state.step=questions.length-1;result.classList.remove("visible");wizard.style.display="block";renderQuestion();window.scrollTo({top:0,behavior:"smooth"})});
@@ -449,6 +481,7 @@
     function returnFromResult(){result.classList.remove("visible");if(resultSource==="example"&&resultSnapshot){state.step=resultSnapshot.step;state.answers=resultSnapshot.answers;resultSnapshot=null;wizard.style.display="block";renderQuestion();window.scrollTo({top:0,behavior:"smooth"});return}if(resultSource==="template"){wizard.style.display="block";state.step=0;state.answers={};renderQuestion();document.getElementById("verified").scrollIntoView({behavior:"smooth"});return}state.step=Math.max(0,questions.length-1);wizard.style.display="block";renderQuestion();window.scrollTo({top:0,behavior:"smooth"})}
     document.getElementById("returnFromResult").addEventListener("click",()=>{if(window.history.state?.approvalResult)window.history.back();else{returnFromResult();window.history.replaceState({},"",location.pathname)}});
     document.getElementById("shareResult").addEventListener("click",async event=>{const url=currentTemplateId?`${location.origin}${location.pathname}?template=${encodeURIComponent(currentTemplateId)}`:location.href;try{if(navigator.share)await navigator.share({title:document.getElementById("resultTitle").textContent,url});else{await navigator.clipboard.writeText(url);event.currentTarget.textContent="Link copied";setTimeout(()=>event.currentTarget.textContent="Share this result",1500)}}catch(_){}});
+    let deliveryChoice="email";const deliveryLabels={email:"Email approval",slack:"Slack approval",link:"Private approval link"};document.querySelectorAll("[data-delivery]").forEach(button=>button.addEventListener("click",()=>{deliveryChoice=button.dataset.delivery;document.querySelectorAll("[data-delivery]").forEach(item=>item.setAttribute("aria-pressed",String(item===button)));document.getElementById("deliveryChannel").textContent=deliveryLabels[deliveryChoice]}));
     showExample.addEventListener("click",()=>{resultSnapshot=JSON.parse(JSON.stringify(state));state.answers={situation:"Refunds over $500 should wait for Finance before Stripe sends the money.",protected_action:"Send the Stripe refund",trigger:"A support agent requests a refund over $500",approver:"Finance manager",review_information:["order","amount","refund reason","customer history"],approved_result:"Send the refund once",rejected_result:"Keep the payment unchanged",timeout_result:"Do not send and notify Finance",platforms_before:"Zendesk, Make",platforms_after:"Stripe"};showResult({source:"example"})});
     document.querySelectorAll(".template-open").forEach(button=>button.addEventListener("click",()=>{const card=button.closest("[data-template]"),selected=savedTemplates[card.dataset.template];if(!selected)return;state.answers=JSON.parse(JSON.stringify(selected));state.step=questions.length;history.innerHTML="";showResult({source:"template",templateId:card.dataset.template})}));
     document.querySelectorAll(".template-share").forEach(button=>button.addEventListener("click",async()=>{const card=button.closest("[data-template]"),url=`${location.origin}${location.pathname}?template=${encodeURIComponent(card.dataset.template)}`;try{if(navigator.share)await navigator.share({title:card.querySelector("strong").textContent.trim(),url});else{await navigator.clipboard.writeText(url);button.textContent="Copied";setTimeout(()=>button.textContent="Share",1300)}}catch(_){}}));
