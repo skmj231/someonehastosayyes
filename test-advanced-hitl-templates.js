@@ -5,7 +5,6 @@ const path = require("node:path");
 const read = (file) => fs.readFileSync(path.join(__dirname, file), "utf8");
 const approval = read("approval.html");
 const landing = read("landing.html");
-const server = read("server.js");
 const catalog = require("./template-catalog.json");
 
 const cases = [
@@ -13,7 +12,7 @@ const cases = [
     id: "ai-database-change",
     file: "examples/n8n-ai-database-change-approval.json",
     guide: "examples/n8n-ai-database-change-approval.md",
-    route: "/templates/n8n-ai-database-change-approval.json",
+    route: /github\.com\/skmj231\/someonehastosayyes\/raw\/refs\/heads\/main\/examples\/n8n-ai-database-change-approval\.json/,
     protected: "database.mutate",
     required: [/environment/i, /expected affected rows/i, /command hash/i, /authenticated/i],
   },
@@ -21,7 +20,7 @@ const cases = [
     id: "sensitive-hr-message-release",
     file: "examples/n8n-sensitive-hr-message-approval.json",
     guide: "examples/n8n-sensitive-hr-message-approval.md",
-    route: "/templates/n8n-sensitive-hr-message-approval.json",
+    route: /github\.com\/skmj231\/someonehastosayyes\/raw\/refs\/heads\/main\/examples\/n8n-sensitive-hr-message-approval\.json/,
     protected: "hr_message.send",
     required: [/sanitized final message/i, /removed-field/i, /message(?:-and-destination)? hash/i, /authenticated/i],
   },
@@ -35,7 +34,8 @@ for (const item of cases) {
   assert.match(landing, new RegExp(`template=${item.id}`));
   assert.match(approval, new RegExp(`data-template="${item.id}"`));
   assert.match(approval, new RegExp(`"${item.id}"[\\s\\S]*?platformName:"n8n"`));
-  assert.match(server, new RegExp(item.route.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  assert.match(entry.file, item.route);
+  assert.match(approval, item.route);
 
   const workflowText = read(item.file);
   const workflow = JSON.parse(workflowText);
