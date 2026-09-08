@@ -272,6 +272,7 @@
         </div>
         <ol class="setup-steps" id="setupSteps"></ol>
         <div class="actions">
+          <a class="action primary" id="downloadWorkflow" href="#" hidden>Download workflow</a>
           <button class="action primary" id="copyPlan" type="button">Copy setup</button>
           <button class="action" id="editAnswers" type="button">Back to answers</button>
           <button class="action" id="startAgain" type="button">Start again</button>
@@ -316,6 +317,20 @@
           <p>Bind approval to the draft hash, version, and destination before final render or publish.</p>
           <span class="template-use">Use the tested template →</span><button class="template-share" type="button" aria-label="Share template">Share</button>
         </article>
+        <article class="template-card" data-template="ai-database-change" style="--template-accent:#7447d8">
+          <button class="template-open" type="button" aria-label="Open AI database change approval template"></button><span class="template-status">Testing</span>
+          <span class="template-meta"><span class="template-category">AI agent · n8n</span></span>
+          <span class="template-title-row"><strong>Run the exact AI-proposed database change <span class="approval-tag">approval</span></strong></span>
+          <p>Bind the decision to the environment, target, affected rows and command hash before the database changes.</p>
+          <span class="template-use">Review the test plan →</span><button class="template-share" type="button" aria-label="Share template">Share</button>
+        </article>
+        <article class="template-card" data-template="sensitive-hr-message-release" style="--template-accent:#c54f36">
+          <button class="template-open" type="button" aria-label="Open sensitive HR message release approval template"></button><span class="template-status">Testing</span>
+          <span class="template-meta"><span class="template-category">HR message · n8n</span></span>
+          <span class="template-title-row"><strong>Release the checked HR message <span class="approval-tag">approval</span></strong></span>
+          <p>Approve only the sanitized message, recipient, channel and hash—never copy the raw HR record into SHSY.</p>
+          <span class="template-use">Review the test plan →</span><button class="template-share" type="button" aria-label="Share template">Share</button>
+        </article>
       </div>
     </section>
   </main>
@@ -340,7 +355,9 @@
       "candidate-rejection-email":{situation:"Bulk candidate rejection emails must not be sent until a recruiter reviews the exact batch, decision basis, and final message.",protected_action:"Send the candidate rejection emails",trigger:"A recruiting workflow selects a group of candidates for rejection",approver:"Recruiting owner",review_information:["candidate count","candidate list or saved ATS view","job","decision basis","email subject and body","scheduled send time"],approved_result:"Send the rejection emails once and record the decision",rejected_result:"Send nothing and return the batch to the recruiting owner",timeout_result:"Send nothing and notify the recruiting owner",platforms_before:"ATS, n8n",platforms_after:"Email provider, ATS"},
       "shopify-refund-release":{situation:"Refunds requested by outsourced support must not return money until the store manager reviews the exact order and amount.",protected_action:"Issue the Shopify refund",trigger:"An outsourced support agent requests a refund above the store threshold",approver:"Customer support manager for the Shopify store",review_information:["order ID","refund amount","refund reason","payment status","customer refund history","requesting agent"],approved_result:"Issue the approved refund once and record the decision",rejected_result:"Leave the payment unchanged and notify the requesting agent",timeout_result:"Leave the payment unchanged and notify the store manager",platforms_before:"Shopify Flow, Make",platforms_after:"Shopify"},
       "timed-outreach-veto":{situation:"An outbound sales email should pause briefly so the rep can stop a message that needs a call or a final correction.",protected_action:"Send the outbound email",trigger:"The outreach automation finishes a personalized email draft",approver:"Sales representative who owns the lead",review_information:["recipient","company","subject","final email draft","lead context","time remaining"],approved_result:"Send the exact approved email once",rejected_result:"Hold the email and return the lead to the sales representative",timeout_result:"Continue to the send route after 60 seconds",platforms_before:"Make, CRM, email drafting tool",platforms_after:"Email provider"},
-      "ai-video-draft-release":{situation:"An AI video draft must not enter final render or publishing unless the creative lead approves the exact version that will be released.",protected_action:"Release the reviewed video version to final render or publishing",trigger:"The designer attaches a new AI video draft URL and marks the draft ready for review",approver:"Assigned creative lead or client reviewer",review_information:["video preview URL","original brief","prompt summary","draft version","SHA-256 draft hash","publish destination"],approved_result:"Release only the reviewed hash, version, and destination once",rejected_result:"Publish nothing and return the draft for revision with the reviewer comment",timeout_result:"Keep the release blocked and notify the workflow owner",platforms_before:"Make, form, AI video tool",platforms_after:"Final renderer, CMS, or social publisher"}
+      "ai-video-draft-release":{situation:"An AI video draft must not enter final render or publishing unless the creative lead approves the exact version that will be released.",protected_action:"Release the reviewed video version to final render or publishing",trigger:"The designer attaches a new AI video draft URL and marks the draft ready for review",approver:"Assigned creative lead or client reviewer",review_information:["video preview URL","original brief","prompt summary","draft version","SHA-256 draft hash","publish destination"],approved_result:"Release only the reviewed hash, version, and destination once",rejected_result:"Publish nothing and return the draft for revision with the reviewer comment",timeout_result:"Keep the release blocked and notify the workflow owner",platforms_before:"Make, form, AI video tool",platforms_after:"Final renderer, CMS, or social publisher"},
+      "ai-database-change":{situation:"An AI agent must not change a database until the requesting user confirms the exact environment, target records and proposed values.",protected_action:"Run the AI-proposed database change",trigger:"The web app user asks the AI agent to create, update or delete database records",approver:"The web app user who requested the change",review_information:["environment","table and operation","target record filter","expected affected rows","safe before and after summary","SHA-256 command hash"],approved_result:"Run the same hashed command once and return the result to the web app",rejected_result:"Change nothing and return the rejection to the web app",timeout_result:"Expire the request and leave the database unchanged",platforms_before:"Web app, n8n AI Agent, MCP",platforms_after:"SQL database, web app"},
+      "sensitive-hr-message-release":{situation:"An AI-written HR message must not leave the company until a responsible person reviews the sanitized final copy and its destination.",protected_action:"Send the checked HR message externally",trigger:"The PII check flags an AI-written Slack, email or CRM message for human review",approver:"HR owner or manager responsible for the message",review_information:["recipient","delivery channel","sanitized final message","sensitivity flags","fields removed before review","SHA-256 message hash"],approved_result:"Send the same sanitized message to the same recipient and channel once",rejected_result:"Send nothing and return the draft for revision",timeout_result:"Expire the request and send nothing",platforms_before:"HR system, n8n AI draft, deterministic PII check",platforms_after:"Slack, Gmail, or CRM"}
     };
     const verifiedDetails={
       "ai-video-draft-release":{
@@ -370,6 +387,38 @@
         setupHelp:"A webhook URL is simply the return address Make creates for the decision. You create it once and paste it into the SHSY request.",
         beginnerSteps:["In Make, create a new Custom webhook. Copy the URL Make gives you. SHSY will send the final result back to this address.","In your outreach scenario, add HTTP → Make a request immediately before Send email. Map the recipient, company, subject, final draft, lead context and rep.","Set the window to 60 seconds. Use Hold as the rejected result and approved as the no-response result.","In the receiving scenario, check the final SHSY record. Send the exact email once only when approved is true. Hold sends nothing and returns the lead to the rep."],
         resultNote:"This template passed a connected Make test across approval creation, email and Slack delivery, the 60-second timeout, callback and approved routing."
+      },
+      "ai-database-change":{
+        platformName:"n8n",
+        workflowFile:"/templates/n8n-ai-database-change-approval.json",
+        testedTitle:"Required checks before VERIFIED",
+        capabilityCopy:"The user approves one specific database mutation, not a vague request to let the agent continue.",
+        capabilities:["The approver sees the database environment, operation, target filter and expected affected rows together.","A SHA-256 hash binds the decision to the exact structured command that n8n will execute.","The original web request can finish quickly while SHSY waits and returns the decision to a separate n8n webhook.","Reject or no response leaves the database unchanged.","Credentials, connection strings and unrestricted row data never belong in the approval request."],
+        tests:[["Approve","Request → Approve → Callback → Authenticated lookup → Matching hash → Harmless test update"],["Reject","Request → Reject → Callback → Authenticated lookup → No database change"],["No response","Expiry → Rejected → Callback → No database change"],["Duplicate","Same idempotency key → Same approval ID"],["Changed command","Approved hash ≠ current hash → Block"],["Final decision","Callback ID → SHSY lookup → Verified state"]],
+        userChoices:["Who may approve","Which safe change details they see","How long to wait","Where n8n receives the result"],
+        shsyHandles:["Approval page and email, Slack or private-link delivery","Waiting and automatic timeout","One decision across retries and repeated clicks","Callback retries and authenticated final result"],
+        makeSteps:["Send a safe change summary and command hash to SHSY.","Receive the completed result at a permanent webhook.","Fetch the authenticated final state.","Execute once only when approved and the environment, target and hash still match."],
+        setupIntro:"Add one asynchronous stop before the MCP or SQL node. The web request can return a pending result immediately; SHSY sends the final decision to a separate n8n webhook.",
+        setupNeeds:["Your existing n8n workflow","A SHSY API key","Approver email or Slack","One permanent n8n webhook URL"],
+        setupHelp:"Do not send database passwords, connection strings or full sensitive rows. Send a readable change summary plus the hash of the exact structured command.",
+        beginnerSteps:["Add an HTTP Request node before the MCP or SQL action. Send the safe change summary, target, environment, expected row count and command hash to SHSY.","Use the web app response to say the change is waiting for approval. Do not keep the original browser request open.","Create a second Webhook path for the SHSY callback. Use its approval ID in an authenticated SHSY GET request.","Continue to the database node only when the final state is approved and a fresh hash of the current command matches the approved hash."],
+        resultNote:"TESTING — the approval contract and harmless test plan are ready. This template is not VERIFIED until approve, reject, no response, duplicate, callback, authenticated lookup and hash-mismatch blocking pass in a connected n8n workflow."
+      },
+      "sensitive-hr-message-release":{
+        platformName:"n8n",
+        workflowFile:"/templates/n8n-sensitive-hr-message-approval.json",
+        testedTitle:"Required checks before VERIFIED",
+        capabilityCopy:"The person approves the exact cleaned message that may leave the company—without copying the raw HR record into SHSY.",
+        capabilities:["n8n removes or blocks prohibited fields before the approval request is created.","The approver sees the sanitized final message, recipient, channel, flags and removed-field names.","A SHA-256 hash binds approval to the exact final message and destination.","If the text, recipient or channel changes after review, the send route stays blocked.","Reject or no response sends nothing and returns the draft for revision."],
+        tests:[["Approve","Sanitize → Approve → Callback → Authenticated lookup → Matching hash → Harmless test delivery"],["Reject","Sanitize → Reject → Callback → No message sent"],["No response","Expiry → Rejected → Callback → No message sent"],["Duplicate","Same idempotency key → Same approval ID"],["Changed message","Approved hash ≠ current hash → Block"],["PII boundary","Raw HR record absent from SHSY request and notification"]],
+        userChoices:["Who may approve","Which flags and removed fields they see","How long to wait","Where n8n receives the result"],
+        shsyHandles:["Approval page and email, Slack or private-link delivery","Waiting and automatic timeout","One decision across retries and repeated clicks","Callback retries and authenticated final result"],
+        makeSteps:["Remove prohibited fields and prepare the final message.","Send only the cleaned message summary and hash to SHSY.","Receive and verify the completed result.","Send once only when the final message, recipient, channel and hash still match."],
+        setupIntro:"Place a deterministic PII check before SHSY and the external send node after it. SHSY holds the human decision; n8n keeps control of the source HR data and final delivery.",
+        setupNeeds:["Your existing n8n workflow","A SHSY API key","Approver email or Slack","One permanent n8n webhook URL"],
+        setupHelp:"Keep names of removed field types, not their raw values. Never put salary, review notes, phone numbers, API keys or the original HR record into the SHSY context.",
+        beginnerSteps:["Before the AI step, map only the HR fields the draft truly needs. After the draft, run deterministic checks for prohibited PII and secrets.","Build the exact sanitized final message. Hash that message together with its recipient and delivery channel.","Send only the sanitized message, flags, removed-field names and hash to SHSY. Return a pending result instead of keeping the original request open.","In the callback workflow, fetch the authenticated final state. Send only when approved and a fresh message-and-destination hash still matches."],
+        resultNote:"TESTING — the approval contract and harmless test plan are ready. This template is not VERIFIED until all decision paths, notification delivery, callback, authenticated lookup, message-hash mismatch and raw-data exclusion pass in a connected n8n workflow."
       }
     };
     const wizard=document.getElementById("wizard"), result=document.getElementById("result"), fields=document.getElementById("fields"), form=document.getElementById("questionForm"), composer=document.getElementById("composer"), guide=document.getElementById("guide"), title=document.getElementById("questionTitle"), intro=document.getElementById("intro"), eyebrow=document.getElementById("eyebrow"), history=document.getElementById("history"), progress=document.getElementById("progress"), nextCard=document.getElementById("nextCard"), showExample=document.getElementById("showExample"), backButton=document.getElementById("backButton"), undoReset=document.getElementById("undoReset"), undoButton=document.getElementById("undoButton");
@@ -443,6 +492,7 @@
     }
     function renderVerifiedDetails(detail){
       document.getElementById("capabilityCopy").textContent=detail.capabilityCopy;
+      document.getElementById("testedTitle").textContent=detail.testedTitle||"Tested in a connected Make workflow";
       document.getElementById("capabilityList").innerHTML=detail.capabilities.map(item=>`<li>${esc(item)}</li>`).join("");
       document.getElementById("testResults").innerHTML=detail.tests.map(([label,outcome])=>`<div class="test-result"><strong>${esc(label)}</strong><span class="test-flow">${String(outcome).split("→").map((step,index)=>`${index?'<span class="test-flow-arrow">→</span>':''}<span class="test-flow-step">${esc(step.trim())}</span>`).join("")}</span></div>`).join("");
       document.getElementById("userChoices").innerHTML=detail.userChoices.map(item=>`<li>${esc(item)}</li>`).join("");
@@ -451,6 +501,7 @@
       const setupSummary=document.getElementById("setupSummary");setupSummary.hidden=!detail.setupNeeds;
       document.getElementById("setupNeeds").innerHTML=(detail.setupNeeds||[]).map(item=>`<span class="setup-need">${esc(item)}</span>`).join("");
       document.getElementById("setupHelp").textContent=detail.setupHelp||"";
+      const workflow=document.getElementById("downloadWorkflow");workflow.hidden=!detail.workflowFile;if(detail.workflowFile){workflow.href=detail.workflowFile;workflow.textContent=`Download ${detail.platformName||"workflow"} template`}
     }
     function showResult(options={}){
       resultSource=options.source||resultSource||"answers";currentTemplateId=options.templateId||null;
@@ -459,13 +510,14 @@
       document.getElementById("verifiedCapabilities").hidden=!verifiedDetail;
       document.getElementById("safetySection").hidden=Boolean(verifiedDetail);
       if(verifiedDetail)renderVerifiedDetails(verifiedDetail);else document.getElementById("setupSummary").hidden=true;
+      if(!verifiedDetail)document.getElementById("downloadWorkflow").hidden=true;
       document.getElementById("resultNote").textContent=verifiedDetail?verifiedDetail.resultNote:"This plan defines the approval. It does not claim the connected automation has been tested. Verified templates appear only after the real action passes an account-connected test.";
       wizard.style.display="none";result.classList.add("visible");document.getElementById("resultTitle").textContent=`Stop before: ${state.answers.protected_action}`;document.getElementById("resultSummary").textContent=`${state.answers.approver} decides after seeing ${state.answers.review_information.join(", ")}.`;
       const rows=[["When",state.answers.trigger],["Ask",state.answers.approver],["Show",state.answers.review_information.join(", ")],["Yes",state.answers.approved_result],["No",state.answers.rejected_result],["No response",state.answers.timeout_result]];
       document.getElementById("plan").innerHTML=rows.map(([k,v])=>`<div class="plan-row"><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join("");
       document.getElementById("pathBefore").textContent=state.answers.platforms_before;document.getElementById("pathAfter").textContent=state.answers.platforms_after;
       document.getElementById("approvalQuestion").textContent=`Approve: ${state.answers.protected_action}?`;document.getElementById("approvalFacts").innerHTML=state.answers.review_information.map(value=>`<li>${esc(value)}</li>`).join("");document.getElementById("approvalOutcome").textContent=`If yes: ${state.answers.approved_result}. If no: ${state.answers.rejected_result}.`;
-      const config=platformConfig(),displayName=verifiedDetail?"Make":config.name,displaySteps=verifiedDetail?.beginnerSteps||config.steps;document.getElementById("platformName").textContent=displayName;document.getElementById("platformWorkload").textContent=verifiedDetail?.setupIntro||config.workload;document.getElementById("setupSteps").innerHTML=displaySteps.map(step=>`<li>${esc(step)}</li>`).join("");document.getElementById("copyPlan").textContent=`Copy ${displayName} steps`;
+      const config=platformConfig(),displayName=verifiedDetail?(verifiedDetail.platformName||"Make"):config.name,displaySteps=verifiedDetail?.beginnerSteps||config.steps;document.getElementById("platformName").textContent=displayName;document.getElementById("platformWorkload").textContent=verifiedDetail?.setupIntro||config.workload;document.getElementById("setupSteps").innerHTML=displaySteps.map(step=>`<li>${esc(step)}</li>`).join("");document.getElementById("copyPlan").textContent=`Copy ${displayName} steps`;
       document.getElementById("returnFromResult").textContent=resultSource==="example"?"← Return to your question":resultSource==="template"?"← Return to templates":"← Back to answers";
       if(!options.skipHistory)window.history.pushState({approvalResult:true,source:resultSource,templateId:currentTemplateId},"",currentTemplateId?`?template=${encodeURIComponent(currentTemplateId)}`:"#result");
       if(resultSource==="answers")try{localStorage.removeItem("shsy-approval-plan-draft")}catch(_){}window.scrollTo({top:0,behavior:"smooth"})
