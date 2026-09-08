@@ -674,6 +674,76 @@
     "description": "Confirm assignees and due dates before creating tasks."
   },
   {
+    "id": "ai-database-change",
+    "status": "testing",
+    "title": "AI-proposed database change approval",
+    "summary": "Run only the exact database mutation whose environment, target, row count and command hash the requesting user approved.",
+    "category": "Data",
+    "platform": "n8n",
+    "apps": [
+      "n8n",
+      "Web app",
+      "SQL"
+    ],
+    "color": "#7447d8",
+    "actionInk": "#fff",
+    "tags": [
+      "AI agent",
+      "SQL",
+      "MCP",
+      "Command hash",
+      "Asynchronous approval"
+    ],
+    "flow": [
+      "Change proposed",
+      "Return pending",
+      "Request approval",
+      "Verify exact command",
+      "Run once or block"
+    ],
+    "protected": "database.mutate",
+    "timeout": "60 minutes, then reject",
+    "replace": "SHSY key, permanent callback webhook, approver, safe change summary, expected rows, and command hash",
+    "connect": "Existing MCP or SQL mutation node",
+    "file": "/templates/n8n-ai-database-change-approval.json",
+    "description": "Confirm the exact AI-proposed database mutation without keeping the web request open."
+  },
+  {
+    "id": "sensitive-hr-message-release",
+    "status": "testing",
+    "title": "Sensitive HR message release approval",
+    "summary": "Send only the sanitized message whose recipient, channel and content hash an HR owner approved.",
+    "category": "People",
+    "platform": "n8n",
+    "apps": [
+      "n8n",
+      "HR",
+      "Slack or Gmail"
+    ],
+    "color": "#c54f36",
+    "actionInk": "#fff",
+    "tags": [
+      "HR",
+      "PII",
+      "AI draft",
+      "Message hash",
+      "Data minimization"
+    ],
+    "flow": [
+      "Draft created",
+      "Remove prohibited data",
+      "Request approval",
+      "Verify exact message",
+      "Send once or block"
+    ],
+    "protected": "hr_message.send",
+    "timeout": "60 minutes, then reject",
+    "replace": "SHSY key, permanent callback webhook, approver, sanitized message, flags, removed-field names, recipient, channel, and hash",
+    "connect": "Existing Slack, Gmail, or CRM send node",
+    "file": "/templates/n8n-sensitive-hr-message-approval.json",
+    "description": "Review a sanitized HR message without sending the raw HR record to SHSY."
+  },
+  {
     "id": "ai-video-draft-release",
     "status": "verified",
     "title": "AI video draft release approval",
