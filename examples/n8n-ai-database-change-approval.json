@@ -1,0 +1,77 @@
+{
+  "name": "SHSY — approve an AI-proposed database change",
+  "nodes": [
+    {
+      "parameters": {"httpMethod":"POST","path":"shsy-ai-database-change","responseMode":"responseNode","options":{}},
+      "name": "Web app requests a change",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, -160],
+      "webhookId": "replace-after-import-request"
+    },
+    {
+      "parameters": {"jsCode":"const crypto = require('crypto');\nconst b = $json.body || $json;\nconst command = { environment: b.environment, operation: b.operation, table: b.table, target_filter: b.target_filter, values: b.values, expected_rows: b.expected_rows };\nconst command_json = JSON.stringify(command);\nconst command_sha256 = crypto.createHash('sha256').update(command_json).digest('hex');\nreturn [{ json: { request_id: b.request_id, approver: b.approver, command, command_json, command_sha256, before_after_summary: b.before_after_summary || 'Review the proposed field changes', callback_url: b.callback_url || 'https://YOUR-N8N/webhook/shsy-ai-database-change-result' } }];"},
+      "name": "Freeze the exact command",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [240, -160]
+    },
+    {
+      "parameters": {"method":"POST","url":"https://someonehastosayyes.com/v1/approvals","authentication":"genericCredentialType","genericAuthType":"httpHeaderAuth","sendHeaders":true,"headerParameters":{"parameters":[{"name":"Idempotency-Key","value":"={{ 'db-change-' + $json.request_id + '-' + $json.command_sha256 }}"}]},"sendBody":true,"specifyBody":"json","jsonBody":"={{ JSON.stringify({ question: 'Run this AI-proposed database change?', context: { environment: $json.command.environment, operation: $json.command.operation, table: $json.command.table, target_filter: $json.command.target_filter, expected_rows: $json.command.expected_rows, before_after_summary: $json.before_after_summary, command_json: $json.command_json, command_sha256: $json.command_sha256 }, approve_label: 'Run this change', reject_label: 'Keep database unchanged', channel: 'email', to: $json.approver, callback_url: $json.callback_url, timeout_minutes: 60, default_on_timeout: 'rejected' }) }}","options":{}},
+      "name": "Create SHSY approval",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [500, -160]
+    },
+    {
+      "parameters": {"respondWith":"json","responseBody":"={{ JSON.stringify({ status: 'waiting_for_approval', approval_id: $json.id }) }}","options":{"responseCode":202}},
+      "name": "Return pending to web app",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [760, -160]
+    },
+    {
+      "parameters": {"httpMethod":"POST","path":"shsy-ai-database-change-result","responseMode":"onReceived","options":{}},
+      "name": "Receive final decision",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 220],
+      "webhookId": "replace-after-import-result"
+    },
+    {
+      "parameters": {"url":"={{ 'https://someonehastosayyes.com/v1/approvals/' + ($json.body.id || $json.body.approval_id) }}","authentication":"genericCredentialType","genericAuthType":"httpHeaderAuth","options":{}},
+      "name": "Get authenticated SHSY result",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [250, 220]
+    },
+    {
+      "parameters": {"jsCode":"const crypto = require('crypto');\nconst c = $json.context || {};\nconst freshHash = crypto.createHash('sha256').update(c.command_json || '').digest('hex');\nreturn [{ json: { ...$json, authorized: $json.status === 'approved' && freshHash === c.command_sha256, command: JSON.parse(c.command_json || '{}') } }];"},
+      "name": "Verify decision and command hash",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [500, 220]
+    },
+    {
+      "parameters": {"conditions":{"options":{"caseSensitive":true,"typeValidation":"strict"},"conditions":[{"leftValue":"={{ $json.authorized }}","rightValue":true,"operator":{"type":"boolean","operation":"true","singleValue":true}}],"combinator":"and"},"options":{}},
+      "name": "Authorized?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [750, 220]
+    },
+    {"parameters":{},"name":"CONNECT HARMLESS TEST DB ACTION HERE","type":"n8n-nodes-base.noOp","typeVersion":1,"position":[1010,120]},
+    {"parameters":{},"name":"Return rejected or expired","type":"n8n-nodes-base.noOp","typeVersion":1,"position":[1010,320]}
+  ],
+  "connections": {
+    "Web app requests a change":{"main":[[{"node":"Freeze the exact command","type":"main","index":0}]]},
+    "Freeze the exact command":{"main":[[{"node":"Create SHSY approval","type":"main","index":0}]]},
+    "Create SHSY approval":{"main":[[{"node":"Return pending to web app","type":"main","index":0}]]},
+    "Receive final decision":{"main":[[{"node":"Get authenticated SHSY result","type":"main","index":0}]]},
+    "Get authenticated SHSY result":{"main":[[{"node":"Verify decision and command hash","type":"main","index":0}]]},
+    "Verify decision and command hash":{"main":[[{"node":"Authorized?","type":"main","index":0}]]},
+    "Authorized?":{"main":[[{"node":"CONNECT HARMLESS TEST DB ACTION HERE","type":"main","index":0}],[{"node":"Return rejected or expired","type":"main","index":0}]]}
+  },
+  "settings": {"executionOrder":"v1"},
+  "meta": {"templateCredsSetupCompleted":false},
+  "tags": []
+}
