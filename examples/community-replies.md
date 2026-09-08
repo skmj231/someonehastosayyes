@@ -62,3 +62,19 @@ https://community.n8n.io/t/human-in-the-loop-slack-send-wait-node-broken-on-self
 - API 키 요청 DM → 수동 발급 (API_KEYS에 추가 후 재시작)
 - 자기 워크플로 연결 → /v1/stats 에서 pending 증가
 - 실제 승인 1건 처리 → /v1/stats 의 callbacks_delivered ≥ 1  ← 이게 사업 신호
+
+---
+
+## 승인 전 초안 — n8n 웹앱에서 AI의 DB 변경 확인
+https://community.n8n.io/t/approvals-for-webapp-triggered-workflows/196116
+
+> Omid — I was interested in the part where your webapp request finishes, but the database action still needs a decision in the middle. I worked out an asynchronous version where the webapp gets a “waiting for approval” response, the user reviews the exact environment, target rows and proposed values, and n8n executes only if the final command hash still matches.
+>
+> I have the approval contract and an importable n8n workflow ready, but I do not want to guess the last part of your setup. Does your MCP server receive raw SQL, or a structured command such as `{operation, table, filter, values}`? A fictional example of one real change request—and what the webapp should show while it is pending—would be enough for me to run the connected test without touching your data.
+
+## 승인 전 초안 — 민감한 HR 메시지 발송 전 확인
+https://www.reddit.com/r/n8n/comments/1tjamdb/how_are_people_checking_aigenerated_slackgmail/
+
+> I kept thinking about your question because the useful boundary is not just “add an approval button.” I worked out a flow where n8n removes prohibited fields first, then the reviewer sees only the sanitized final message, recipient, channel, sensitivity flags and a hash that prevents a changed message from reusing the decision. The raw HR record never goes into the approval request.
+>
+> I have the workflow and test paths ready, but one detail would make the test match the problem you actually saw: which destination matters first—Slack, Gmail or a CRM—and would a fictional sample containing the same kinds of fields be representative? I only need the field types your check should remove, not any employee data.
