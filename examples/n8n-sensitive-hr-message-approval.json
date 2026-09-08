@@ -1,0 +1,77 @@
+{
+  "name": "SHSY — approve a sanitized HR message",
+  "nodes": [
+    {
+      "parameters": {"httpMethod":"POST","path":"shsy-hr-message","responseMode":"responseNode","options":{}},
+      "name": "Sanitized draft ready",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, -160],
+      "webhookId": "replace-after-import-request"
+    },
+    {
+      "parameters": {"jsCode":"const crypto = require('crypto');\nconst b = $json.body || $json;\nif (!b.sanitized_message || !b.recipient || !b.channel) throw new Error('sanitized_message, recipient and channel are required');\nconst envelope = { sanitized_message: b.sanitized_message, recipient: b.recipient, channel: b.channel };\nconst message_sha256 = crypto.createHash('sha256').update(JSON.stringify(envelope)).digest('hex');\nreturn [{ json: { request_id: b.request_id, approver: b.approver, ...envelope, message_sha256, sensitivity_flags: b.sensitivity_flags || [], removed_fields: b.removed_fields || [], callback_url: b.callback_url || 'https://YOUR-N8N/webhook/shsy-hr-message-result' } }];"},
+      "name": "Keep only the review-safe message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [240, -160]
+    },
+    {
+      "parameters": {"method":"POST","url":"https://someonehastosayyes.com/v1/approvals","authentication":"genericCredentialType","genericAuthType":"httpHeaderAuth","sendHeaders":true,"headerParameters":{"parameters":[{"name":"Idempotency-Key","value":"={{ 'hr-message-' + $json.request_id + '-' + $json.message_sha256 }}"}]},"sendBody":true,"specifyBody":"json","jsonBody":"={{ JSON.stringify({ question: 'Send this checked HR message?', context: { recipient: $json.recipient, delivery_channel: $json.channel, sanitized_final_message: $json.sanitized_message, sensitivity_flags: $json.sensitivity_flags, removed_fields: $json.removed_fields, message_sha256: $json.message_sha256 }, approve_label: 'Send this message', reject_label: 'Return for revision', channel: 'email', to: $json.approver, callback_url: $json.callback_url, timeout_minutes: 60, default_on_timeout: 'rejected' }) }}","options":{}},
+      "name": "Create SHSY approval",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [500, -160]
+    },
+    {
+      "parameters": {"respondWith":"json","responseBody":"={{ JSON.stringify({ status: 'waiting_for_approval', approval_id: $json.id }) }}","options":{"responseCode":202}},
+      "name": "Return pending",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [760, -160]
+    },
+    {
+      "parameters": {"httpMethod":"POST","path":"shsy-hr-message-result","responseMode":"onReceived","options":{}},
+      "name": "Receive final decision",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 220],
+      "webhookId": "replace-after-import-result"
+    },
+    {
+      "parameters": {"url":"={{ 'https://someonehastosayyes.com/v1/approvals/' + ($json.body.id || $json.body.approval_id) }}","authentication":"genericCredentialType","genericAuthType":"httpHeaderAuth","options":{}},
+      "name": "Get authenticated SHSY result",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [250, 220]
+    },
+    {
+      "parameters": {"jsCode":"const crypto = require('crypto');\nconst c = $json.context || {};\nconst envelope = { sanitized_message: c.sanitized_final_message, recipient: c.recipient, channel: c.delivery_channel };\nconst freshHash = crypto.createHash('sha256').update(JSON.stringify(envelope)).digest('hex');\nreturn [{ json: { ...$json, authorized: $json.status === 'approved' && freshHash === c.message_sha256, final_message: c.sanitized_final_message, recipient: c.recipient, delivery_channel: c.delivery_channel } }];"},
+      "name": "Verify decision and message hash",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [500, 220]
+    },
+    {
+      "parameters": {"conditions":{"options":{"caseSensitive":true,"typeValidation":"strict"},"conditions":[{"leftValue":"={{ $json.authorized }}","rightValue":true,"operator":{"type":"boolean","operation":"true","singleValue":true}}],"combinator":"and"},"options":{}},
+      "name": "Authorized?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [750, 220]
+    },
+    {"parameters":{},"name":"CONNECT TEST SLACK OR EMAIL SEND HERE","type":"n8n-nodes-base.noOp","typeVersion":1,"position":[1010,120]},
+    {"parameters":{},"name":"Send nothing and return for revision","type":"n8n-nodes-base.noOp","typeVersion":1,"position":[1010,320]}
+  ],
+  "connections": {
+    "Sanitized draft ready":{"main":[[{"node":"Keep only the review-safe message","type":"main","index":0}]]},
+    "Keep only the review-safe message":{"main":[[{"node":"Create SHSY approval","type":"main","index":0}]]},
+    "Create SHSY approval":{"main":[[{"node":"Return pending","type":"main","index":0}]]},
+    "Receive final decision":{"main":[[{"node":"Get authenticated SHSY result","type":"main","index":0}]]},
+    "Get authenticated SHSY result":{"main":[[{"node":"Verify decision and message hash","type":"main","index":0}]]},
+    "Verify decision and message hash":{"main":[[{"node":"Authorized?","type":"main","index":0}]]},
+    "Authorized?":{"main":[[{"node":"CONNECT TEST SLACK OR EMAIL SEND HERE","type":"main","index":0}],[{"node":"Send nothing and return for revision","type":"main","index":0}]]}
+  },
+  "settings": {"executionOrder":"v1"},
+  "meta": {"templateCredsSetupCompleted":false},
+  "tags": []
+}
