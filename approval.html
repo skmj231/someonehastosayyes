@@ -390,7 +390,7 @@
       },
       "ai-database-change":{
         platformName:"n8n",
-        workflowFile:"/templates/n8n-ai-database-change-approval.json",
+        workflowFile:"https://github.com/skmj231/someonehastosayyes/raw/refs/heads/main/examples/n8n-ai-database-change-approval.json",
         testedTitle:"Required checks before VERIFIED",
         capabilityCopy:"The user approves one specific database mutation, not a vague request to let the agent continue.",
         capabilities:["The approver sees the database environment, operation, target filter and expected affected rows together.","A SHA-256 hash binds the decision to the exact structured command that n8n will execute.","The original web request can finish quickly while SHSY waits and returns the decision to a separate n8n webhook.","Reject or no response leaves the database unchanged.","Credentials, connection strings and unrestricted row data never belong in the approval request."],
@@ -406,7 +406,7 @@
       },
       "sensitive-hr-message-release":{
         platformName:"n8n",
-        workflowFile:"/templates/n8n-sensitive-hr-message-approval.json",
+        workflowFile:"https://github.com/skmj231/someonehastosayyes/raw/refs/heads/main/examples/n8n-sensitive-hr-message-approval.json",
         testedTitle:"Required checks before VERIFIED",
         capabilityCopy:"The person approves the exact cleaned message that may leave the company—without copying the raw HR record into SHSY.",
         capabilities:["n8n removes or blocks prohibited fields before the approval request is created.","The approver sees the sanitized final message, recipient, channel, flags and removed-field names.","A SHA-256 hash binds approval to the exact final message and destination.","If the text, recipient or channel changes after review, the send route stays blocked.","Reject or no response sends nothing and returns the draft for revision."],
