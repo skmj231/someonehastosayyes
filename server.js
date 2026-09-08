@@ -900,12 +900,8 @@ app.post("/a/:token", (req, res) => {
 const fmt = (t) => new Date(t).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 
 function renderApproval(a) {
-  const ctx = a.context ? JSON.parse(a.context) : null;
-  const reviewUrl = ctx && typeof ctx === "object" ? [ctx.draft_url, ctx.review_url, ctx.preview_url].find((value) => {
-    try { const url = new URL(value); return url.protocol === "https:" || url.protocol === "http:"; } catch { return false; }
-  }) : null;
-  const reviewLink = reviewUrl ? `<p class="review-link"><a href="${esc(reviewUrl)}" target="_blank" rel="noopener noreferrer">Open the exact draft being reviewed ↗</a></p>` : "";
-  const ctxHtml = ctx && !(ctx.demo) ? `${reviewLink}<pre>${esc(typeof ctx === "string" ? ctx : JSON.stringify(ctx, null, 2))}</pre>` : "";
+  const fields = contextEntries(a);
+  const ctxHtml = fields.length ? `<dl class="review-facts">${fields.map(({ key, label, value }) => `<div><dt>${esc(label)}</dt><dd>${isSafeReviewUrl(value) ? `<a href="${esc(value)}" target="_blank" rel="noopener noreferrer">${esc(reviewLinkText(key, value))}</a>` : esc(value)}</dd></div>`).join("")}</dl>` : "";
   if (a.status !== "pending") {
     const word = { approved: a.approve_label, rejected: a.reject_label, timed_out: "no answer in time", canceled: "withdrawn" }[a.status] || a.status;
     const cls = a.status === "approved" ? "yes" : "no";
@@ -934,13 +930,13 @@ function page(title, body) {
 <style>:root{--ink:#111;--ink2:#6F6F6F;--ink3:#B8B8B8;--rule:#E6E6E6;--yes:#1E6B3A;--no:#8A1C1C}
 body{font-family:'Bricolage Grotesque',system-ui,sans-serif;max-width:560px;margin:0 auto;padding:56px 24px 80px;color:var(--ink);line-height:1.45;font-size:17px;-webkit-font-smoothing:antialiased}
 .eyebrow{font-size:13px;color:var(--ink3);margin:0 0 28px}h1{font-size:clamp(26px,6vw,36px);line-height:1.1;letter-spacing:-.03em;font-weight:500;margin:0 0 20px}
-pre{font:13.5px/1.6 'Geist Mono',ui-monospace,monospace;color:var(--ink2);white-space:pre-wrap;margin:0 0 24px;padding:14px 0;border-top:1px solid var(--rule);border-bottom:1px solid var(--rule)}
+.review-facts{margin:24px 0 28px;border-top:1px solid var(--rule)}.review-facts div{display:grid;grid-template-columns:34% 1fr;gap:18px;padding:12px 0;border-bottom:1px solid var(--rule)}.review-facts dt{color:var(--ink2);font-size:14px}.review-facts dd{margin:0;font-size:15px;word-break:break-word}.review-facts a{color:var(--yes);font-weight:500;text-underline-offset:3px}
 input{width:100%;border:0;border-bottom:1px solid var(--rule);font:inherit;padding:12px 0;background:transparent;box-sizing:border-box}input::placeholder{color:var(--ink3)}
 .row{display:flex;gap:10px;margin-top:28px}button{flex:1;padding:16px;border:1px solid var(--ink);border-radius:999px;font:500 18px 'Bricolage Grotesque',sans-serif;cursor:pointer;background:#fff;color:var(--ink)}
 button.yes{background:var(--ink);color:#fff}button:hover{filter:brightness(.92)}
 input:focus-visible,button:focus-visible{outline:2px solid var(--ink);outline-offset:3px}
 .verdict{font-size:clamp(40px,10vw,64px);letter-spacing:-.04em;line-height:1;margin:8px 0 12px;font-weight:500}.verdict.yes{color:var(--yes)}.verdict.no{color:var(--no)}
-.review-link{margin:0 0 16px}.review-link a{display:inline-flex;align-items:center;padding:10px 14px;border:1px solid var(--ink);border-radius:999px;color:var(--ink);font-size:15px;font-weight:500;text-decoration:none}.review-link a:hover{background:var(--ink);color:#fff}.muted{color:var(--ink2);font-size:15px;margin:14px 0 0}</style></head><body>${body}</body></html>`;
+.muted{color:var(--ink2);font-size:15px;margin:14px 0 0}@media(max-width:520px){body{padding:38px 18px 64px}.review-facts div{grid-template-columns:1fr;gap:4px}}</style></head><body>${body}</body></html>`;
 }
 
 // ---------- 콜백 (n8n resumeUrl / Make 웹훅) ----------
@@ -1249,14 +1245,73 @@ async function deliverDueNotifications() {
 }
 setInterval(() => deliverDueNotifications().catch(() => {}), DELIVERY_SWEEP_MS).unref();
 
+const CONTEXT_LABELS = {
+  draft_url: "Video preview",
+  review_url: "Review link",
+  preview_url: "Preview",
+  draft_version: "Version",
+  original_brief: "Original request",
+  prompt_summary: "Prompt summary",
+  destination: "Publish to",
+  reviewer_role: "Approver",
+  recipient: "Recipient",
+  company: "Company",
+  subject: "Subject",
+  final_email_draft: "Final email",
+  lead_context: "Lead context",
+  time_remaining: "Time remaining",
+  draft_sha256: "Draft fingerprint",
+  request_id: "Request",
+};
+
+const CONTEXT_PRIORITY = [
+  "draft_url", "review_url", "preview_url", "draft_version", "original_brief",
+  "prompt_summary", "destination", "reviewer_role", "recipient", "company",
+  "subject", "final_email_draft", "lead_context", "time_remaining",
+  "draft_sha256", "request_id",
+];
+
+function contextEntries(a) {
+  let ctx = null;
+  try { ctx = a.context ? JSON.parse(a.context) : null; } catch {}
+  if (!ctx || typeof ctx !== "object" || Array.isArray(ctx)) return [];
+  const keys = [...CONTEXT_PRIORITY.filter((key) => key in ctx), ...Object.keys(ctx).filter((key) => !CONTEXT_PRIORITY.includes(key))];
+  return keys.filter((key) => !["case_id", "draft_id", "demo"].includes(key) && ctx[key] != null && ctx[key] !== "").slice(0, 12).map((key) => {
+    const raw = ctx[key];
+    let value = typeof raw === "string" ? raw : JSON.stringify(raw);
+    if (key.endsWith("sha256") && value.length > 20) value = `${value.slice(0, 12)}…${value.slice(-8)}`;
+    return { key, label: CONTEXT_LABELS[key] || key.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase()), value };
+  });
+}
+
+function isSafeReviewUrl(value) {
+  try { const url = new URL(value); return url.protocol === "https:" || url.protocol === "http:"; } catch { return false; }
+}
+
+function reviewLinkText(key, value) {
+  let host = "source";
+  try { host = new URL(value).hostname.replace(/^www\./, ""); } catch {}
+  const item = key === "draft_url" ? "video" : key === "review_url" ? "source" : "preview";
+  return `Open ${item} on ${host} ↗`;
+}
+
+function slackText(value) {
+  return String(value).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
 // ---------- 이메일 (Resend) ----------
 async function sendEmail(a) {
   if (!RESEND_API_KEY) throw new Error("RESEND_API_KEY not set; approve_url still works");
   const url = `${BASE_URL}/a/${a.token}`;
-  const ctx = a.context ? JSON.parse(a.context) : null;
-  const html = `<p style="font-size:16px"><b>${esc(a.question)}</b></p>${ctx ? `<pre style="background:#f4f4f5;padding:12px">${esc(typeof ctx === "string" ? ctx : JSON.stringify(ctx, null, 2))}</pre>` : ""}
-  <p><a href="${url}" style="display:inline-block;padding:12px 20px;background:#111;color:#fff;border-radius:8px;text-decoration:none">Open and decide</a></p>
-  <p style="color:#666;font-size:13px">Answer by ${fmt(a.timeout_at)} UTC (about ${Math.round((a.timeout_at - now()) / 3600000)} hours from now)</p>`;
+  const fields = contextEntries(a);
+  const rows = fields.map(({ key, label, value }) => {
+    const shown = isSafeReviewUrl(value)
+      ? `<a href="${esc(value)}" style="color:#145c45;font-weight:650;text-decoration:underline">${esc(reviewLinkText(key, value))}</a>`
+      : esc(value);
+    return `<tr><td style="width:34%;padding:12px 0;border-top:1px solid #e4e5df;color:#747870;vertical-align:top">${esc(label)}</td><td style="padding:12px 0;border-top:1px solid #e4e5df;color:#171916;font-weight:${key === "draft_version" ? "700" : "500"};vertical-align:top;word-break:break-word">${shown}</td></tr>`;
+  }).join("");
+  const dflt = a.default_on_timeout === "approved" ? a.approve_label : a.default_on_timeout === "rejected" ? a.reject_label : "no decision";
+  const html = `<!doctype html><html><body style="margin:0;background:#f4f5f1;color:#171916;font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif"><div style="padding:32px 14px"><div style="max-width:620px;margin:0 auto;background:#fff;border:1px solid #dfe2da;border-radius:18px;overflow:hidden"><div style="padding:30px 30px 24px"><p style="margin:0 0 16px;color:#145c45;font:700 12px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.12em;text-transform:uppercase">Approval requested</p><h1 style="margin:0;font-size:28px;line-height:1.16;letter-spacing:-.035em">${esc(a.question)}</h1></div>${rows ? `<div style="padding:0 30px"><table role="presentation" style="width:100%;border-collapse:collapse;font-size:15px;line-height:1.45">${rows}</table></div>` : ""}<div style="padding:26px 30px 30px"><a href="${url}" style="display:block;padding:14px 18px;background:#171916;color:#fff;border-radius:10px;text-align:center;text-decoration:none;font-size:16px;font-weight:700">Review and decide</a><p style="margin:16px 0 0;color:#747870;font-size:13px;line-height:1.5">Answer by ${fmt(a.timeout_at)} UTC. If nobody answers, the result is <b style="color:#171916">${esc(dflt)}</b>.</p></div></div><p style="max-width:620px;margin:14px auto 0;color:#8a8e86;font-size:12px;text-align:center">Opening this email cannot approve the request. A decision is recorded only after you choose on the secure review page.</p></div></body></html>`;
   const r = await fetch(RESEND_API_URL, {
     method: "POST",
     headers: { authorization: `Bearer ${RESEND_API_KEY}`, "content-type": "application/json", "idempotency-key": `approval-email/${a.id}` },
@@ -1279,9 +1334,18 @@ async function sendEmail(a) {
 // 우리가 앱을 호스팅한다. 사용자는 봇 토큰과 인터랙션 URL만 한 번 설정.
 // 버튼 클릭 → 3초 내 200 응답 → 메시지를 제자리에서 교체 (새 탭 없음, 404 없음).
 function slackBlocks(a) {
-  const ctx = a.context ? JSON.parse(a.context) : null;
-  const blocks = [{ type: "section", text: { type: "mrkdwn", text: `*${a.question}*` } }];
-  if (ctx) blocks.push({ type: "section", text: { type: "mrkdwn", text: "```" + (typeof ctx === "string" ? ctx : JSON.stringify(ctx, null, 2)).slice(0, 2500) + "```" } });
+  const fields = contextEntries(a);
+  const blocks = [
+    { type: "header", text: { type: "plain_text", text: "Approval requested", emoji: true } },
+    { type: "section", text: { type: "mrkdwn", text: `*${slackText(a.question)}*` } },
+  ];
+  if (fields.length) {
+    blocks.push({ type: "divider" });
+    blocks.push({ type: "section", fields: fields.slice(0, 10).map(({ key, label, value }) => ({
+      type: "mrkdwn",
+      text: `*${slackText(label)}*\n${isSafeReviewUrl(value) ? `<${value}|${slackText(reviewLinkText(key, value))}>` : slackText(value).slice(0, 700)}`,
+    })) });
+  }
   if (a.status === "pending") {
     blocks.push({
       type: "actions",
@@ -1293,7 +1357,7 @@ function slackBlocks(a) {
     });
     const dflt = a.default_on_timeout === "approved" ? a.approve_label : a.default_on_timeout === "rejected" ? a.reject_label : "no answer in time";
     const ts = Math.floor(a.timeout_at / 1000);
-    blocks.push({ type: "context", elements: [{ type: "mrkdwn", text: `Answer by <!date^${ts}^{date_short_pretty} at {time}|${fmt(a.timeout_at)} UTC> · after that it counts as "${dflt}" · <${BASE_URL}/a/${a.token}|open in browser>` }] });
+    blocks.push({ type: "context", elements: [{ type: "mrkdwn", text: `Decide by <!date^${ts}^{date_short_pretty} at {time}|${fmt(a.timeout_at)} UTC>  ·  No answer → *${slackText(dflt)}*  ·  <${BASE_URL}/a/${a.token}|Open secure review>` }] });
   } else {
     const label = { approved: a.approve_label, rejected: a.reject_label, timed_out: "no answer in time", canceled: "withdrawn" }[a.status] || a.status;
     const mark = a.status === "approved" ? "✅" : "⛔";

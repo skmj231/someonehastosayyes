@@ -345,7 +345,7 @@
     const verifiedDetails={
       "ai-video-draft-release":{
         capabilityCopy:"This does more than ask whether a video can be published.",
-        capabilities:["The reviewer sees the preview, request, prompt, version, file hash and destination together.","Only the exact approved version, hash and destination can continue.","Email, Slack or a private link works without a Make account.","Reject, no response, retries and repeated clicks all end in one clear result."],
+        capabilities:["The reviewer opens the original video from its source link. SHSY does not upload or store the video file.","The request, prompt, version, file hash and destination stay beside the review link.","Only the exact approved version, hash and destination can continue.","Email, Slack or a private link works without a Make account.","Reject, no response, retries and repeated clicks all end in one clear result."],
         testedCopy:"Checked from the first approval request through Make's final release decision.",
         tests:[["Email approval","Email → Approve → Make callback → Verified lookup → Release"],["Slack rejection","Slack → Reject → Make callback → Verified lookup → Block"],["No response","60 seconds → Reject → Make callback → Block"],["Duplicate request","Same request → Same approval ID"],["Release match","Version + hash + destination → Match → Release"],["Final decision","Callback ID → SHSY lookup → Verified state"]],
         userChoices:["Who approves and what they see","How long to wait","What no response means","Where Make receives the result"],

@@ -70,6 +70,7 @@ async function run() {
   const email = payloads.find((item) => item.url === "/emails").body;
   assert.match(email.html, /Approval requested/);
   assert.match(email.html, /Video preview/);
+  assert.match(email.html, /Open video on example\.com/);
   assert.match(email.html, /Review and decide/);
   assert.doesNotMatch(email.html, /<pre/);
   assert.doesNotMatch(email.html, /make-community-112270/);
@@ -78,6 +79,7 @@ async function run() {
   assert.equal(slack.blocks[0].type, "header");
   assert.equal(slack.blocks[0].text.text, "Approval requested");
   assert.ok(slack.blocks.some((block) => block.fields?.some((field) => field.text.includes("Video preview"))));
+  assert.ok(slack.blocks.some((block) => block.fields?.some((field) => field.text.includes("Open video on example.com"))));
   assert.ok(slack.blocks.some((block) => block.type === "actions"));
   assert.ok(!JSON.stringify(slack.blocks).includes("make-community-112270"));
   assert.ok(!JSON.stringify(slack.blocks).includes("```"));
