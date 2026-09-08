@@ -705,7 +705,7 @@
     "timeout": "60 minutes, then reject",
     "replace": "SHSY key, permanent callback webhook, approver, safe change summary, expected rows, and command hash",
     "connect": "Existing MCP or SQL mutation node",
-    "file": "/templates/n8n-ai-database-change-approval.json",
+    "file": "https://github.com/skmj231/someonehastosayyes/raw/refs/heads/main/examples/n8n-ai-database-change-approval.json",
     "description": "Confirm the exact AI-proposed database mutation without keeping the web request open."
   },
   {
@@ -740,7 +740,7 @@
     "timeout": "60 minutes, then reject",
     "replace": "SHSY key, permanent callback webhook, approver, sanitized message, flags, removed-field names, recipient, channel, and hash",
     "connect": "Existing Slack, Gmail, or CRM send node",
-    "file": "/templates/n8n-sensitive-hr-message-approval.json",
+    "file": "https://github.com/skmj231/someonehastosayyes/raw/refs/heads/main/examples/n8n-sensitive-hr-message-approval.json",
     "description": "Review a sanitized HR message without sending the raw HR record to SHSY."
   },
   {
