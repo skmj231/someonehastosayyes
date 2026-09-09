@@ -251,7 +251,7 @@
             </article>
           </div>
           <div class="make-remains">
-            <h3>What stays in Make</h3>
+            <h3 id="platformRemainsTitle">What stays in Make</h3>
             <ol id="makeSteps"></ol>
           </div>
           <p class="capability-takeaway" id="capabilityTakeaway">You define the approval policy. SHSY runs the approval system.</p>
@@ -497,6 +497,7 @@
       document.getElementById("testResults").innerHTML=detail.tests.map(([label,outcome])=>`<div class="test-result"><strong>${esc(label)}</strong><span class="test-flow">${String(outcome).split("→").map((step,index)=>`${index?'<span class="test-flow-arrow">→</span>':''}<span class="test-flow-step">${esc(step.trim())}</span>`).join("")}</span></div>`).join("");
       document.getElementById("userChoices").innerHTML=detail.userChoices.map(item=>`<li>${esc(item)}</li>`).join("");
       document.getElementById("shsyHandles").innerHTML=detail.shsyHandles.map(item=>`<li>${esc(item)}</li>`).join("");
+      document.getElementById("platformRemainsTitle").textContent=`What stays in ${detail.platformName||"Make"}`;
       document.getElementById("makeSteps").innerHTML=detail.makeSteps.map(item=>`<li>${esc(item)}</li>`).join("");
       const setupSummary=document.getElementById("setupSummary");setupSummary.hidden=!detail.setupNeeds;
       document.getElementById("setupNeeds").innerHTML=(detail.setupNeeds||[]).map(item=>`<span class="setup-need">${esc(item)}</span>`).join("");
