@@ -675,7 +675,7 @@
   },
   {
     "id": "ai-database-change",
-    "status": "testing",
+    "status": "verified",
     "title": "AI-proposed database change approval",
     "summary": "Run only the exact database mutation whose environment, target, row count and command hash the requesting user approved.",
     "category": "Data",
@@ -710,7 +710,7 @@
   },
   {
     "id": "sensitive-hr-message-release",
-    "status": "testing",
+    "status": "verified",
     "title": "Sensitive HR message release approval",
     "summary": "Send only the sanitized message whose recipient, channel and content hash an HR owner approved.",
     "category": "People",

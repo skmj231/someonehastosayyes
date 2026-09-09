@@ -318,18 +318,18 @@
           <span class="template-use">Use the tested template →</span><button class="template-share" type="button" aria-label="Share template">Share</button>
         </article>
         <article class="template-card" data-template="ai-database-change" style="--template-accent:#7447d8">
-          <button class="template-open" type="button" aria-label="Open AI database change approval template"></button><span class="template-status">Testing</span>
+          <button class="template-open" type="button" aria-label="Open AI database change approval template"></button><span class="template-status verified-badge">✓ Verified</span>
           <span class="template-meta"><span class="template-category">AI agent · n8n</span></span>
           <span class="template-title-row"><strong>Run the exact AI-proposed database change <span class="approval-tag">approval</span></strong></span>
           <p>Bind the decision to the environment, target, affected rows and command hash before the database changes.</p>
-          <span class="template-use">Review the test plan →</span><button class="template-share" type="button" aria-label="Share template">Share</button>
+          <span class="template-use">Use the tested template →</span><button class="template-share" type="button" aria-label="Share template">Share</button>
         </article>
         <article class="template-card" data-template="sensitive-hr-message-release" style="--template-accent:#c54f36">
-          <button class="template-open" type="button" aria-label="Open sensitive HR message release approval template"></button><span class="template-status">Testing</span>
+          <button class="template-open" type="button" aria-label="Open sensitive HR message release approval template"></button><span class="template-status verified-badge">✓ Verified</span>
           <span class="template-meta"><span class="template-category">HR message · n8n</span></span>
           <span class="template-title-row"><strong>Release the checked HR message <span class="approval-tag">approval</span></strong></span>
           <p>Approve only the sanitized message, recipient, channel and hash—never copy the raw HR record into SHSY.</p>
-          <span class="template-use">Review the test plan →</span><button class="template-share" type="button" aria-label="Share template">Share</button>
+          <span class="template-use">Use the tested template →</span><button class="template-share" type="button" aria-label="Share template">Share</button>
         </article>
       </div>
     </section>
@@ -391,10 +391,10 @@
       "ai-database-change":{
         platformName:"n8n",
         workflowFile:"https://github.com/skmj231/someonehastosayyes/raw/refs/heads/main/examples/n8n-ai-database-change-approval.json",
-        testedTitle:"Required checks before VERIFIED",
+        testedTitle:"Tested in a connected n8n workflow",
         capabilityCopy:"The user approves one specific database mutation, not a vague request to let the agent continue.",
         capabilities:["The approver sees the database environment, operation, target filter and expected affected rows together.","A SHA-256 hash binds the decision to the exact structured command that n8n will execute.","The original web request can finish quickly while SHSY waits and returns the decision to a separate n8n webhook.","Reject or no response leaves the database unchanged.","Credentials, connection strings and unrestricted row data never belong in the approval request."],
-        tests:[["Approve","Request → Approve → Callback → Authenticated lookup → Matching hash → Harmless test update"],["Reject","Request → Reject → Callback → Authenticated lookup → No database change"],["No response","Expiry → Rejected → Callback → No database change"],["Duplicate","Same idempotency key → Same approval ID"],["Changed command","Approved hash ≠ current hash → Block"],["Final decision","Callback ID → SHSY lookup → Verified state"]],
+        tests:[["Approve","Request → Approve → Authenticated lookup → Exact test-row update"],["Reject","Request → Reject → No database change"],["No response","Expiry → Reject → No database change"],["Duplicate","Same request → Same approval ID"],["Changed command","Approved hash ≠ current hash → Block"],["Replay","Same approved callback → 0 rows changed"]],
         userChoices:["Who may approve","Which safe change details they see","How long to wait","Where n8n receives the result"],
         shsyHandles:["Approval page and email, Slack or private-link delivery","Waiting and automatic timeout","One decision across retries and repeated clicks","Callback retries and authenticated final result"],
         makeSteps:["Send a safe change summary and command hash to SHSY.","Receive the completed result at a permanent webhook.","Fetch the authenticated final state.","Execute once only when approved and the environment, target and hash still match."],
@@ -402,15 +402,15 @@
         setupNeeds:["Your existing n8n workflow","A SHSY API key","Approver email or Slack","One permanent n8n webhook URL"],
         setupHelp:"Do not send database passwords, connection strings or full sensitive rows. Send a readable change summary plus the hash of the exact structured command.",
         beginnerSteps:["Add an HTTP Request node before the MCP or SQL action. Send the safe change summary, target, environment, expected row count and command hash to SHSY.","Use the web app response to say the change is waiting for approval. Do not keep the original browser request open.","Create a second Webhook path for the SHSY callback. Use its approval ID in an authenticated SHSY GET request.","Continue to the database node only when the final state is approved and a fresh hash of the current command matches the approved hash."],
-        resultNote:"TESTING — the approval contract and harmless test plan are ready. This template is not VERIFIED until approve, reject, no response, duplicate, callback, authenticated lookup and hash-mismatch blocking pass in a connected n8n workflow."
+        resultNote:"This template passed a connected n8n test across approval, rejection, no response, duplicate request and click, notification delivery, callback, authenticated lookup, hash mismatch and protected-action replay."
       },
       "sensitive-hr-message-release":{
         platformName:"n8n",
         workflowFile:"https://github.com/skmj231/someonehastosayyes/raw/refs/heads/main/examples/n8n-sensitive-hr-message-approval.json",
-        testedTitle:"Required checks before VERIFIED",
+        testedTitle:"Tested in a connected n8n workflow",
         capabilityCopy:"The person approves the exact cleaned message that may leave the company—without copying the raw HR record into SHSY.",
         capabilities:["n8n removes or blocks prohibited fields before the approval request is created.","The approver sees the sanitized final message, recipient, channel, flags and removed-field names.","A SHA-256 hash binds approval to the exact final message and destination.","If the text, recipient or channel changes after review, the send route stays blocked.","Reject or no response sends nothing and returns the draft for revision."],
-        tests:[["Approve","Sanitize → Approve → Callback → Authenticated lookup → Matching hash → Harmless test delivery"],["Reject","Sanitize → Reject → Callback → No message sent"],["No response","Expiry → Rejected → Callback → No message sent"],["Duplicate","Same idempotency key → Same approval ID"],["Changed message","Approved hash ≠ current hash → Block"],["PII boundary","Raw HR record absent from SHSY request and notification"]],
+        tests:[["Approve","Sanitize → Approve → Authenticated lookup → Private Slack delivery"],["Reject","Sanitize → Reject → No message sent"],["No response","Expiry → Reject → No message sent"],["Duplicate","Same request → Same approval ID"],["Changed message","Approved hash ≠ current hash → Block"],["PII boundary","Raw HR record absent → Fictional message received"]],
         userChoices:["Who may approve","Which flags and removed fields they see","How long to wait","Where n8n receives the result"],
         shsyHandles:["Approval page and email, Slack or private-link delivery","Waiting and automatic timeout","One decision across retries and repeated clicks","Callback retries and authenticated final result"],
         makeSteps:["Remove prohibited fields and prepare the final message.","Send only the cleaned message summary and hash to SHSY.","Receive and verify the completed result.","Send once only when the final message, recipient, channel and hash still match."],
@@ -418,7 +418,7 @@
         setupNeeds:["Your existing n8n workflow","A SHSY API key","Approver email or Slack","One permanent n8n webhook URL"],
         setupHelp:"Keep names of removed field types, not their raw values. Never put salary, review notes, phone numbers, API keys or the original HR record into the SHSY context.",
         beginnerSteps:["Before the AI step, map only the HR fields the draft truly needs. After the draft, run deterministic checks for prohibited PII and secrets.","Build the exact sanitized final message. Hash that message together with its recipient and delivery channel.","Send only the sanitized message, flags, removed-field names and hash to SHSY. Return a pending result instead of keeping the original request open.","In the callback workflow, fetch the authenticated final state. Send only when approved and a fresh message-and-destination hash still matches."],
-        resultNote:"TESTING — the approval contract and harmless test plan are ready. This template is not VERIFIED until all decision paths, notification delivery, callback, authenticated lookup, message-hash mismatch and raw-data exclusion pass in a connected n8n workflow."
+        resultNote:"This template passed a connected n8n test across approval, rejection, no response, duplicate request and click, notification delivery, callback, authenticated lookup, message-hash mismatch, raw-data exclusion and real private Slack receipt."
       }
     };
     const wizard=document.getElementById("wizard"), result=document.getElementById("result"), fields=document.getElementById("fields"), form=document.getElementById("questionForm"), composer=document.getElementById("composer"), guide=document.getElementById("guide"), title=document.getElementById("questionTitle"), intro=document.getElementById("intro"), eyebrow=document.getElementById("eyebrow"), history=document.getElementById("history"), progress=document.getElementById("progress"), nextCard=document.getElementById("nextCard"), showExample=document.getElementById("showExample"), backButton=document.getElementById("backButton"), undoReset=document.getElementById("undoReset"), undoButton=document.getElementById("undoButton");
