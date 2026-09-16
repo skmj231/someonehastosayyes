@@ -2081,6 +2081,8 @@ app.get("/health", (_req, res) => {
   });
 });
 
+require("./seller-api").mountSeller(app, { db, adminAuth, baseUrl: BASE_URL, secret: SIGNING_SECRET });
+
 app.use((err, req, res, _next) => {
   console.error("[request-error]", req.method, req.path, err && (err.stack || err.message || err));
   if (res.headersSent) return res.end();

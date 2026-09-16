@@ -1,89 +1,13 @@
-# SHSY Agent Seller Lab — Track A
+# SHSY Agent Seller Lab
 
-## Objective
+[Current execution and evidence record](EXECUTION-2026-09-17.md) · [Track B posture](TRACK-B-OUTREACH.md)
 
-Operate one real paid endpoint for autonomous agents and learn seller economics directly. The first 14-day KPI is not revenue; it is **distinct external paying buyers** and **repeat-paying buyers**.
+One deterministic product, one payment rail, one actual external buyer as the completion threshold. Current product is Email Preflight; older Korea Company Evidence notes are superseded.
 
-## Product v0
+Required operator input: `SHSY_PAY_TO`, the SHSY-controlled Base USDC receiving address. Optional `SHSY_TEST_PAYERS` is a comma-separated list of self/friendly wallets excluded from demand.
 
-`POST /api/korea/company/evidence`
+Other configuration: `SHSY_PRICE_ATOMIC=1000` (USDC has six decimals); `SHSY_EXPERIMENT_ID=email-preflight-v1`. Existing `SIGNING_SECRET` protects payer hashes, so rotating it changes pseudonymous identity continuity. Existing `ADMIN_SECRET` protects `/admin/seller/telemetry`.
 
-A Korean-company evidence and reconciliation result for agents. This is not a proprietary-company-data claim. The service combines verifiable public/upstream evidence, reconciles conflicts, timestamps sources, and returns `unknown` when evidence is insufficient.
+The default PayAI facilitator requires no API keys for its available free allowance. At 2026-09-21 12:00 UTC the default path stops taking payments for cost review. Existing CDP configuration may be used with `CDP_API_KEY_ID` and `CDP_API_KEY_SECRET`; never paste secrets into research files or source control.
 
-### Input
-
-```json
-{
-  "company_name": "Example Korea Co., Ltd.",
-  "domain": "example.co.kr"
-}
-```
-
-### Output contract
-
-```json
-{
-  "query": {},
-  "matched_entity": null,
-  "match_confidence": null,
-  "legal_name": null,
-  "english_name": null,
-  "operating_status": "unknown",
-  "representative": null,
-  "address": null,
-  "website": null,
-  "recent_activity": null,
-  "recent_filings": [],
-  "hiring_signal": "unknown",
-  "evidence": [],
-  "conflicts": [],
-  "verified_at": "ISO-8601"
-}
-```
-
-Every evidence item must include `source_url`, `source_name`, `observed_at`, and `fields_supported`. Never invent missing values.
-
-## Commercial experiment
-
-- Initial price: **$0.05 USDC / successful result**.
-- Initial payment rail: **x402 on Base only**.
-- Recipient address must be configured as `SHSY_PAY_TO`; never hard-code or invent one.
-- Do not add MPP, cards, seller onboarding, marketplace, or routing until buyer evidence warrants it.
-
-## Telemetry
-
-Record only observed events:
-
-- timestamp
-- endpoint
-- quoted price
-- 402 issued
-- payment completed / failed when observable
-- payer identifier when legitimately exposed by the protocol
-- first-time / repeat where derivable
-- response success
-- latency
-- upstream cost when known
-- revenue
-- discovery/referrer where observable
-
-Do not synthesize missing metrics. `payment conversion` is unavailable unless the denominator is actually observed.
-
-## Experiment decision rules
-
-1. Zero external payers: investigate discovery before adding products or rails.
-2. External payer but no repeat: inspect result utility and next job requested.
-3. Repeat payer: use the buyer's adjacent job to choose Product #2.
-4. Do not call the experiment a success based on self-tests or friendly/manual purchases.
-
-## Track B connection
-
-SHSY is provider #0. We will use our own seller telemetry to test the same questions raised by providers: qualified demand, discovery, distinct buyer reach, repeat behavior, and whether price is actually the binding constraint.
-
-## Remaining live inputs
-
-- `SHSY_PAY_TO`: Base-compatible USDC receiving address controlled by SHSY.
-- Evidence source credentials only if/when a selected upstream source requires them.
-- Production host/domain.
-
-Until these are configured and the endpoint is deployed, do not claim that SHSY is accepting live x402 payments.
+Test: `npm run test:seller`. Mock payments have no relationship to real demand. Never count an unclassified wallet as a verified external agent without reviewing evidence.
