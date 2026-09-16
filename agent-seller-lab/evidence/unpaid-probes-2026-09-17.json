@@ -1,0 +1,52 @@
+[
+  {
+    "provider": "oneshot",
+    "url": "https://win.oneshotagent.com/v1/tools/verify/email",
+    "method": "POST",
+    "observed_at": "2026-09-16T15:28:00.076Z",
+    "status": 402,
+    "elapsed_ms": 539,
+    "headers": {
+      "content-type": "application/json; charset=utf-8",
+      "payment-required": "eyJ4NDAyVmVyc2lvbiI6MiwiZXJyb3IiOiJQYXltZW50IHJlcXVpcmVkIiwicmVzb3VyY2UiOnsidXJsIjoiaHR0cHM6Ly93aW4ub25lc2hvdGFnZW50LmNvbS92MS90b29scy92ZXJpZnkvZW1haWwiLCJkZXNjcmlwdGlvbiI6IkVtYWlsIGRlbGl2ZXJhYmlsaXR5IHZlcmlmaWNhdGlvbiIsIm1pbWVUeXBlIjoiYXBwbGljYXRpb24vanNvbiJ9LCJhY2NlcHRzIjpbeyJzY2hlbWUiOiJleGFjdCIsIm5ldHdvcmsiOiJlaXAxNTU6ODQ1MyIsImFtb3VudCI6IjEwMDAiLCJhc3NldCI6IjB4ODMzNTg5ZkNENmVEYjZFMDhmNGM3QzMyRDRmNzFiNTRiZEEwMjkxMyIsInBheVRvIjoiMHg5ZmIzNjVFNEU5Mzg1RTJhMzlGZUJBZDcwMzY4MjY3ZTZmNTcxZDlBIiwibWF4VGltZW91dFNlY29uZHMiOjMwMCwiZXh0cmEiOnsibmFtZSI6IlVTRCBDb2luIiwidmVyc2lvbiI6IjIifX1dLCJleHRlbnNpb25zIjp7ImJhemFhciI6eyJpbmZvIjp7ImlucHV0Ijp7InR5cGUiOiJodHRwIiwiYm9keVR5cGUiOiJqc29uIiwiYm9keSI6eyJlbWFpbCI6InVzZXJAZXhhbXBsZS5jb20ifSwibWV0aG9kIjoiUE9TVCJ9LCJvdXRwdXQiOnsidHlwZSI6Impzb24iLCJleGFtcGxlIjp7ImRlbGl2ZXJhYmxlIjp0cnVlLCJyaXNrIjoibG93IiwibXhfdmFsaWQiOnRydWV9fX0sInNjaGVtYSI6eyIkc2NoZW1hIjoiaHR0cHM6Ly9qc29uLXNjaGVtYS5vcmcvZHJhZnQvMjAyMC0xMi9zY2hlbWEiLCJ0eXBlIjoib2JqZWN0IiwicHJvcGVydGllcyI6eyJpbnB1dCI6eyJ0eXBlIjoib2JqZWN0IiwicHJvcGVydGllcyI6eyJ0eXBlIjp7InR5cGUiOiJzdHJpbmciLCJjb25zdCI6Imh0dHAifSwibWV0aG9kIjp7InR5cGUiOiJzdHJpbmciLCJlbnVtIjpbIlBPU1QiXX0sImJvZHlUeXBlIjp7InR5cGUiOiJzdHJpbmciLCJlbnVtIjpbImpzb24iLCJmb3JtLWRhdGEiLCJ0ZXh0Il19LCJib2R5Ijp7InByb3BlcnRpZXMiOnsiZW1haWwiOnsidHlwZSI6InN0cmluZyIsImZvcm1hdCI6ImVtYWlsIn19LCJyZXF1aXJlZCI6WyJlbWFpbCJdfX0sInJlcXVpcmVkIjpbInR5cGUiLCJib2R5VHlwZSIsImJvZHkiLCJtZXRob2QiXSwiYWRkaXRpb25hbFByb3BlcnRpZXMiOmZhbHNlfSwib3V0cHV0Ijp7InR5cGUiOiJvYmplY3QiLCJwcm9wZXJ0aWVzIjp7InR5cGUiOnsidHlwZSI6InN0cmluZyJ9LCJleGFtcGxlIjp7InR5cGUiOiJvYmplY3QifX0sInJlcXVpcmVkIjpbInR5cGUiXX19LCJyZXF1aXJlZCI6WyJpbnB1dCJdfX19fQ=="
+    },
+    "body": "{\"error\":\"payment_required\",\"code\":402,\"message\":\"Payment required for this request.\",\"payment_request\":{\"chain_id\":8453,\"token_address\":\"0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913\",\"amount\":\"0.001\",\"recipient\":\"0x9fb365E4E9385E2a39FeBAd70368267e6f571d9A\"},\"context\":{\"tool\":\"verify_email\",\"environment\":\"production\",\"description\":\"Email verification\",\"merchant\":\"OneShot production merchant wallet (Base Mainnet)\"}}"
+  },
+  {
+    "provider": "strale",
+    "url": "https://api.strale.io/x402/email-validate",
+    "method": "GET",
+    "observed_at": "2026-09-16T15:28:00.079Z",
+    "status": 402,
+    "elapsed_ms": 518,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": "{\"x402Version\":1,\"error\":\"Payment required. Email Validation costs $0.0324 USDC per call.\",\"resource\":{\"url\":\"https://api.strale.io/x402/email-validate\",\"description\":\"Validate an email address: RFC 5322 syntax, MX records, 5,361 disposable domain detection, role-based address detection (35 patterns), free provider detection, and typo suggestion for common providers (gmial.com ? gmail.com). Returns deliverability assess…\",\"mimeType\":\"application/json\"},\"accepts\":[{\"scheme\":\"exact\",\"network\":\"base\",\"maxAmountRequired\":\"32400\",\"resource\":\"https://api.strale.io/x402/email-validate\",\"description\":\"Validate an email address: RFC 5322 syntax, MX records, 5,361 disposable domain detection, role-based address detection (35 patterns), free provider detection, and typo suggestion for common providers (gmial.com ? gmail.com). Returns deliverability assess…\",\"mimeType\":\"application/json\",\"payTo\":\"0x66D7C2F952362BFB24FD7F02a9beC9c754ea83bC\",\"maxTimeoutSeconds\":300,\"asset\":\"0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913\",\"extra\":{\"name\":\"USD Coin\",\"version\":\"2\"},\"outputSchema\":{\"input\":{\"type\":\"http\",\"method\":\"GET\",\"discoverable\":true,\"queryParams\":{\"email\":{\"type\":\"string\",\"description\":\"Email address to validate\",\"required\":true}}},\"output\":{\"email\":{\"type\":\"string\"},\"valid\":{\"type\":\"boolean\"},\"domain\":{\"type\":\"string\",\"description\":\"Domain part of the email address\"},\"is_disposable\":{\"type\":\"boolean\"},\"has_mx_records\":{\"type\":\"boolean\"},\"is_role_address\":{\"type\":\"boolean\"}}}}],\"paymentRequirements\":[{\"scheme\":\"exact\",\"network\":\"base\",\"maxAmountRequired\":\"32400\",\"resource\":\"https://api.strale.io/x402/email-validate\",\"description\":\"Validate an email address: RFC 5322 syntax, MX records, 5,361 disposable domain detection, role-based address detection (35 patterns), free provider detection, and typo suggestion for common providers (gmial.com ? gmail.com). Returns deliverability assess…\",\"mimeType\":\"application/json\",\"payTo\":\"0x66D7C2F952362BFB24FD7F02a9beC9c754ea83bC\",\"maxTimeoutSeconds\":300,\"asset\":\"0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913\",\"extra\":{\"name\":\"USD Coin\",\"version\":\"2\"},\"outputSchema\":{\"input\":{\"type\":\"http\",\"method\":\"GET\",\"discoverable\":true,\"queryParams\":{\"email\":{\"type\":\"string\",\"description\":\"Email address to validate\",\"required\":true}}},\"output\":{\"email\":{\"type\":\"string\"},\"valid\":{\"type\":\"boolean\"},\"domain\":{\"type\":\"string\",\"description\":\"Domain part of the email address\"},\"is_disposable\":{\"type\":\"boolean\"},\"has_mx_records\":{\"type\":\"boolean\"},\"is_role_address\":{\"type\":\"boolean\"}}}}],\"extensions\":{\"bazaar\":{\"info\":{\"input\":{\"type\":\"http\",\"queryParams\":{\"email\":\"example_email\"},\"method\":\"GET\"}},\"schema\":{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"type\":\"object\",\"properties\":{\"input\":{\"type\":\"object\",\"properties\":{\"type\":{\"type\":\"string\",\"const\":\"http\"},\"method\":{\"type\":\"string\",\"enum\":[\"GET\",\"HEAD\",\"DELETE\"]},\"queryParams\":{\"type\":\"object\",\"required\":[\"email\"],\"properties\":{\"email\":{\"type\":\"string\",\"description\":\"Email address to validate\"}}}},\"required\":[\"type\",\"method\"],\"additionalProperties\":false}},\"required\":[\"input\"]}}}}"
+  },
+  {
+    "provider": "hugen",
+    "url": "https://mailcheck.hugen.tokyo/mailcheck/validate",
+    "method": "POST",
+    "observed_at": "2026-09-16T15:28:00.438Z",
+    "status": 402,
+    "elapsed_ms": 867,
+    "headers": {
+      "content-type": "application/json",
+      "payment-required": "eyJ4NDAyVmVyc2lvbiI6MiwiZXJyb3IiOiJQYXltZW50IHJlcXVpcmVkIiwicmVzb3VyY2UiOnsidXJsIjoiaHR0cHM6Ly9tYWlsY2hlY2suaHVnZW4udG9reW8vbWFpbGNoZWNrL3ZhbGlkYXRlIiwiZGVzY3JpcHRpb24iOiI2IGVtYWlsIHZhbGlkYXRpb24gY2hlY2tzIGluIG9uZSBjYWxsIOKAlCBzeW50YXggKFJGQyA1MzIyKSwgTVggcmVjb3JkIHZlcmlmaWNhdGlvbiwgZGlzcG9zYWJsZSBkZXRlY3Rpb24gKDUsMDAwKyBkb21haW5zKSwgZnJlZSBwcm92aWRlciBpZGVudGlmaWNhdGlvbiwgcm9sZS1iYXNlZCBhZGRyZXNzIGRldGVjdGlvbiAoYWRtaW5ALCBpbmZvQCksIGFuZCB0eXBvIHN1Z2dlc3Rpb24uIFJldHVybnMgYSAwLTEgY29uZmlkZW5jZSBzY29yZSB3aXRoIGRldGFpbGVkIHBlci1jaGVjayByZXN1bHRzLiBQT1NUIG1ldGhvZCBwcm90ZWN0cyBlbWFpbCBhZGRyZXNzZXMgZnJvbSBhY2Nlc3MgbG9ncy4gTm8gQVBJIGtleXMsIG5vIG11bHRpcGxlIHNlcnZpY2UgaW50ZWdyYXRpb25zIG5lZWRlZC4gQWNjZXB0cyBVU0RDIHBheW1lbnRzIG9uIEJhc2UgYW5kIFNvbGFuYSIsIm1pbWVUeXBlIjoiYXBwbGljYXRpb24vanNvbiJ9LCJhY2NlcHRzIjpbeyJzY2hlbWUiOiJleGFjdCIsIm5ldHdvcmsiOiJlaXAxNTU6ODQ1MyIsImFzc2V0IjoiMHg4MzM1ODlmQ0Q2ZURiNkUwOGY0YzdDMzJENGY3MWI1NGJkQTAyOTEzIiwiYW1vdW50IjoiMTAwMDAiLCJwYXlUbyI6IjB4MjkzMjJFYTdFY0IzNGFBNjE2NGNiMmRkZUI5Q0U2NTA5MDJFNGY2MCIsIm1heFRpbWVvdXRTZWNvbmRzIjozMDAsImV4dHJhIjp7Im5hbWUiOiJVU0QgQ29pbiIsInZlcnNpb24iOiIyIn19LHsic2NoZW1lIjoiZXhhY3QiLCJuZXR3b3JrIjoic29sYW5hOjVleWt0NFVzRnY4UDhOSmRUUkVwWTF2enFLcVpLdmRwIiwiYXNzZXQiOiJFUGpGV2RkNUF1ZnFTU3FlTTJxTjF4enliYXBDOEc0d0VHR2tad3lURHQxdiIsImFtb3VudCI6IjEwMDAwIiwicGF5VG8iOiI0ZHU0QWZrakpFd2NoMnprM3Noa1BKVlpmeUpITkRuTmpFV0M2QWJvYVM1WiIsIm1heFRpbWVvdXRTZWNvbmRzIjozMDAsImV4dHJhIjp7ImZlZVBheWVyIjoiRDZaaHROUTVuVDlablRIVWJxWFpzVHg1TUgyclBGaUJCZ2dYNGhZMVdlUE0ifX1dLCJleHRlbnNpb25zIjp7ImJhemFhciI6eyJkaXNjb3ZlcmFibGUiOnRydWUsImNhdGVnb3J5IjoiZW1haWwtdmFsaWRhdGlvbiIsInRhZ3MiOlsiZW1haWwiLCJteCIsImRpc3Bvc2FibGUiXSwiaW5mbyI6eyJpbnB1dCI6eyJ0eXBlIjoiaHR0cCIsImJvZHlUeXBlIjoianNvbiIsImV4YW1wbGUiOnsiZW1haWwiOiJ1c2VyQGdtYWlsLmNvbSJ9LCJtZXRob2QiOiJQT1NUIn0sIm91dHB1dCI6eyJ0eXBlIjoianNvbiIsImV4YW1wbGUiOnsiZW1haWwiOiJ1c2VyQGdtYWlsLmNvbSIsInN0YXR1cyI6InZhbGlkIiwic2NvcmUiOjAuOTUsInN5bnRheF92YWxpZCI6dHJ1ZSwiZG9tYWluIjoiZ21haWwuY29tIiwibXhfZm91bmQiOnRydWUsIm14X3JlY29yZHMiOlsiZ21haWwtc210cC1pbi5sLmdvb2dsZS5jb20iXSwiaXNfZGlzcG9zYWJsZSI6ZmFsc2UsImlzX2ZyZWUiOnRydWUsImlzX3JvbGVfYmFzZWQiOmZhbHNlLCJkaWRfeW91X21lYW4iOm51bGwsImNoZWNrc19wZXJmb3JtZWQiOlsic3ludGF4IiwibXgiLCJkaXNwb3NhYmxlIiwiZnJlZSIsInJvbGUiLCJ0eXBvIl19fX0sInNjaGVtYSI6eyJwcm9wZXJ0aWVzIjp7ImlucHV0Ijp7InJlcXVpcmVkIjpbIm1ldGhvZCJdfX19fX19"
+    },
+    "body": "{\"_notice\":\"Payment required ($0.01 USDC on Base). Sample response below.\",\"_alternatives\":{\"mcp_gateway\":{\"info\":\"Access this and 2300+ x402 APIs via a single MCP server. Payment brokered for you — supports API keys (no wallet), free trial (World ID), or x402.\",\"url\":\"https://mcp.hugen.tokyo/mcp\",\"transport\":\"streamable-http\"},\"sdk\":{\"info\":\"One-line Python access — no wallet, no setup\",\"install\":\"pip install x402-pay\",\"usage\":\"import x402_pay; r = x402_pay.get('https://mailcheck.hugen.tokyo/mailcheck/disposable?email=test@mailinator.com')\"},\"scout\":{\"info\":\"Search 18+ sources in parallel — Hacker News, GitHub, npm, Reddit, X, and more ($0.01/source or $0.25 multi-search)\",\"example\":\"https://scout.hugen.tokyo/scout/multi?q=email+verification+api\"}},\"email\":\"user@gmail.com\",\"status\":\"valid\",\"score\":0.95,\"syntax_valid\":true,\"domain\":\"gmail.com\",\"mx_found\":true,\"mx_records\":[\"gmail-smtp-in.l.google.com\"],\"is_disposable\":false,\"is_free\":true,\"is_role_based\":false,\"did_you_mean\":null,\"checks_performed\":[\"syntax\",\"mx\",\"disposable\",\"free\",\"role\",\"typo\"]}"
+  },
+  {
+    "provider": "ai-rook",
+    "url": "https://agents.ai-rook.com/api/email/validate",
+    "method": "POST",
+    "observed_at": "2026-09-16T15:28:00.329Z",
+    "status": 404,
+    "elapsed_ms": 757,
+    "headers": {
+      "content-type": "text/html; charset=utf-8"
+    },
+    "body": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<title>Error</title>\n</head>\n<body>\n<pre>Cannot POST /api/email/validate</pre>\n</body>\n</html>\n"
+  }
+]

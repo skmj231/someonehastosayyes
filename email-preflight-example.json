@@ -1,0 +1,65 @@
+{
+  "example_only": true,
+  "source": "Static demonstration fixture, not a paid result",
+  "schema_version": "1.0",
+  "normalized_email": "person@example.com",
+  "domain": "example.com",
+  "syntax_valid": true,
+  "smtp_utf8_required": false,
+  "mailbox_exists": "unknown",
+  "deliverable": "unknown",
+  "spf_present": false,
+  "dmarc_at_exact_domain_present": false,
+  "mx_present": true,
+  "mx_hosts": [
+    {
+      "host": ".",
+      "priority": 0
+    }
+  ],
+  "mail_route": "null_mx",
+  "disposable_domain": false,
+  "role_account": false,
+  "free_provider": false,
+  "typo_suggestion": null,
+  "risk_flags": [
+    "null_mx"
+  ],
+  "action": "reject",
+  "checked_at": "2026-09-17T00:00:00Z",
+  "evidence": [
+    {
+      "name": "_dmarc.example.com",
+      "type": "TXT",
+      "status": "no_records",
+      "records": [],
+      "observed_at": "2026-09-17T00:00:00Z"
+    },
+    {
+      "name": "example.com",
+      "type": "MX",
+      "status": "ok",
+      "records": [
+        {
+          "exchange": ".",
+          "priority": 0
+        }
+      ],
+      "observed_at": "2026-09-17T00:00:00Z"
+    },
+    {
+      "name": "example.com",
+      "type": "TXT",
+      "status": "no_records",
+      "records": [],
+      "observed_at": "2026-09-17T00:00:00Z"
+    }
+  ],
+  "rules_version": "2026-09-17.1",
+  "disposable_list": {
+    "package": "disposable-email-domains",
+    "version": "1.0.62",
+    "meaning": "false means not found in this list; not proof of a permanent mailbox"
+  },
+  "authentication_note": "Record presence only. SPF/DMARC concern sending authentication, not recipient existence. Parent-domain DMARC fallback and policy validity are not evaluated."
+}

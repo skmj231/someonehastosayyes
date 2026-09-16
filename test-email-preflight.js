@@ -1,0 +1,15 @@
+'use strict';
+const {test}=require('node:test');const assert=require('node:assert/strict');
+const {preflight,validateInput}=require('./email-preflight');
+const resolver=(mx, overrides={})=>({resolve:async(name,type)=>{const v=overrides[name+':'+type]??(type==='MX'?mx:[]);if(typeof v==='string')throw Object.assign(new Error(v),{code:v});if(!v.length)throw Object.assign(new Error('none'),{code:'ENODATA'});return v;}});
+test('rejects malformed request shape, permits invalid email as a paid assessment',()=>{assert.ok(validateInput({email:'a',extra:true}));assert.equal(validateInput({email:'bad'}),null);});
+test('bad syntax never queries DNS or claims mailbox existence',async()=>{const r=await preflight('bad',{resolver:{resolve:()=>{throw Error('must not query');}}});assert.equal(r.action,'reject');assert.equal(r.mailbox_exists,'unknown');});
+test('null MX explicitly cannot receive mail',async()=>{const r=await preflight('a@example.com',{resolver:resolver([{exchange:'',priority:0}])});assert.equal(r.mail_route,'null_mx');assert.equal(r.action,'reject');});
+test('MX absent uses RFC implicit A/AAAA fallback',async()=>{const r=await preflight('a@example.com',{resolver:resolver([],{'example.com:A':['192.0.2.1']})});assert.equal(r.mail_route,'implicit_mx');assert.equal(r.mx_present,false);assert.equal(r.action,'continue_with_mailbox_verification');});
+test('DNS timeout is unknown, not invalid',async()=>{const r=await preflight('a@example.com',{resolver:resolver('ETIMEOUT')});assert.equal(r.mx_present,null);assert.equal(r.action,'review');assert.ok(r.risk_flags.includes('dns_incomplete'));});
+test('NXDOMAIN has no mail route',async()=>{const r=await preflight('a@example.com',{resolver:resolver('ENOTFOUND')});assert.equal(r.action,'reject');});
+test('preserves case of mailbox; lowercase IDN domain only',async()=>{const r=await preflight(' User@GMAIL.COM ',{resolver:resolver([{exchange:'mx.gmail.com',priority:10}])});assert.equal(r.normalized_email,'User@gmail.com');assert.equal(r.free_provider,true);assert.equal(r.deliverable,'unknown');});
+test('role is context, not proof of invalidity',async()=>{const r=await preflight('support@gmail.com',{resolver:resolver([{exchange:'mx.gmail.com',priority:10}])});assert.equal(r.role_account,true);assert.equal(r.action,'continue_with_mailbox_verification');});
+test('suggested typo never changes recipient',async()=>{const r=await preflight('a@gmial.com',{resolver:resolver([{exchange:'mx.gmial.com',priority:10}])});assert.equal(r.typo_suggestion,'gmail.com');assert.equal(r.normalized_email,'a@gmial.com');});
+test('disposable data is versioned and match is explicit',async()=>{const r=await preflight('a@mailinator.com',{resolver:resolver([{exchange:'mx.mailinator.com',priority:10}])});assert.equal(r.disposable_domain,true);assert.ok(r.disposable_list.version);});
+test('SPF missing does not mean recipient cannot receive',async()=>{const r=await preflight('a@example.com',{resolver:resolver([{exchange:'mx.example.com',priority:10}])});assert.equal(r.spf_present,false);assert.equal(r.action,'continue_with_mailbox_verification');});
