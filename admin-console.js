@@ -1,5 +1,5 @@
 "use strict";
-const NAV=[["/admin","Today"],["/admin/key-requests","Requests"],["/admin/accounts","API keys"]];
+const NAV=[["/admin","Today"],["/admin/key-requests","Requests"],["/admin/accounts","API keys"],["/admin/seller","Seller"]];
 function renderAdminConsole(activePath,fallbackHtml=""){
  const nav=NAV.map(([p,l])=>`<a href="${p}"${activePath===p?' aria-current="page"':""}>${l}</a>`).join("");
  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>SHSY admin</title><style>

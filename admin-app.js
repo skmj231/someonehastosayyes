@@ -55,6 +55,24 @@
     root.innerHTML = head("Requests", "Find the real person with a real approval problem.", "Classify each request, then help the strongest one complete a workflow.") + panel("Inbox", "Real request means a specific workflow problem from a person you can help.", `<div class="key-list">${cards || empty("Inbox is clear", "New requests will appear here.")}</div>`, rows.length);
     document.querySelectorAll(".classification-form").forEach((form) => form.onsubmit = async (event) => { event.preventDefault(); await mutate(`/admin/key-requests/${form.closest("[data-id]").dataset.id}/classification`, "PATCH", { classification: form.classification.value, reason: form.reason.value }); requests(); });
   }
-  const screens = { "/admin": overview, "/admin/accounts": accounts, "/admin/key-requests": requests };
+  async function seller() {
+    const data = await get("/admin/seller/telemetry");
+    const counts = Object.fromEntries(data.events.map((row) => [row.event, row.count]));
+    const payments = data.settled.reduce((total, row) => total + Number(row.payments), 0);
+    const rows = (headers, body) => `<div class="table-wrap"><table><thead><tr>${headers.map((x) => `<th>${e(x)}</th>`).join("")}</tr></thead><tbody>${body}</tbody></table></div>`;
+    const cell = (value) => `<td>${e(value)}</td>`;
+    root.innerHTML = head("Seller", "Follow requests through to payment.", "A wallet or a 402 response does not prove an external agent purchase.") +
+      `<section class="metrics"><div class="metric"><span>Valid job requests · includes tests</span><strong>${num(counts.valid_job_request)}</strong></div><div class="metric"><span>Payment quotes · includes crawlers</span><strong>${num(counts.quote_402)}</strong></div><div class="metric"><span>Settled payments · all classes</span><strong>${num(payments)}</strong></div><div class="metric"><span>Verified external agent purchases</span><strong>${data.verified_external_agent_purchases == null ? "Unverified" : num(data.verified_external_agent_purchases)}</strong></div></section>` +
+      panel("Request and payment stages", "Counts are events, not people. One client can retry many times. All-time counts since seller launch.", rows(["Stage", "Events"], data.events.map((row) => `<tr>${cell(row.event)}${cell(num(row.count))}</tr>`).join(""))) +
+      `<div class="toolbar"><h2>Payment evidence</h2></div>` +
+      panel("Recent payments", "Check settlement, successful response and external buyer evidence together. Self/test payments are excluded from the goal.", data.recent_payments.length ? rows(["Time", "State / class", "USDC", "Evidence"], data.recent_payments.map((row) => {
+        const tx = /^0x[0-9a-fA-F]{64}$/.test(row.tx || "") ? `<a href="https://basescan.org/tx/${e(row.tx)}" target="_blank" rel="noopener noreferrer">View Base transaction</a>` : "No confirmed transaction";
+        return `<tr>${cell(when(row.at))}<td>${e(row.state)}<small>${e(row.classification)}</small></td>${cell((Number(row.amount) / 1e6).toFixed(6))}<td>${tx}<small>Request: ${e(row.request_id)}</small><small>Result hash: ${e(row.result_hash || "Not recorded")}</small></td></tr>`;
+      }).join("")) : empty("No payment records", "No payment verification has been recorded yet.")) +
+      `<div class="toolbar"><h2>Discovery and repeat use</h2></div>` +
+      panel("Sources and experiment versions", "Source labels are optional and caller-claimed. Missing labels do not identify organic buyers. Directory impressions and distinct economic buyers are unknown.", rows(["Claimed source", "Experiment", "USDC", "Stage", "Events"], data.funnel_by_source.map((row) => `<tr>${cell(row.source || "Not provided")}${cell(row.variant)}${cell((Number(row.price_atomic) / 1e6).toFixed(6))}${cell(row.event)}${cell(num(row.count))}</tr>`).join(""))) +
+      `<p>Repeat unclassified wallets: ${num(data.repeat_unclassified_wallets)}. This is not a count of verified repeat customers.</p>`;
+  }
+  const screens = { "/admin": overview, "/admin/accounts": accounts, "/admin/key-requests": requests, "/admin/seller": seller };
   Promise.resolve((screens[page] || overview)()).catch((error) => { root.innerHTML = `<div class="error"><b>Could not load.</b><div>${e(error.message)}</div></div>`; });
 })();
