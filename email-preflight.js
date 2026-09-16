@@ -49,7 +49,7 @@ async function preflight(email, { resolver, timestamp = new Date().toISOString()
     }
     const txt=result.evidence.find(e=>e.name===domain && e.type==='TXT');
     const dmarc=result.evidence.find(e=>e.name===`_dmarc.${domain}`);
-    result.spf_present=txt.status==='unavailable' ? null : txt.records.some(r=>r.join('').toLowerCase().startsWith('v=spf1'));
+    result.spf_present=txt.status==='unavailable' ? null : txt.records.some(r=>/^v=spf1(?:\s|$)/i.test(r.join('')));
     result.dmarc_at_exact_domain_present=dmarc.status==='unavailable' ? null : dmarc.records.some(r=>/^v=DMARC1(?:;|$)/i.test(r.join('')));
     result.authentication_note='Record presence only. SPF/DMARC concern sending authentication, not recipient existence. Parent-domain DMARC fallback and policy validity are not evaluated.';
     if (['domain_not_found','null_mx','no_mail_route'].includes(result.mail_route)) result.risk_flags.push(result.mail_route);
