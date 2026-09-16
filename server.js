@@ -2084,6 +2084,10 @@ app.get("/health", (_req, res) => {
 require("./seller-api").mountSeller(app, { db, adminAuth, baseUrl: BASE_URL, secret: SIGNING_SECRET });
 
 app.use((err, req, res, _next) => {
+  if (req.path === "/api/agent/email-preflight") {
+    if (res.headersSent) return res.end();
+    return res.status(err.type === "entity.parse.failed" ? 400 : 503).json({ error: "Invalid JSON or unavailable email preflight request" });
+  }
   console.error("[request-error]", req.method, req.path, err && (err.stack || err.message || err));
   if (res.headersSent) return res.end();
   res.status(500).json({ error: "internal server error" });

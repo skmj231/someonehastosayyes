@@ -75,8 +75,8 @@ function mountSeller(app,{db,adminAuth,baseUrl,secret,env=process.env,facilitato
   app.get('/agent-seller/status',(_req,res)=>res.json({accepting_payments:live(),network:NETWORK,price_usdc:price,external_purchase_verified:null,note:'Purchase qualification requires operator review; see private telemetry.'}));
   app.get('/agent-seller/client.mjs',(_req,res)=>res.type('text/plain').sendFile(__dirname+'/examples/email-preflight-client.mjs'));
   app.get('/agent-seller/example.json',(_req,res)=>res.sendFile(__dirname+'/email-preflight-example.json'));
-  const spec={openapi:'3.1.0',info:{title:'SHSY Email Preflight',version:'1.0.0',description:DESCRIPTION},servers:[{url:baseUrl}],paths:{[PATH]:{post:{operationId:'emailPreflight',summary:'Check an email before mailbox verification',description:DESCRIPTION,requestBody:{required:true,content:{'application/json':{schema:inputSchema}}},responses:{200:{description:'Deterministic evidence, never a guarantee of delivery',content:{'application/json':{schema:outputSchema,example:outputExample}}},400:{description:'Invalid request shape; not charged'},402:{description:'x402 v2 USDC payment required'},503:{description:'Unavailable or DNS incomplete; not charged'}}}}}};
-  app.get('/agent-seller/openapi.json',tracking,(_req,res)=>{event('schema_view');res.json(spec);});
+  const spec={openapi:'3.1.0',info:{title:'SHSY Email Preflight',version:'1.0.0',description:DESCRIPTION,'x-guidance':'Use Email Preflight before deeper mailbox verification. Send one email in a POST JSON body. It never confirms mailbox existence. Check /agent-seller/status for launch availability.',contact:{url:'https://github.com/skmj231/someonehastosayyes/issues'}},servers:[{url:baseUrl}],paths:{[PATH]:{post:{operationId:'emailPreflight','x-payment-info':{price:{mode:'fixed',currency:'USD',amount:price},protocols:[{x402:{}}]},tags:['Email validation'],summary:'Check an email before mailbox verification',description:DESCRIPTION,requestBody:{required:true,content:{'application/json':{schema:inputSchema,example:{email:'person@example.com'}}}},responses:{200:{description:'Deterministic evidence, never a guarantee of delivery',content:{'application/json':{schema:outputSchema,example:outputExample}}},400:{description:'Invalid request shape; not charged'},402:{description:'x402 v2 USDC payment required'},503:{description:'Unavailable or DNS incomplete; not charged'}}}}}};
+  app.get(['/openapi.json','/agent-seller/openapi.json'],tracking,(_req,res)=>{event('schema_view');res.json(spec);});
   app.get(['/llms.txt','/agent-seller/llms.txt'],tracking,(_req,res)=>{event('agent_docs');res.type('text/plain').send(`# SHSY Email Preflight\n${DESCRIPTION}\nEndpoint: POST ${baseUrl}${PATH}\nInput: {"email":"person@example.com"}\nPrice: ${price} USDC. Network: ${NETWORK}. x402 v2.\nSchema: ${baseUrl}/agent-seller/openapi.json\nClient example: ${baseUrl}/agent-seller/client.mjs\nNo account, subscription or API key. Requires a funded Base USDC wallet and compatible x402 client.\nInspect the 402 requirements and your spending policy before paying.\nDo not use to prove mailbox existence. No sending, SMTP, catch-all or reputation test.\nSource attribution: optional X-SHSY-Source header. Never include an email address in the URL.\n`);});
   app.get('/admin/seller/telemetry',adminAuth,(_req,res)=>{
     const events=db.prepare('SELECT event,COUNT(*) count FROM seller_events GROUP BY event').all();
@@ -90,14 +90,18 @@ function mountSeller(app,{db,adminAuth,baseUrl,secret,env=process.env,facilitato
     if(Date.now()-windowStart>=60000){windowStart=Date.now();requests=0;}
     if(++requests>300 || active>=12){res.set('Retry-After','60');return res.status(429).json({error:'Request capacity reached; retry later.'});}
     const invalid=validateInput(req.body);
-    if(invalid){event('invalid_request');return res.status(400).json({error:invalid});}
-    event('valid_job_request');
+    if(invalid){
+      event('invalid_request');
+      if(req.get('payment-signature') || req.get('x-payment')) return res.status(400).json({error:invalid});
+    }else event('valid_job_request');
     if(!enabled)return res.status(503).json({error:'Payments are not live yet. Receiving address configuration is required.'});
     if(!facilitatorClient && !env.CDP_API_KEY_ID && Date.now() >= Date.parse('2026-09-21T12:00:00Z')) return res.status(503).json({error:'Payment facilitator pricing review required; payments paused.'});
     active++;res.once('close',()=>{active--;});
     return middleware(req,res,next).catch(()=>res.status(503).json({error:'Payment service unavailable'}));
   },async(req,res)=>{
     try {
+      const invalid=validateInput(req.body);
+      if(invalid)return res.status(400).json({error:invalid});
       const result=await check(req.body.email);
       if(result.risk_flags.includes('dns_incomplete')) {event('dns_unavailable');return res.status(503).json({error:'DNS evidence is incomplete. No settlement requested; retry later.',request_id:context.getStore().id});}
       const c=context.getStore();result.request_id=c.id;c.resultHash=crypto.createHash('sha256').update(JSON.stringify(result)).digest('hex');event('result_prepared');res.json(result);
