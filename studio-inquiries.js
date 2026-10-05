@@ -10,6 +10,8 @@ function mountStudio(app,{db,adminAuth,secret,protect,reveal,rateLimited,fingerp
  CREATE TABLE IF NOT EXISTS studio_inquiries (id TEXT PRIMARY KEY, dedup TEXT UNIQUE NOT NULL, lead_id TEXT, payload_enc TEXT NOT NULL, created_at INTEGER NOT NULL, state TEXT NOT NULL DEFAULT 'queued', attempts INTEGER NOT NULL DEFAULT 0, next_attempt INTEGER NOT NULL, provider_id TEXT);
  CREATE INDEX IF NOT EXISTS studio_queue ON studio_inquiries(state,next_attempt);`);
  if(!db.prepare('PRAGMA table_info(studio_leads)').all().some(c=>c.name==='intro_enc'))db.exec('ALTER TABLE studio_leads ADD COLUMN intro_enc TEXT');
+ const legacyHeadlines=new Set(['좋은 작업이, 제작 문의로 이어지도록.','제품 확인부터, 견적 문의까지 명확하게.','작업을 보고, 제작 상담까지 쉽게.']);
+ for(const row of db.prepare('SELECT id,intro_enc FROM studio_leads WHERE intro_enc IS NOT NULL').all()){const intro=JSON.parse(reveal(row.intro_enc));if(legacyHeadlines.has(intro.headline))db.prepare('UPDATE studio_leads SET intro_enc=? WHERE id=?').run(protect(JSON.stringify({headline:'홈페이지 개선안을 무료로 받아보세요.',proposal:'홈페이지를 검토해, 바꿀 부분과 수정 방향을 화면 캡처와 짧은 설명으로 보내드립니다.\n받아보신 뒤 진행 여부를 결정하셔도 됩니다.'})),row.id);}
  const introFor=lead=>lead?.intro_enc?JSON.parse(reveal(lead.intro_enc)):{};
  const validateIntro=(headline,proposal)=>{headline=String(headline||'').trim();proposal=String(proposal||'').trim();if(headline.length>100||proposal.length>600||!!headline!==!!proposal)throw Error('제안 제목과 설명을 함께 입력해 주세요. 제목 100자, 설명 600자 이내입니다.');return {headline,proposal};};
  const mac = s=>crypto.createHmac('sha256',secret).update('studio:'+s).digest('base64url');
@@ -54,7 +56,7 @@ function mountStudio(app,{db,adminAuth,secret,protect,reveal,rateLimited,fingerp
   if(siteUrl&&(!validator.isURL(siteUrl,{protocols:['http','https'],require_protocol:true,disallow_auth:true})||siteUrl.length>2048))return fail(res,400,'홈페이지 주소를 확인해 주세요.');
   if(b.intent==='review'&&(!siteUrl||!email))return fail(res,400,'홈페이지 주소와 이메일을 남겨주세요.');
   if(!lead&&!email&&!phone)return fail(res,400,'연락받을 이메일 또는 전화번호를 남겨주세요.');
-  const dedup=lead?'lead:'+lead.id:'form:'+ctx.nonce;
+  const dedup=lead?'lead:'+lead.id+(b.intent==='review'?':review':''):'form:'+ctx.nonce;
   const existing=db.prepare('SELECT id FROM studio_inquiries WHERE dedup=?').get(dedup);if(existing)return res.json({ok:true,id:existing.id,duplicate:true});
   const id=crypto.randomUUID();const data={name:lead?reveal(lead.name_enc):'일반 방문자',contact:lead?reveal(lead.contact_enc):email||phone,email,phone,siteUrl,intent:b.intent==='review'?'review':'contact',isTest:!!lead?.is_test,via:lead?'고객별 링크 (본인 확인 아님)':'일반 문의'};
   db.prepare('INSERT INTO studio_inquiries (id,dedup,lead_id,payload_enc,created_at,next_attempt) VALUES (?,?,?,?,?,?)').run(id,dedup,lead?.id||null,protect(JSON.stringify(data)),clock(),clock());
