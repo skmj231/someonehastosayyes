@@ -5,6 +5,7 @@ RUN npm ci --omit=dev
 COPY server.js landing.html trust.html status.html relay.html relay-templates.html template-guide.html template-guide-renderer.js template-catalog.json zapier-winston-content-approval.html approval-flow-motion.html approval.html agent-seller.html admin-console.html admin-console.js admin-app.js ./
 COPY email-preflight.js seller-api.js studio-inquiries.js email-preflight-example.json ./
 COPY examples ./examples
+COPY studio-assets ./studio-assets
 ENV NODE_ENV=production PORT=3000 DB_PATH=/data/approvals.db
 EXPOSE 3000
 CMD ["node", "server.js"]
