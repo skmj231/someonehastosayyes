@@ -2026,6 +2026,7 @@ app.get("/demo/:id", (req, res) => {
 
 // ---------- 랜딩 ----------
 const fs = require("fs");
+const studioWorker = require("./studio-inquiries").mountStudio(app, { db, adminAuth, secret: SIGNING_SECRET, protect: protectSecret, reveal: revealSecret, rateLimited, fingerprint: clientFingerprint, baseUrl: BASE_URL });
 const LANDING = fs.existsSync(__dirname + "/landing.html") ? fs.readFileSync(__dirname + "/landing.html", "utf8") : "<h1>askhuman</h1>";
 const PUBLIC_FILES = new Map([
   ["/approval-flow-motion.html", "approval-flow-motion.html"],
@@ -2100,6 +2101,7 @@ async function shutdown(signal) {
   shuttingDown = true;
   console.log(`[shutdown] ${signal}`);
   server.close();
+  await studioWorker.stop();
   const deadline = now() + 16000;
   while (delivering && now() < deadline) await new Promise((resolve) => setTimeout(resolve, 50));
   try { db.pragma("wal_checkpoint(TRUNCATE)"); } catch {}
