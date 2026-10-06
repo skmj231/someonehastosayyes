@@ -12,3 +12,24 @@ test('notification exhaustion remains visible as failed',async t=>{const f=await
 
 test('review requests require website and email and preserve them for notification',async t=>{const f=await fixture(t);const {data}=await f.context();const b={form_key:data.form_key,consent:true,intent:'review',email:'review@example.test'};assert.equal((await f.post(b)).status,400);assert.equal((await f.post({...b,siteUrl:'javascript:alert(1)'})).status,400);assert.equal((await f.post({...b,siteUrl:'https://example.com',email:''})).status,400);assert.equal((await f.post({...b,siteUrl:'https://example.com'})).status,202);await f.api.flush();assert.equal(f.calls[0].siteUrl,'https://example.com');assert.equal(f.calls[0].intent,'review');assert.equal(f.calls[0].email,'review@example.test')});
 test('customer proposal is editable only by admin and context exposes no contact',async t=>{const f=await fixture(t),l=f.api.createLead({name:'일주 담당자',contact:'owner@example.test',headline:'좋은 작업이, 제작 문의로 이어지도록.',proposal:'작업 사진은 살리고 상담 안내를 정리합니다.'});const token=l.url.split('/').pop();let d=(await f.context(token)).data;assert.equal(d.headline,'좋은 작업이, 제작 문의로 이어지도록.');assert.ok(!JSON.stringify(d).includes('owner@example.test'));assert.equal((await fetch(f.url+'/admin/studio/intro',{method:'POST'})).status,401);const admin=await (await fetch(f.url+'/admin/studio',{headers:{'x-test-admin':'allowed'}})).text();const csrf=admin.match(/name="csrf" value="([^"]+)"/)[1];const save=async fields=>fetch(f.url+'/admin/studio/intro',{method:'POST',redirect:'manual',headers:{'x-test-admin':'allowed','content-type':'application/x-www-form-urlencoded'},body:new URLSearchParams({csrf,id:l.id,...fields})});assert.equal((await save({headline:'변경 제목',proposal:''})).status,400);assert.equal((await save({headline:'변경 제목',proposal:'변경 설명'})).status,303);d=(await f.context(token)).data;assert.equal(d.headline,'변경 제목');assert.equal(d.proposal,'변경 설명')});
+
+test('bulk import authenticates, validates all rows, reuses active links and exports without notifications',async t=>{
+ const f=await fixture(t);
+ const old=f.api.createLead({name:'기존 업체 담당자',contact:'first@example.com'});
+ const adminHeaders={'x-test-admin':'allowed'};
+ const page=await(await fetch(f.url+'/admin/studio',{headers:adminHeaders})).text();
+ const csrf=page.match(/name="csrf" value="([^"]+)"/)[1];
+ const send=(leads,extra={})=>fetch(f.url+'/admin/studio/bulk',{method:'POST',headers:{...adminHeaders,'content-type':'application/x-www-form-urlencoded',origin:'https://studio.test',...extra},body:new URLSearchParams({csrf,leads})});
+ assert.equal((await fetch(f.url+'/admin/studio/bulk',{method:'POST'})).status,401);
+ assert.equal((await send('고객\tnew@example.com',{origin:'https://evil.test'})).status,403);
+ assert.equal((await send('고객\tnew@example.com\n잘못된행')).status,400);
+ assert.equal(f.db.prepare('SELECT COUNT(*) n FROM studio_leads').get().n,1);
+ const entries='기존 업체 담당자\tFIRST@example.com\n새 업체 담당자\tnew@example.com\n새 업체 담당자\tnew@example.com';
+ const r=await send(entries);assert.equal(r.status,200);assert.match(r.headers.get('content-disposition'),/attachment/);assert.equal(r.headers.get('cache-control'),'no-store');
+ const csv=await r.text();assert.ok(csv.includes(old.url));assert.ok(csv.includes('기존 링크 재사용'));assert.equal(csv.trim().split('\r\n').length,3);
+ assert.equal(f.db.prepare('SELECT COUNT(*) n FROM studio_leads').get().n,2);
+ const csv2=await(await send(entries)).text();assert.ok(!csv2.includes('신규 발급'));assert.equal(f.db.prepare('SELECT COUNT(*) n FROM studio_leads').get().n,2);
+ await f.api.flush();assert.equal(f.calls.length,0);
+ f.db.prepare('UPDATE studio_leads SET revoked=1 WHERE id=?').run(old.id);
+ const csv3=await(await send('기존 업체 담당자\tfirst@example.com')).text();assert.ok(!csv3.includes(old.url));assert.ok(csv3.includes('신규 발급'));
+});
