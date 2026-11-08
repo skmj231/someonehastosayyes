@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>사장님, 올해 공짜로 깔아 준 돈 얼마예요? | 추가공사 확인</title>
+<meta name="description" content="추가공사 서비스로 날린 돈 30초 계산기. 한 달 현장 수, 추가공사 건수, 평균 금액만 넣으면 1년 손해가 나와요.">
+<link rel="canonical" href="https://someonehastosayyes.com/loss">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="추가공사 확인">
+<meta property="og:title" content="사장님, 올해 공짜로 깔아 준 돈 얼마예요?">
+<meta property="og:description" content="추가공사 서비스로 날린 돈 30초 계산기. 한 달 현장 수, 추가공사 건수, 평균 금액만 넣으면 1년 손해가 나와요.">
+<meta property="og:url" content="https://someonehastosayyes.com/loss">
+<meta property="og:locale" content="ko_KR">
+<meta property="og:image" content="https://someonehastosayyes.com/og/loss.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#FFFFFF">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/style.css">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "WebApplication", "name": "추가공사 공짜 계산기", "applicationCategory": "BusinessApplication", "operatingSystem": "Web", "offers": {"@type": "Offer", "price": "0", "priceCurrency": "KRW"}, "url": "https://someonehastosayyes.com/loss"}</script>
+</head>
+<body>
+<header class="nav"><nav class="nav-in" aria-label="주 메뉴">
+  <a class="brand" href="/"><i aria-hidden="true">✓</i>추가공사 확인</a>
+  <a href="/guide">가이드</a>
+  <a class="hide-s" href="/free">무료 양식</a>
+  <a class="pill" href="/try">체험하기</a>
+</nav></header>
+<main>
+<section class="tool">
+  <div class="friend" id="friend"></div>
+  <h1>사장님, 올해 공짜로 깔아 준 돈 얼마예요?</h1>
+  <p class="sub">“서비스인 줄 알았어요” 한마디에 날아간 추가공사비. 숫자 4개만 넣어 보세요.</p>
+
+  <div class="q"><span class="ql">한 달에 현장 몇 곳 하세요?</span>
+    <div class="stepper" data-k="jobs" data-min="1" data-max="30" data-step="1"><button type="button" aria-label="줄이기">−</button><output>4곳</output><button type="button" aria-label="늘리기">+</button></div></div>
+  <div class="q"><span class="ql">현장마다 추가공사 몇 건 생겨요?</span>
+    <div class="stepper" data-k="extras" data-min="1" data-max="20" data-step="1"><button type="button" aria-label="줄이기">−</button><output>3건</output><button type="button" aria-label="늘리기">+</button></div></div>
+  <div class="q"><span class="ql">한 건에 보통 얼마예요?</span>
+    <div class="stepper" data-k="amt" data-min="1" data-max="200" data-step="1"><button type="button" aria-label="줄이기">−</button><output>15만원</output><button type="button" aria-label="늘리기">+</button></div></div>
+  <div class="q"><span class="ql">그중 못 받거나 깎아 준 건 몇 %쯤?</span>
+    <div class="seg2" id="rate"><button type="button" data-v="10">10%</button><button type="button" data-v="20">20%</button><button type="button" data-v="30" class="on">30%</button><button type="button" data-v="50">50%</button></div></div>
+
+  <div class="result" aria-live="polite">
+    <div class="lab">1년 동안 공짜로 깔아 준 돈</div>
+    <div class="num hot" id="year">0원</div>
+    <p id="per"></p>
+  </div>
+  <div class="actions">
+    <button class="pill kakao-btn" id="shareBtn" type="button">아는 사장님한테 보내기</button>
+    <a class="pill" href="/try">다음 현장부터 5초로 막기</a>
+  </div>
+  <p class="note">입력한 숫자로만 계산한 추정치예요. 아무것도 저장하지 않아요.</p>
+</section>
+<script>
+
+function share(text, url) {
+  var full = text + '\n' + url;
+  if (navigator.share) { navigator.share({ text: text, url: url }).catch(function () {}); return; }
+  var done = function () { var t = document.createElement('div'); t.className = 'toast2'; t.textContent = '복사됐어요. 카톡 대화방에 붙여 넣으세요'; document.body.appendChild(t); setTimeout(function () { t.remove(); }, 2200); };
+  if (navigator.clipboard) navigator.clipboard.writeText(full).then(done, done); else { window.prompt('복사해서 보내세요', full); }
+}
+
+var S = { jobs: 4, extras: 3, amt: 15, rate: 30 };
+var unit = { jobs: '곳', extras: '건', amt: '만원' };
+function man(n) { return n >= 10000 ? (Math.floor(n / 10000) + '억 ' + (n % 10000 ? (n % 10000).toLocaleString('ko-KR') + '만' : '')).trim() + '원' : n.toLocaleString('ko-KR') + '만원'; }
+function calc() {
+  var month = S.jobs * S.extras * S.amt * S.rate / 100;
+  var year = Math.round(month * 12);
+  document.getElementById('year').textContent = man(year);
+  document.getElementById('per').textContent = '한 달 ' + man(Math.round(month)) + ' · 하루 ' + Math.round(year * 10000 / 365).toLocaleString('ko-KR') + '원꼴';
+  return year;
+}
+document.querySelectorAll('.stepper').forEach(function (el) {
+  var k = el.dataset.k, out = el.querySelector('output'), b = el.querySelectorAll('button');
+  function set(v) { S[k] = Math.max(+el.dataset.min, Math.min(+el.dataset.max, v)); out.textContent = S[k] + unit[k]; calc(); }
+  b[0].onclick = function () { set(S[k] - (k === 'amt' && S[k] > 20 ? 5 : 1)); };
+  b[1].onclick = function () { set(S[k] + (k === 'amt' && S[k] >= 20 ? 5 : 1)); };
+});
+document.querySelectorAll('#rate button').forEach(function (b) {
+  b.onclick = function () { document.querySelectorAll('#rate button').forEach(function (x) { x.classList.remove('on'); }); b.classList.add('on'); S.rate = +b.dataset.v; calc(); };
+});
+var f = new URLSearchParams(location.search).get('y');
+if (f && /^\d+$/.test(f)) { var fb = document.getElementById('friend'); fb.style.display = 'block'; fb.textContent = '아는 사장님은 1년에 ' + man(+f) + '을 공짜로 깔아 줬대요. 사장님은요?'; }
+calc();
+document.getElementById('shareBtn').onclick = function () {
+  var y = calc();
+  share('형님, 저 1년에 ' + man(y) + ' 공짜로 깔아 줬대요 ㅋㅋ 형님도 해 보세요', 'https://someonehastosayyes.com/loss?y=' + y);
+};
+</script>
+</main>
+<footer><div class="wrap">
+  <p><a href="/guide">가이드</a><a href="/free">무료 양식</a><a href="/glossary">용어 사전</a><a href="/try">체험하기</a><a href="/about">소개</a></p>
+  <p>인테리어 추가공사를 그때그때 기록하고, 고객 확인까지 받는 무료 도구입니다.<br>이 사이트의 글은 일반적인 정보이며 개별 사건에 대한 법률 자문이 아닙니다.</p>
+  <p>Someone Has To Say Yes · <a href="mailto:hello@someonehastosayyes.com" style="margin:0">hello@someonehastosayyes.com</a> · 최종 업데이트 2026-11-08</p>
+</div></footer>
+</body>
+</html>

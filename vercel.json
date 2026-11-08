@@ -1,0 +1,29 @@
+{
+  "cleanUrls": true,
+  "trailingSlash": false,
+  "headers": [
+    {
+      "source": "/files/(.*)",
+      "headers": [
+        {
+          "key": "Content-Disposition",
+          "value": "attachment"
+        }
+      ]
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/guide/:slug",
+      "destination": "/guide-:slug.html"
+    },
+    {
+      "source": "/files/:name",
+      "destination": "/files-:name"
+    },
+    {
+      "source": "/og/:name",
+      "destination": "/og-:name"
+    }
+  ]
+}

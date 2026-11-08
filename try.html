@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>추가공사 확인 체험판 | 추가공사 확인</title>
+<meta name="description" content="사장님과 고객 입장에서 직접 눌러 보는 체험판. 한 줄 쓰고 카톡으로 보내면 고객이 확인하고, 잔금 때 알아서 더해져요.">
+<link rel="canonical" href="https://someonehastosayyes.com/try">
+<meta property="og:title" content="추가공사, 지금 5초면 끝나요 · 체험판">
+<meta property="og:description" content="한 줄 쓰고 카톡으로 보내면 고객이 확인하고, 잔금 때 알아서 더해져요.">
+<meta property="og:image" content="https://someonehastosayyes.com/og/home.png">
+<meta property="og:url" content="https://someonehastosayyes.com/try">
+<style>
+:root {
+  /* Apple-like grouped UI: grey ground, white cards, near-black actions, two status colors only */
+  --page: #FFFFFF;
+  --bg: #FFFFFF;
+  --fill: #F2F2F7;
+  --card: #FFFFFF;
+  --ink: #1C1C1E;
+  --sub: #6C6C70;
+  --line: #E5E5EA;
+  --ok: #248A3D;
+  --ok-bg: #FFFFFF;
+  --wait: #C93400;
+  --wait-bg: #FFFFFF;
+  --kakao-bg: #B2C7D9;
+  --kakao-yellow: #FEE500;
+  --kakao-ink: #191919;
+  --chat: var(--kakao-bg);
+  --mine: var(--kakao-yellow);
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body { background: var(--page); color: var(--ink); font-family: var(--font); letter-spacing: -0.02em; word-break: keep-all; -webkit-font-smoothing: antialiased; }
+button { font-family: inherit; color: inherit; cursor: pointer; }
+button:focus-visible, input:focus-visible { outline: 3px solid #0A84FF; outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+
+.wrap { min-height: 100%; display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 18px 12px 28px; }
+.top { width: 100%; max-width: 420px; display: flex; flex-direction: column; gap: 10px; }
+.title { display: flex; justify-content: space-between; align-items: center; }
+.title b { font-size: 17px; }
+.reset { border: 0; background: transparent; font-size: 15px; color: var(--sub); min-height: 40px; padding: 0 4px; }
+.seg { display: grid; grid-template-columns: 1fr 1fr; padding: 2px; border-radius: 10px; background: #EEEEF0; }
+.seg button { position: relative; min-height: 40px; border: 0; border-radius: 8px; background: transparent; font-size: 16px; font-weight: 600; color: var(--sub); }
+.seg button.on { background: var(--card); color: var(--ink); box-shadow: 0 3px 8px rgba(0,0,0,.12), 0 0 0 .5px rgba(0,0,0,.04); }
+.badge { position: absolute; top: 8px; margin-left: 4px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: #FF3B30; color: #fff; font-size: 12px; line-height: 18px; }
+.hint { width: 100%; max-width: 420px; display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: 14px; background: var(--ink); color: #fff; font-size: 15px; line-height: 1.45; }
+.hint span { flex: 1; }
+.hint button { flex-shrink: 0; min-height: 36px; padding: 0 12px; border: 0; border-radius: 18px; background: #fff; color: var(--ink); font-size: 14px; font-weight: 600; }
+
+.phone { width: 100%; max-width: 420px; height: min(780px, calc(100dvh - 190px)); min-height: 600px; border-radius: 44px; overflow: hidden; position: relative; background: var(--bg); box-shadow: 0 0 0 11px #1C1C1E, 0 0 0 12px #3A3A3C, 0 30px 60px rgba(0,0,0,.18); }
+@media (max-width: 460px) { .phone { box-shadow: none; border-radius: 20px; height: calc(100dvh - 170px); } }
+.screen { position: absolute; inset: 0; display: flex; flex-direction: column; overflow: hidden; }
+.scroll { flex: 1; overflow-y: auto; }
+.pad { padding: 0 20px; }
+.foot { padding: 12px 20px 22px; display: flex; flex-direction: column; gap: 8px; align-items: center; }
+.btn { width: 100%; min-height: 56px; border: 0; border-radius: 16px; background: var(--ink); color: #fff; font-size: 17px; font-weight: 600; }
+.btn:disabled { background: #E5E5EA; color: #AEAEB2; }
+.btn.ghost { background: #fff; color: var(--ink); }
+.small { font-size: 13px; color: var(--sub); }
+.nav { display: flex; align-items: center; justify-content: space-between; min-height: 52px; padding: 6px 12px 0; }
+.nav b { font-size: 17px; }
+.nav button { min-height: 44px; padding: 0 8px; border: 0; background: transparent; font-size: 17px; }
+.group { background: var(--card); border-radius: 14px; overflow: hidden; border: .5px solid #D8D8DC; }
+.row { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 10px 16px; border-bottom: .5px solid var(--line); }
+.row:last-child { border-bottom: 0; }
+.row .t { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.row .t b { font-size: 16px; font-weight: 600; }
+.amt { font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.ok { color: var(--ok); font-size: 13px; font-weight: 500; }
+.wait::before { content: ''; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: currentColor; margin-right: 6px; vertical-align: 1px; }
+.wait { color: var(--wait); font-size: 13px; font-weight: 500; }
+.big { font-size: 40px; font-weight: 700; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+h1 { margin: 0; font-size: 34px; line-height: 1.25; letter-spacing: -0.03em; text-wrap: balance; }
+h2 { margin: 0; font-size: 24px; letter-spacing: -0.02em; }
+.toast { position: absolute; top: 12px; left: 12px; right: 12px; z-index: 20; display: flex; gap: 10px; align-items: center; padding: 14px 16px; border-radius: 18px; color: #fff; background: rgba(28,28,30,.94) !important; backdrop-filter: blur(20px); font-size: 15px; font-weight: 500; box-shadow: 0 8px 24px rgba(0,0,0,.15); animation: drop .25s ease-out; }
+.toast svg { color: #30D158; flex-shrink: 0; }
+@keyframes drop { from { transform: translateY(-12px); opacity: .5; } to { transform: none; opacity: 1; } }
+.sheet-bg { position: absolute; inset: 0; z-index: 30; background: rgba(0,0,0,.32); display: flex; flex-direction: column; justify-content: flex-end; }
+.sheet { background: #F2F2F7; border-radius: 14px 14px 0 0; padding: 10px 18px 24px; display: flex; flex-direction: column; gap: 14px; }
+.sheet.white { background: var(--card); }
+.grab { align-self: center; width: 36px; height: 5px; border-radius: 3px; background: #C7C7CC; }
+.composer { padding: 10px 12px 18px; background: rgba(255,255,255,.94); backdrop-filter: blur(20px); border-top: .5px solid var(--line); }
+.composer button { width: 100%; display: flex; align-items: center; gap: 10px; min-height: 54px; padding: 0 7px 0 18px; border: 0; border-radius: 27px; background: var(--fill); text-align: left; }
+.plus { width: 40px; height: 40px; border-radius: 50%; background: var(--ink); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 24px; }
+.field { display: flex; align-items: center; gap: 8px; min-height: 58px; padding: 0 8px 0 16px; border-radius: 12px; background: var(--fill); }
+.field input { flex: 1; min-width: 0; border: 0; background: transparent; font: inherit; font-size: 19px; font-weight: 600; color: var(--ink); letter-spacing: -0.02em; }
+.field input:focus { outline: none; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { min-height: 36px; padding: 0 14px; border: .5px solid #D1D1D6; border-radius: 18px; background: #fff; font-size: 14px; color: var(--ink); }
+.preview { display: flex; flex-direction: column; gap: 6px; padding: 20px; border-radius: 16px; background: #fff; border: .5px solid #D1D1D6; box-shadow: 0 6px 20px rgba(0,0,0,.06); }
+.empty { padding: 20px; border-radius: 20px; border: 1.5px dashed #D1D1D6; color: var(--sub); font-size: 15px; line-height: 1.6; }
+.chat { background: var(--chat); }
+.bubble { max-width: 100%; padding: 8px 11px; border-radius: 4px 14px 14px 14px; background: #fff; color: var(--kakao-ink); font-size: 15px; line-height: 1.5; letter-spacing: -0.01em; }
+.k-from { display: flex; gap: 8px; align-items: flex-start; }
+.k-av { width: 38px; height: 38px; flex-shrink: 0; border-radius: 15px; background: #8FA6BB; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 600; }
+.k-col { display: flex; flex-direction: column; align-items: flex-start; gap: 5px; min-width: 0; max-width: 78%; }
+.k-name { font-size: 12px; color: #3E4F60; }
+.k-time { font-size: 10px; color: #556677; }
+.k-input { display: flex; gap: 8px; align-items: center; padding: 8px 10px 16px; background: #fff; }
+.k-input i { flex: 1; min-height: 36px; border-radius: 18px; background: #F2F2F2; }
+.k-input b { width: 36px; height: 36px; border-radius: 50%; background: var(--kakao-yellow); }
+.bubble.mine { align-self: flex-end; max-width: 72%; background: var(--mine); border-radius: 14px 4px 14px 14px; }
+.linkcard { width: 100%; display: flex; flex-direction: column; gap: 3px; padding: 14px 14px 0; border: 0; border-radius: 4px 14px 14px 14px; background: #fff; color: var(--kakao-ink); text-align: left; overflow: hidden; }
+.linkcard .go { margin: 10px -14px 0; min-height: 44px; border-top: 1px solid #ECECEC; display: flex; align-items: center; justify-content: center; font-size: 14px; color: var(--kakao-ink); }
+.opt { display: flex; align-items: center; gap: 12px; min-height: 60px; padding: 10px 14px; border: 1.5px solid #E5E5EA; border-radius: 14px; background: var(--card); text-align: left; width: 100%; }
+.opt.on { border-color: var(--ink); }
+.dot { width: 22px; height: 22px; flex-shrink: 0; border-radius: 50%; border: 2px solid #C7C7CC; }
+.opt.on .dot { border: 7px solid var(--ink); }
+.box { width: 22px; height: 22px; flex-shrink: 0; border-radius: 6px; border: 2px solid #C7C7CC; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 13px; }
+.box.on { background: var(--ink); border-color: var(--ink); }
+.switch { width: 50px; height: 30px; border-radius: 15px; background: #E5E5EA; padding: 2px; display: flex; flex-shrink: 0; }
+.switch i { width: 26px; height: 26px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.2); }
+.switch.on { background: #34C759; justify-content: flex-end; }
+.mini { min-height: 34px; padding: 0 12px; border: 0; border-radius: 17px; background: var(--ink); color: #fff; font-size: 13px; font-weight: 600; }
+.money { width: 140px; border: 0; border-radius: 8px; background: var(--fill); padding: 8px 10px; text-align: right; font: inherit; font-size: 15px; font-weight: 600; }
+.tiles { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 8px; }
+.tile { display: flex; flex-direction: column; align-items: center; gap: 6px; border: 0; background: transparent; font-size: 13px; }
+.tile i { width: 60px; height: 60px; border-radius: 15px; background: #fff; display: flex; align-items: center; justify-content: center; font-style: normal; font-weight: 700; }
+.tile.main i { background: var(--kakao-yellow); color: var(--kakao-ink); }
+
+.wrap { padding: 24px 12px; justify-content: center; }
+.desk { display: block; }
+@media (max-width: 500px) {
+  .wrap { padding: 0; gap: 0; }
+  .phone { max-width: none; height: 100dvh; min-height: 0; border-radius: 0; box-shadow: none !important; }
+  .desk { display: none; }
+}
+input { caret-color: var(--ink); }
+.field:focus-within { box-shadow: inset 0 0 0 2px var(--ink); background: #fff; }
+.pulse { animation: pulse 1.6s ease-out infinite; }
+@keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(0,0,0,.35); } 70% { box-shadow: 0 0 0 12px rgba(0,0,0,0); } 100% { box-shadow: 0 0 0 0 rgba(0,0,0,0); } }
+.lock { position: absolute; inset: 0; z-index: 50; display: flex; flex-direction: column; align-items: center; padding: 0 16px; color: #fff; background: linear-gradient(180deg, #2C2C2E 0%, #000 100%); animation: fade .35s ease-out; }
+@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+.lock .who { margin-top: 28px; padding: 7px 14px; border-radius: 16px; background: rgba(255,255,255,.14); font-size: 14px; font-weight: 600; }
+.lock .clock { margin-top: 18px; font-size: 76px; font-weight: 600; letter-spacing: -0.02em; line-height: 1; font-variant-numeric: tabular-nums; }
+.lock .date { margin-top: 8px; font-size: 17px; color: rgba(255,255,255,.75); }
+.noti { margin-top: 36px; width: 100%; display: flex; gap: 12px; align-items: flex-start; padding: 14px; border: 0; border-radius: 20px; background: rgba(255,255,255,.92); color: #000; text-align: left; }
+.noti .ic { width: 38px; height: 38px; flex-shrink: 0; border-radius: 9px; display: flex; align-items: center; justify-content: center; }
+.noti .tx { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; font-size: 15px; line-height: 1.35; }
+.lock .tap { margin-top: 18px; font-size: 15px; color: rgba(255,255,255,.7); }
+.lock .again { margin-top: auto; margin-bottom: 26px; border: 0; background: transparent; color: rgba(255,255,255,.55); font-size: 14px; min-height: 44px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="phone" id="phone" aria-live="polite"></div>
+  <button class="reset desk" data-act="reset">처음부터 다시</button>
+</div>
+
+<script>
+/* ---------------- state ---------------- */
+const fresh = () => ({
+  role: 'owner',
+  handoff: null, pendingHandoff: null,
+  o: { screen: 'link', sheet: null, toast: null, firstShown: false, draft: '', share: null, mode: 'extra', off: {}, acct: true, base: '32,000,000', paid: '22,400,000', seenOk: 0, settleSent: false },
+  c: { screen: 'chat', open: null, unread: 0, agreed: null },
+  items: [],
+  inbox: [],
+  seq: 0
+});
+let S = fresh();
+
+const won = (n) => n.toLocaleString('ko-KR') + '원';
+const num = (s) => parseInt(String(s).replace(/[^\d]/g, ''), 10) || 0;
+const nowLabel = () => { const d = new Date(); return `${d.getMonth() + 1}/${d.getDate()} ${d.toLocaleTimeString('ko-KR', { hour: 'numeric', minute: '2-digit' })}`; };
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+function parse(t) {
+  const s = t || '';
+  const svc = /서비스|무료|공짜/.test(s);
+  let amt = null;
+  let m = s.match(/(\d+)\s*만\s*(?:(\d+)\s*천)?/);
+  if (m) amt = parseInt(m[1], 10) * 10000 + (m[2] ? parseInt(m[2], 10) * 1000 : 0);
+  else { m = s.match(/(\d{1,3}(?:,\d{3})+|\d{4,})\s*원?/); if (m) amt = num(m[1]); }
+  if (svc) amt = 0;
+  let vat = /부가세\s*별도/.test(s) ? '부가세 별도' : (/부가세\s*포함/.test(s) ? '부가세 포함' : '');
+  let sched = '';
+  const d = s.match(/(하루|이틀|사흘|\d+\s*일)\s*(?:연장|늦어\S*|더)/);
+  if (d) sched = '완공 ' + ({ 하루: 1, 이틀: 2, 사흘: 3 }[d[1]] || parseInt(d[1], 10)) + '일 연장';
+  const desc = s.replace(/(\d+)\s*만\s*(?:\d+\s*천)?\s*원?/, '').replace(/(\d{1,3}(?:,\d{3})+|\d{4,})\s*원?/, '')
+    .replace(/부가세\s*(별도|포함)/, '').replace(/(하루|이틀|사흘|\d+\s*일)\s*(?:연장|늦어\S*|더)/, '')
+    .replace(/서비스로?|무료로?|공짜로?/g, '').replace(/[,.]/g, ' ').replace(/\s+/g, ' ').trim();
+  return { desc, amt, svc, vat, sched };
+}
+
+/* ---------------- owner screens ---------------- */
+const icon = {
+  check: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>',
+  mic: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/></svg>'
+};
+
+function ownerLink() {
+  return kChat('한결타일 사장님', `${kFrom('한', '한결타일 사장님', [
+      '<div class="bubble">형님, 잔금 때 추가공사비 깎였다던 거요</div>',
+      '<div class="bubble">이거 한번 써 보세요. 무료래요</div>',
+      `<button class="linkcard" data-act="go" data-v="intro" style="padding:0">
+        <span style="display:block;width:100%;padding:22px 16px;background:#111;color:#fff;font-size:20px;font-weight:700;line-height:1.3">추가공사,<br>지금 5초면 끝나요.</span>
+        <span style="padding:12px 14px 0;display:flex;flex-direction:column;gap:2px"><b style="font-size:15px">한 줄 쓰면 고객 확인까지</b><span style="font-size:13px;color:#777">가입·설치 없음 · 무료</span></span>
+        <span class="go" style="margin:12px 0 0;width:100%">자세히 보기</span>
+      </button>`], '오전 8:12')}`);
+}
+
+function ownerIntro() {
+  return `<div class="screen"><div class="scroll pad" style="padding-top:56px;display:flex;flex-direction:column;gap:12px">
+      <h1 style="margin-bottom:18px">추가공사,<br>지금 5초면<br>끝나요.</h1>
+      <div class="group" style="padding:18px;display:flex;flex-direction:column;gap:10px">
+        <span class="small" style="font-weight:600">나중에 하면</span>
+        <span>✕&nbsp; 돈 얘기 꺼내기 어렵고</span><span>✕&nbsp; “서비스인 줄 알았어요”</span><span>✕&nbsp; 결국 깎아 주게 돼요</span>
+      </div>
+      <div class="group" style="padding:18px;display:flex;flex-direction:column;gap:10px;background:var(--ink);color:#fff">
+        <span style="font-size:13px;font-weight:600;color:#AEAEB2">지금 5초 하면</span>
+        <span><b style="color:#30D158">✓</b>&nbsp; 한 줄 쓰고</span><span><b style="color:#30D158">✓</b>&nbsp; 카톡으로 보내면</span><span><b style="color:#30D158">✓</b>&nbsp; 잔금 때 알아서 더해져요</span>
+      </div>
+    </div>
+    <div class="foot"><button class="btn" data-act="compose">한 줄 써 보기</button><span class="small">가입·설치 없음 · 무료</span></div>
+  </div>`;
+}
+
+function previewHTML(text) {
+  const p = parse(text);
+  if (!p.desc && p.amt === null) return `<div class="empty">무엇을, 얼마에 — 한 줄이면 돼요.<br>쓰는 대로 여기에 확인서가 만들어져요.</div>`;
+  let note = '<span class="ok">고객이 확인하면 합계에 더해져요</span>';
+  if (p.svc) note = '<span class="ok">서비스로 기록해요 · 잔금 때 오해가 없어요</span>';
+  else if (p.amt === null) note = '<span class="wait">금액만 더 써 주세요 (예: 35만원)</span>';
+  else if (!p.desc) note = '<span class="wait">무엇을 했는지 써 주세요</span>';
+  const extra = [p.vat, p.sched].filter(Boolean).join(' · ');
+  return `<div class="preview">
+    <span class="small" style="font-weight:600">고객이 받는 확인서</span>
+    <b style="font-size:19px">${esc(p.desc || '무엇을 했는지 써 주세요')}</b>
+    <span class="big" style="font-size:34px">${p.amt === null ? '— 원' : (p.svc ? '0원 (서비스)' : won(p.amt))}</span>
+    ${extra ? `<span class="small">${esc(extra)}</span>` : ''}
+    ${note}
+  </div>`;
+}
+const canSend = (t) => { const p = parse(t); return !!p.desc && p.amt !== null; };
+
+function ownerCompose() {
+  const chips = ['상부장 1개 추가 35만원 하루 연장', '콘센트 2구 12만원', '실리콘 보수 서비스', '타일 변경 18만원 부가세 별도'];
+  return `<div class="screen" style="background:var(--card)">
+    <div class="nav"><button data-act="cancelCompose">취소</button><b>추가공사</b><span style="width:52px"></span></div>
+    <div class="pad" style="display:flex;flex-direction:column;gap:12px;padding-top:6px">
+      <label for="line" class="small">무엇을, 얼마에 (일정이 바뀌면 같이)</label>
+      <div class="field"><input id="line" autocomplete="off" placeholder="예) 상부장 추가 35만원" value="${esc(S.o.draft)}"><span class="small" title="키보드의 마이크로 말해도 돼요">${icon.mic}</span></div>
+      <div class="chips">${chips.map((c) => `<button class="chip" data-act="chip" data-v="${esc(c)}">${esc(c)}</button>`).join('')}</div>
+    </div>
+    <div class="scroll pad" style="padding-top:18px" id="preview">${previewHTML(S.o.draft)}</div>
+    <div class="foot"><button class="btn" id="sendBtn" data-act="startShare" ${canSend(S.o.draft) ? '' : 'disabled'}>카톡으로 확인 받기</button><span class="small">카톡에서 고객만 고르면 끝</span></div>
+  </div>`;
+}
+
+function shareSheet() {
+  const what = S.o.share.kind === 'item' ? `추가공사 확인 요청 · ${S.o.share.label}` : `정산서 · ${S.o.share.label}`;
+  return `<div class="sheet-bg"><section class="sheet">
+    <div class="grab"></div>
+    <div class="group" style="display:flex;gap:12px;align-items:center;padding:12px"><i style="width:42px;height:42px;border-radius:10px;background:var(--ink)"></i><span style="display:flex;flex-direction:column;gap:2px"><b style="font-size:15px">${esc(what)}</b><span class="small">확인 링크 1개</span></span></div>
+    <span class="small">휴대폰 공유창 (기종마다 모양이 조금 달라요)</span>
+    <div class="tiles">
+      <button class="tile main" data-act="pickKakao"><i><svg width="30" height="28" viewBox="0 0 30 28" aria-hidden="true"><ellipse cx="15" cy="12" rx="13" ry="10.5" fill="#191919"/><path d="M8 19l-2 7 7-5z" fill="#191919"/></svg></i><span style="font-size:13px">카카오톡</span></button>
+      <span class="tile"><i></i><span class="small">메시지</span></span>
+      <span class="tile"><i></i><span class="small">메일</span></span>
+      <span class="tile"><i></i><span class="small">복사</span></span>
+    </div>
+    <button class="btn ghost" data-act="cancelShare">취소</button>
+  </section></div>`;
+}
+
+function pickScreen() {
+  return `<div class="screen" style="background:var(--card);z-index:31">
+    <div class="nav"><button data-act="cancelShare" style="color:var(--sub)">취소</button><b>공유할 대화방</b><span style="width:52px"></span></div>
+    <div class="pad"><div class="field" style="min-height:40px;font-size:15px;color:var(--sub)">검색</div></div>
+    <span class="small pad" style="padding-top:12px;padding-bottom:6px">최근 대화</span>
+    <button class="row" data-act="sendTo" style="border:0;border-bottom:.5px solid var(--line);background:#fff;text-align:left;width:100%"><i style="width:44px;height:44px;border-radius:16px;background:#D1D1D6"></i><span class="t"><b>1204호 고객님</b><span class="small">오늘 오후</span></span><span class="mini" style="background:var(--kakao-yellow);color:var(--kakao-ink)">전송</span></button>
+    <div class="row"><i style="width:44px;height:44px;border-radius:16px;background:#E5E5EA"></i><span class="t"><b>한결타일 사장님</b><span class="small">오늘 오전</span></span></div>
+    <div class="row"><i style="width:44px;height:44px;border-radius:16px;background:#E5E5EA"></i><span class="t"><b>반장님</b><span class="small">어제</span></span></div>
+  </div>`;
+}
+
+function ownerHome() {
+  const ok = S.items.filter((i) => i.ok), wait = S.items.filter((i) => !i.ok);
+  const okSum = ok.reduce((s, i) => s + i.amt, 0), waitSum = wait.reduce((s, i) => s + i.amt, 0);
+  const rows = S.items.slice().reverse().map((i) => `<div class="row" style="background:#fff">
+      <span class="t"><b>${esc(i.desc)}</b>${i.ok ? `<span class="ok">✓ 고객 확인 · ${i.okAt}</span>` : `<span class="wait">확인 기다리는 중 · ${i.at}</span>`}</span>
+      <span class="amt">${i.svc ? '서비스' : won(i.amt)}</span></div>`).join('');
+  return `<div class="screen">
+    <div class="scroll pad" style="padding-top:22px;display:flex;flex-direction:column;gap:20px">
+      <div style="display:flex;flex-direction:column;gap:4px">
+        <span class="small" style="font-weight:600">솔빛아파트 1204호 ▾</span>
+        <span class="small" style="font-size:15px">고객이 확인한 추가공사</span>
+        <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:10px">
+          <span class="big">+${won(okSum)}</span>
+          <button class="mini" data-act="settle" style="margin-bottom:8px;min-height:38px;padding:0 14px" ${S.items.length ? '' : 'disabled'}>정산</button>
+        </div>
+        ${wait.length ? `<span class="wait" style="font-size:15px">확인 기다리는 중 ${wait.length}건 · ${won(waitSum)}</span>` : ''}
+        ${S.o.settleSent ? `<span class="small">정산서 보냄 · ${S.o.settleSent}</span>` : ''}
+      </div>
+      ${S.items.length ? `<section class="group">${rows}</section>` : `<div class="empty">아직 기록이 없어요. 아래에 한 줄 써 보세요.</div>`}
+    </div>
+    <div class="composer"><button data-act="compose"><span style="flex:1;font-size:16px;color:#8A8A8E">추가공사 한 줄 쓰기</span><span class="plus" aria-hidden="true">+</span></button></div>
+  </div>`;
+}
+
+function settleScreen() {
+  const ok = S.items.filter((i) => i.ok);
+  const okSum = ok.reduce((s, i) => s + i.amt, 0);
+  const mode = S.o.mode;
+  const picked = ok.filter((i) => !S.o.off[i.id]).reduce((s, i) => s + i.amt, 0);
+  const total = mode === 'all' ? num(S.o.base) + okSum - num(S.o.paid) : (mode === 'pick' ? picked : okSum);
+  const opts = [['extra', '추가공사만', `확인된 ${ok.length}건 · 숫자 입력 없음`], ['all', '잔금까지 한 번에', '계약 금액·받은 돈을 한 번만 적으면 계산'], ['pick', '골라서', '이번에 받을 것만 체크']];
+  let detail = '';
+  if (mode === 'all') {
+    detail = `<div class="row"><span class="t"><span class="small" style="font-size:15px">계약 금액</span></span><input class="money" id="base" inputmode="numeric" value="${esc(S.o.base)}" aria-label="계약 금액"></div>
+      <div class="row"><span class="t"><span class="small" style="font-size:15px">확인된 추가공사 ${ok.length}건</span></span><span class="amt" style="color:var(--ok)">+${won(okSum)}</span></div>
+      <div class="row"><span class="t"><span class="small" style="font-size:15px">이미 받은 돈</span></span><input class="money" id="paid" inputmode="numeric" value="${esc(S.o.paid)}" aria-label="이미 받은 돈"></div>`;
+  } else {
+    detail = S.items.map((i) => {
+      const on = i.ok && !S.o.off[i.id];
+      if (mode === 'extra' && !i.ok) return '';
+      return `<button class="row" ${mode === 'pick' && i.ok ? `data-act="togglePick" data-v="${i.id}"` : ''} style="width:100%;border:0;border-bottom:1px solid var(--line);background:var(--card);text-align:left;color:${i.ok ? 'var(--ink)' : '#AEAEB2'}">
+        ${mode === 'pick' ? `<span class="box ${on ? 'on' : ''}">${on ? '✓' : ''}</span>` : ''}
+        <span class="t"><b style="font-size:15px">${esc(i.desc)}</b>${i.ok ? `<span class="ok">✓ 확인</span>` : `<span class="wait">확인 전 · 청구에 못 넣어요</span>`}</span>
+        <span class="amt" style="font-size:15px">${won(i.amt)}</span></button>`;
+    }).join('') || '<div class="row small">확인된 추가공사가 아직 없어요.</div>';
+  }
+  return `<div class="screen">
+    <div class="nav"><button data-act="home">‹ 목록</button><b>정산</b><span style="width:60px"></span></div>
+    <div class="scroll pad" style="display:flex;flex-direction:column;gap:10px;padding-bottom:12px">
+      <h2 style="margin:6px 0 4px">어떻게 정산할까요?</h2>
+      ${opts.map(([k, t, s]) => `<button class="opt ${mode === k ? 'on' : ''}" data-act="mode" data-v="${k}"><span class="dot"></span><span style="display:flex;flex-direction:column;gap:2px"><b style="font-size:16px">${t}</b><span class="small">${s}</span></span></button>`).join('')}
+      <section class="group">${detail}
+        <div class="row" style="border-top:1px solid var(--line)"><span class="t"><b style="font-size:15px">${mode === 'all' ? '받을 잔금' : '청구 금액'}</b></span><span id="settleTotal" class="big" style="font-size:26px">${won(Math.max(0, total))}</span></div>
+      </section>
+      <button class="opt" data-act="acct" style="border:0"><span style="flex:1;display:flex;flex-direction:column;gap:2px"><b style="font-size:15px">입금 계좌 같이 보내기</b><span class="small">국민 123-45-6789 김한결 (예시)</span></span><span class="switch ${S.o.acct ? 'on' : ''}"><i></i></span></button>
+    </div>
+    <div class="foot"><button class="btn" data-act="startSettleShare" ${total > 0 ? '' : 'disabled'}>카톡으로 정산서 보내기</button></div>
+  </div>`;
+}
+
+function firstSheet() {
+  return `<div class="sheet-bg"><section class="sheet white" style="align-items:stretch">
+    <div class="grab"></div>
+    <div style="align-self:center;width:64px;height:64px;border-radius:16px;background:var(--ink);color:#fff;display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:700">+</div>
+    <h2 style="text-align:center">다음부턴 아이콘 하나로</h2>
+    <p class="small" style="margin:0;text-align:center;font-size:16px;line-height:1.5">홈 화면에 두면 누르자마자<br>이 목록이 열려요.</p>
+    <button class="btn" data-act="closeSheet">홈 화면에 추가</button>
+    <button class="reset" data-act="closeSheet" style="align-self:center">나중에</button>
+  </section></div>`;
+}
+
+/* ---------------- KakaoTalk look ---------------- */
+function kChat(title, body) {
+  return `<div class="screen chat">
+    <div class="nav" style="background:var(--kakao-bg)"><span style="width:44px;font-size:28px;font-weight:300">‹</span><b style="font-weight:600">${esc(title)}</b><span style="width:44px;text-align:right;font-size:20px">≡</span></div>
+    <div class="scroll" style="display:flex;flex-direction:column;gap:12px;padding:10px 12px 20px">
+      <span style="align-self:center;padding:4px 12px;border-radius:12px;background:rgba(0,0,0,.12);color:#fff;font-size:12px">2026년 11월 8일 일요일</span>
+      ${body}
+    </div>
+    <div class="k-input"><i></i><b></b></div>
+  </div>`;
+}
+function kFrom(av, name, parts, time) {
+  return `<div class="k-from"><span class="k-av">${esc(av)}</span><div class="k-col"><span class="k-name">${esc(name)}</span>${parts.map((x, n) => n === parts.length - 1 ? `<div style="display:flex;align-items:flex-end;gap:5px;width:100%">${x}<span class="k-time" style="flex-shrink:0">${time || ''}</span></div>` : x).join('')}</div></div>`;
+}
+
+/* ---------------- customer screens ---------------- */
+function custChat() {
+  const mineMsg = '<div style="display:flex;justify-content:flex-end;align-items:flex-end;gap:5px"><span class="k-time">오전 8:40</span><div class="bubble mine">사장님 상부장 하나만 더 달아주세요~</div></div>';
+  if (!S.inbox.length) return kChat('김 사장님 (인테리어)', mineMsg + '<p style="text-align:center;margin-top:30px;font-size:13px;color:#3E4F60">아직 사장님이 보낸 확인서가 없어요.<br>위에서 ‘사장님 폰’으로 바꿔 보내 보세요.</p>');
+  const msgs = S.inbox.map((m) => {
+    if (m.kind === 'item') {
+      const i = S.items.find((x) => x.id === m.id);
+      return kFrom('김', '김 사장님 (인테리어)', [`<div class="bubble">고객님, 말씀하신 추가공사 정리해 드렸어요.<br>· ${esc(i.desc)}<br>· <b>${i.svc ? '0원 (서비스)' : won(i.amt)}</b>${i.vat ? ` (${esc(i.vat)})` : ''}${i.sched ? `<br>· ${esc(i.sched)}` : ''}<br>아래에서 확인 한 번만 부탁드려요 :)</div>`,
+        `<button class="linkcard${i.ok ? ' done' : ''}" data-act="openItem" data-v="${i.id}"><span class="small">추가공사 확인</span><b style="font-size:16px">${esc(i.desc)} · ${i.svc ? '서비스' : won(i.amt)}</b><span class="go">${i.ok ? '✓ 확인 완료' : '확인하기'}</span></button>`], m.at);
+    }
+    return kFrom('김', '김 사장님 (인테리어)', [`<div class="bubble">고객님, 정산 미리 정리해 드렸어요.<br>· ${m.mode === 'all' ? '잔금' : '청구 금액'}: <b>${won(m.total)}</b>${m.acct ? '<br>· 입금: 국민 123-45-6789 김한결' : ''}<br>자세한 내역은 링크에서 보실 수 있어요.</div>`,
+      `<button class="linkcard${S.c.agreed ? ' done' : ''}" data-act="openSettle"><span class="small">정산서</span><b style="font-size:16px">${m.mode === 'all' ? '잔금' : '청구'} ${won(m.total)} · 내역 보기</b><span class="go">정산서 열기</span></button>`], m.at);
+  }).join('');
+  return kChat('김 사장님 (인테리어)', mineMsg + msgs);
+}
+
+function custConfirm() {
+  const i = S.items.find((x) => x.id === S.c.open);
+  return `<div class="screen">
+    <div class="nav"><button data-act="custBack">‹ 카톡</button><span class="small">카톡으로 받은 추가공사 확인서</span><span style="width:60px"></span></div>
+    <div class="scroll pad" style="display:flex;flex-direction:column;gap:8px;align-items:center;text-align:center;padding-top:36px">
+      <span class="small" style="font-size:15px;font-weight:600">추가공사 확인 요청</span>
+      <span class="big" style="font-size:44px">${i.svc ? '0원' : won(i.amt)}</span>
+      <b style="font-size:20px;font-weight:500">${esc(i.desc)}</b>
+      <section class="group" style="width:100%;margin-top:26px;text-align:left">
+        <div class="row"><span class="t"><span class="small" style="font-size:15px">부가세</span></span><span>${esc(i.svc ? '서비스' : (i.vat ? i.vat.replace('부가세 ', '') : '말씀 없음'))}</span></div>
+        <div class="row"><span class="t"><span class="small" style="font-size:15px">일정</span></span><span>${esc(i.sched || '변동 없음')}</span></div>
+        <div class="row"><span class="t"><span class="small" style="font-size:15px">지급</span></span><span>잔금과 함께</span></div>
+      </section>
+    </div>
+    <div class="foot">${i.ok ? `<div style="width:100%;display:flex;gap:10px;align-items:center;padding:16px;border-radius:16px;border:.5px solid #D1D1D6;color:var(--ink)"><span style="color:var(--ok)">${icon.check}</span><span style="display:flex;flex-direction:column"><b>확인했어요</b><span style="font-size:14px">${i.okAt} · 사장님께 전달됐어요</span></span></div>`
+      : `<button class="btn" data-act="custConfirm" data-v="${i.id}">확인했어요</button><span class="small">내용이 다르면 카톡으로 답장해 주세요</span>`}<span class="small" style="font-size:12px;color:#AEAEB2;margin-top:6px">이 확인서는 ‘추가공사 확인’으로 만들었어요 · 무료</span></div>
+  </div>`;
+}
+
+function custSettle() {
+  const m = S.inbox.filter((x) => x.kind === 'settle').pop();
+  const items = S.items.filter((i) => m.ids.includes(i.id) || !i.ok);
+  const okSum = S.items.filter((i) => i.ok && m.ids.includes(i.id)).reduce((s, i) => s + i.amt, 0);
+  const total = m.mode === 'all' ? m.base + okSum - m.paid : okSum;
+  return `<div class="screen">
+    <div class="nav"><button data-act="custBack">‹ 카톡</button><span class="small">카톡으로 받은 정산서</span><span style="width:60px"></span></div>
+    <div class="scroll pad" style="display:flex;flex-direction:column;gap:12px;padding-bottom:12px">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:2px;padding-top:10px"><span class="small" style="font-size:15px;font-weight:600">${m.mode === 'all' ? '잔금' : '청구 금액'}</span><span class="big" id="custTotal">${won(total)}</span></div>
+      ${m.mode === 'all' ? `<section class="group"><div class="row"><span class="t small" style="font-size:15px">계약 금액</span><span>${won(m.base)}</span></div><div class="row"><span class="t small" style="font-size:15px">추가공사</span><span style="color:var(--ok);font-weight:600">+${won(okSum)}</span></div><div class="row"><span class="t small" style="font-size:15px">이미 낸 돈</span><span>−${won(m.paid)}</span></div></section>` : ''}
+      <span class="small" style="font-weight:600;padding:4px 4px 0">추가공사 내역 · 직접 확인하신 기록</span>
+      <section class="group">${items.map((i) => `<div class="row" style="background:#fff"><span class="t"><b style="font-size:15px">${esc(i.desc)}</b>${i.ok ? `<span class="ok">✓ ${i.okAt} 확인</span>` : `<span class="wait">아직 확인 전 · 금액에 안 들어가 있어요</span>`}</span>${i.ok ? '' : `<button class="mini" data-act="custConfirmInSettle" data-v="${i.id}">확인</button>`}<span class="amt" style="font-size:15px;color:${i.ok ? 'var(--ink)' : '#AEAEB2'}">${i.svc ? '서비스' : won(i.amt)}</span></div>`).join('')}</section>
+      ${m.acct ? `<div class="group" style="display:flex;align-items:center;gap:10px;padding:8px 8px 8px 16px"><span style="flex:1">국민 123-45-6789 김한결</span><button class="mini" data-act="copyAcct" style="background:var(--bg);color:var(--ink)">계좌 복사</button></div>` : ''}
+    </div>
+    <div class="foot">${S.c.agreed ? `<div style="width:100%;padding:16px;border-radius:16px;border:.5px solid #D1D1D6;font-weight:600"><span style="color:var(--ok)">✓</span> 정산 확인 · ${S.c.agreed}</div>` : `<button class="btn" data-act="agree">정산 내용 확인했어요</button>`}</div>
+  </div>`;
+}
+
+/* ---------------- render ---------------- */
+const KICON = '<svg width="22" height="20" viewBox="0 0 30 28" aria-hidden="true"><ellipse cx="15" cy="12" rx="13" ry="10.5" fill="#191919"/><path d="M8 19l-2 7 7-5z" fill="#191919"/></svg>';
+function lockScreen() {
+  const d = new Date();
+  const clock = d.toLocaleTimeString('ko-KR', { hour: 'numeric', minute: '2-digit', hour12: false });
+  const date = d.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'long' });
+  const hd = S.handoff;
+  let who, ic, app, title, body;
+  if (hd.to === 'cust') {
+    who = '이제 고객 입장이에요'; ic = `<span class="ic" style="background:var(--kakao-yellow)">${KICON}</span>`; app = '카카오톡';
+    title = '김 사장님 (인테리어)';
+    body = hd.kind === 'settle' ? '고객님, 정산 미리 정리해 드렸어요.' : '고객님, 말씀하신 추가공사 정리해 드렸어요.';
+  } else if (hd.to === 'owner') {
+    const i = S.items.find((x) => x.id === hd.id);
+    who = '다시 사장님 입장이에요'; ic = `<span class="ic" style="background:#000;color:#fff">${icon.check}</span>`; app = '추가공사 확인';
+    title = '고객님이 확인했어요'; body = `${i.desc} · ${i.svc ? '서비스' : won(i.amt)} · 합계에 더했어요`;
+  } else {
+    return `<div class="lock" style="justify-content:center;gap:14px;text-align:center"><span style="color:#30D158"><svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg></span>
+      <h1 style="color:#fff;font-size:30px">체험 끝!</h1>
+      <p style="margin:0;font-size:17px;line-height:1.6;color:rgba(255,255,255,.8)">한 줄 쓰고 카톡으로 보내면<br>고객이 확인한 기록이 남고<br>잔금 때 알아서 더해져요.</p>
+      <button class="btn" data-act="reset" style="background:#fff;color:#000;margin-top:24px">처음부터 다시</button></div>`;
+  }
+  return `<div class="lock"><span class="who">${who}</span><span class="clock">${clock}</span><span class="date">${date}</span>
+    <button class="noti pulse" data-act="handoffGo">${ic}<span class="tx"><span style="display:flex;justify-content:space-between;font-size:13px;color:#6C6C70"><span>${app}</span><span>지금</span></span><b>${esc(title)}</b><span>${esc(body)}</span></span></button>
+    <span class="tap">알림을 눌러 보세요</span>
+    <button class="again" data-act="reset">처음부터 다시</button></div>`;
+}
+function nextTarget() {
+  if (S.role === 'owner') {
+    const o = S.o;
+    if (o.sheet === 'first') return '.sheet .btn';
+    if (o.share) return o.share.step === 'sheet' ? '[data-act=pickKakao] i' : '[data-act=sendTo] .mini';
+    if (o.screen === 'link') return '.linkcard';
+    if (o.screen === 'intro') return '.foot .btn';
+    if (o.screen === 'compose') return canSend(o.draft) ? '#sendBtn' : '.chip';
+    if (o.screen === 'settle') return '.foot .btn';
+    if (o.screen === 'home') return S.items.some((i) => i.ok) && !o.settleSent && S.items.length >= 2 ? '[data-act=settle]' : '.composer button';
+    return '';
+  }
+  if (S.c.screen === 'chat') return '.linkcard:not(.done)';
+  if (S.c.screen === 'confirm') return '[data-act=custConfirm]';
+  if (S.c.screen === 'settle') return S.items.some((i) => !i.ok) ? '[data-act=custConfirmInSettle]' : '[data-act=agree]';
+  return '';
+}
+function hintFor() {
+  if (S.role === 'owner') {
+    const o = S.o;
+    if (o.screen === 'link') return ['사장님이 되어 보세요. 아는 사장님이 보낸 카드를 눌러요.', null];
+    if (o.screen === 'intro') return ['[한 줄 써 보기]를 눌러요. 가입은 없어요.', null];
+    if (o.screen === 'compose') return ['예시를 누르거나 직접 써 보세요. 아래 확인서가 바로 바뀌어요.', null];
+    if (o.share) return ['카카오톡 → 고객 대화방 → 전송', null];
+    if (o.screen === 'settle') return ['정산 방법을 바꿔 보세요. 금액이 바로 바뀌어요.', null];
+    if (S.inbox.some((m) => !m.seen)) return ['보냈어요. 이제 고객이 되어 받은 카톡을 열어 보세요.', ['고객 폰 보기', 'cust']];
+    if (S.items.some((i) => i.ok) && !o.settleSent) return ['초록색은 고객이 확인한 건이에요. 하나 더 쓰거나 [정산]을 눌러 보세요.', null];
+    if (o.settleSent) return ['정산서까지 보냈어요. 고객 폰에서 정산서를 열어 보세요.', ['고객 폰 보기', 'cust']];
+    return ['아래 입력창에 한 줄 더 써 보세요.', null];
+  }
+  const c = S.c;
+  if (!S.inbox.length) return ['아직 받은 확인서가 없어요. 사장님 폰에서 보내 보세요.', ['사장님 폰 보기', 'owner']];
+  if (c.screen === 'confirm') return ['고객은 금액을 보고 [확인했어요] 한 번이면 끝이에요.', null];
+  if (c.screen === 'settle') return ['직접 확인한 시각이 남아 있어요. 확인 전 건은 여기서 바로 확인할 수 있어요.', null];
+  if (S.items.some((i) => i.ok && !i.ownerSeen)) return ['확인했어요. 사장님 폰으로 돌아가 볼까요?', ['사장님 폰 보기', 'owner']];
+  return ['카톡에서 링크를 눌러 열어 보세요.', null];
+}
+
+function render() {
+  const ph = document.getElementById('phone');
+  let html = '';
+  if (S.role === 'owner') {
+    const o = S.o;
+    html = { link: ownerLink, intro: ownerIntro, compose: ownerCompose, home: ownerHome, settle: settleScreen }[o.screen]();
+    if (o.share && o.share.step === 'sheet') html += shareSheet();
+    if (o.share && o.share.step === 'pick') html += pickScreen();
+    if (o.sheet === 'first') html += firstSheet();
+    if (o.toast) html += `<div class="toast" role="status" style="background:${o.toast.color}">${icon.check}<span>${esc(o.toast.text)}</span></div>`;
+  } else {
+    html = { chat: custChat, confirm: custConfirm, settle: custSettle }[S.c.screen]();
+  }
+  if (S.handoff) html += lockScreen();
+  ph.innerHTML = html;
+  if (!S.handoff) { const t = ph.querySelector(nextTarget()); if (t) t.classList.add('pulse'); }
+  const line = document.getElementById('line');
+  if (line && S.role === 'owner' && S.o.screen === 'compose' && !S.o.share) { line.focus({ preventScroll: true }); line.setSelectionRange(line.value.length, line.value.length); }
+}
+
+function later(hd, ms) { clearTimeout(later.t); later.t = setTimeout(() => { S.handoff = hd; render(); }, ms); }
+function toast(text, color) {
+  S.o.toast = { text, color };
+  clearTimeout(toast.t);
+  toast.t = setTimeout(() => { S.o.toast = null; if (S.role === 'owner') render(); }, 2600);
+}
+
+/* ---------------- actions ---------------- */
+const act = {
+  reset() { clearTimeout(later.t); S = fresh(); },
+  handoffGo() {
+    const hd = S.handoff; S.handoff = null;
+    if (hd.to === 'cust') { act.role('cust'); S.c.screen = 'chat'; }
+    else act.role('owner');
+  },
+  role(v) {
+    S.role = v;
+    if (v === 'cust') { S.inbox.forEach((m) => (m.seen = true)); if (S.c.screen !== 'settle' && S.c.screen !== 'confirm') S.c.screen = 'chat'; }
+    if (v === 'owner') {
+      const fresh = S.items.filter((i) => i.ok && !i.ownerSeen);
+      if (fresh.length) { toast(fresh.length === 1 ? `고객님이 확인했어요 · ${fresh[0].desc}` : `고객님이 ${fresh.length}건을 확인했어요`, 'var(--ok)'); fresh.forEach((i) => (i.ownerSeen = true)); }
+      if (S.o.screen === 'link' || S.o.screen === 'intro') return;
+      if (!S.o.share && S.o.screen !== 'compose') S.o.screen = S.o.screen === 'settle' ? 'settle' : 'home';
+    }
+  },
+  go(v) { S.o.screen = v; },
+  compose() { S.o.screen = 'compose'; S.o.draft = ''; },
+  cancelCompose() { S.o.screen = S.items.length ? 'home' : 'intro'; },
+  chip(v) { S.o.draft = v; },
+  startShare() {
+    if (!canSend(S.o.draft)) return;
+    const p = parse(S.o.draft);
+    S.o.share = { kind: 'item', step: 'sheet', p, label: p.svc ? '서비스' : won(p.amt) };
+  },
+  startSettleShare() {
+    const ok = S.items.filter((i) => i.ok);
+    const ids = S.o.mode === 'pick' ? ok.filter((i) => !S.o.off[i.id]).map((i) => i.id) : ok.map((i) => i.id);
+    const okSum = S.items.filter((i) => ids.includes(i.id)).reduce((s, i) => s + i.amt, 0);
+    const total = S.o.mode === 'all' ? num(S.o.base) + okSum - num(S.o.paid) : okSum;
+    S.o.share = { kind: 'settle', step: 'sheet', label: won(total), payload: { kind: 'settle', mode: S.o.mode, ids, base: num(S.o.base), paid: num(S.o.paid), total, acct: S.o.acct } };
+  },
+  cancelShare() { S.o.share = null; },
+  pickKakao() { S.o.share.step = 'pick'; },
+  sendTo() {
+    const sh = S.o.share;
+    if (sh.kind === 'item') {
+      const id = 'i' + (++S.seq);
+      S.items.push({ id, desc: sh.p.desc, amt: sh.p.amt, svc: sh.p.svc, vat: sh.p.vat, sched: sh.p.sched, ok: false, at: nowLabel(), okAt: null, ownerSeen: false });
+      S.inbox.push({ kind: 'item', id, seen: false, at: nowLabel().split(' ').slice(1).join(' ') });
+      S.o.screen = 'home';
+      toast('카톡으로 보냈어요 · 고객이 확인하면 알려 드려요', 'var(--ink)');
+      if (!S.o.firstShown) { S.o.sheet = 'first'; S.o.firstShown = true; S.pendingHandoff = { to: 'cust' }; }
+      else later({ to: 'cust' }, 1500);
+    } else {
+      S.inbox.push(Object.assign({ seen: false, at: nowLabel().split(' ').slice(1).join(' ') }, sh.payload));
+      S.o.settleSent = nowLabel();
+      S.c.agreed = null;
+      S.o.screen = 'home';
+      toast('정산서를 보냈어요', 'var(--ink)');
+      later({ to: 'cust', kind: 'settle' }, 1500);
+    }
+    S.o.share = null;
+  },
+  closeSheet() { S.o.sheet = null; if (S.pendingHandoff) { later(S.pendingHandoff, 900); S.pendingHandoff = null; } },
+  home() { S.o.screen = 'home'; },
+  settle() { if (S.items.length) S.o.screen = 'settle'; },
+  mode(v) { S.o.mode = v; },
+  togglePick(v) { S.o.off[v] = !S.o.off[v]; },
+  acct() { S.o.acct = !S.o.acct; },
+  openItem(v) { S.c.open = v; S.c.screen = 'confirm'; },
+  openSettle() { S.c.screen = 'settle'; },
+  custBack() { S.c.screen = 'chat'; },
+  custConfirm(v) { const i = S.items.find((x) => x.id === v); i.ok = true; i.okAt = nowLabel(); later({ to: 'owner', id: v }, 1600); },
+  custConfirmInSettle(v) {
+    const i = S.items.find((x) => x.id === v); i.ok = true; i.okAt = nowLabel();
+    const m = S.inbox.filter((x) => x.kind === 'settle').pop(); if (m && !m.ids.includes(v)) m.ids.push(v);
+  },
+  agree() { S.c.agreed = nowLabel(); later({ to: 'end' }, 1400); },
+  copyAcct(_, el) { try { navigator.clipboard.writeText('국민 123-45-6789'); } catch (e) {} el.textContent = '복사됨'; return 'noRender'; }
+};
+
+document.addEventListener('click', (e) => {
+  const el = e.target.closest('[data-act]');
+  if (!el || el.disabled) return;
+  const r = act[el.dataset.act](el.dataset.v, el);
+  if (r !== 'noRender') render();
+});
+document.addEventListener('input', (e) => {
+  if (e.target.id === 'line') {
+    S.o.draft = e.target.value;
+    document.getElementById('preview').innerHTML = previewHTML(S.o.draft);
+    document.getElementById('sendBtn').disabled = !canSend(S.o.draft);
+  }
+  if (e.target.id === 'base' || e.target.id === 'paid') {
+    S.o[e.target.id] = e.target.value;
+    const ok = S.items.filter((i) => i.ok).reduce((s, i) => s + i.amt, 0);
+    document.getElementById('settleTotal').textContent = won(Math.max(0, num(S.o.base) + ok - num(S.o.paid)));
+  }
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && e.target.id === 'line' && canSend(S.o.draft)) { act.startShare(); render(); }
+});
+render();
+</script>
+</body>
+</html>
