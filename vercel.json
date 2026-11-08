@@ -15,7 +15,7 @@
   "rewrites": [
     {
       "source": "/guide/:slug",
-      "destination": "/guide-:slug.html"
+      "destination": "/guide-:slug"
     },
     {
       "source": "/files/:name",
