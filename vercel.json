@@ -11,19 +11,5 @@
         }
       ]
     }
-  ],
-  "rewrites": [
-    {
-      "source": "/guide/:slug",
-      "destination": "/guide-:slug"
-    },
-    {
-      "source": "/files/:name",
-      "destination": "/files-:name"
-    },
-    {
-      "source": "/og/:name",
-      "destination": "/og-:name"
-    }
   ]
 }
