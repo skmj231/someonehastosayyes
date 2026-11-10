@@ -1,6 +1,13 @@
 {
   "cleanUrls": true,
   "trailingSlash": false,
+  "redirects": [
+    {
+      "source": "/bomb",
+      "destination": "/ready",
+      "permanent": true
+    }
+  ],
   "headers": [
     {
       "source": "/files/(.*)",

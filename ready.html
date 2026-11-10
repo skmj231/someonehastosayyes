@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>잔금 날, 깔끔하게 끝낼 준비 됐나요? | 추가공사 확인</title>
+<meta name="description" content="인테리어 공사 중인 집을 위한 30초 체크. 다섯 가지만 확인하면 사장님도 우리 집도 잔금 날이 편해요.">
+<link rel="canonical" href="https://www.someonehastosayyes.com/ready">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="추가공사 확인">
+<meta property="og:title" content="잔금 날, 깔끔하게 끝낼 준비 됐나요?">
+<meta property="og:description" content="인테리어 공사 중인 집을 위한 30초 체크. 다섯 가지만 확인하면 사장님도 우리 집도 잔금 날이 편해요.">
+<meta property="og:url" content="https://www.someonehastosayyes.com/ready">
+<meta property="og:locale" content="ko_KR">
+<meta property="og:image" content="https://www.someonehastosayyes.com/og/ready.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#FFFFFF">
+<meta name="naver-site-verification" content="c26779d6ccafb0ff2d4798c097d1d4aee5e84662">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/style.css">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "WebApplication", "name": "잔금 날 준비 체크", "applicationCategory": "LifestyleApplication", "operatingSystem": "Web", "offers": {"@type": "Offer", "price": "0", "priceCurrency": "KRW"}, "url": "https://www.someonehastosayyes.com/ready"}</script>
+</head>
+<body>
+<header class="nav"><nav class="nav-in" aria-label="주 메뉴">
+  <a class="brand" href="/"><i aria-hidden="true">✓</i>추가공사 확인</a>
+  <a href="/guide">가이드</a>
+  <a class="hide-s" href="/free">무료 양식</a>
+  <a class="pill" href="/try">체험하기</a>
+</nav></header>
+<main>
+<section class="tool">
+  <div class="friend" id="friend"></div>
+  <h1>잔금 날, 깔끔하게 끝낼 준비 됐나요?</h1>
+  <p class="sub">인테리어 공사 중이라면 30초만. 다섯 가지만 확인하면 사장님도 우리 집도 잔금 날이 편해요.</p>
+  <div class="q"><span class="ql">1. 추가로 부탁한 것마다 금액을 알고 있다</span><div class="yn" data-i="0"><button type="button" data-v="1">네</button><button type="button" data-v="0">아직이요</button></div></div><div class="q"><span class="ql">2. 부탁한 내용이 카톡이나 문자로 남아 있다</span><div class="yn" data-i="1"><button type="button" data-v="1">네</button><button type="button" data-v="0">아직이요</button></div></div><div class="q"><span class="ql">3. ‘서비스’로 해 주신 것은 서비스라고 서로 확인했다</span><div class="yn" data-i="2"><button type="button" data-v="1">네</button><button type="button" data-v="0">아직이요</button></div></div><div class="q"><span class="ql">4. 일정이 바뀐 것이 있다면 언제까지인지 알고 있다</span><div class="yn" data-i="3"><button type="button" data-v="1">네</button><button type="button" data-v="0">아직이요</button></div></div><div class="q"><span class="ql">5. 잔금 전에 추가공사 목록과 합계를 받기로 했다</span><div class="yn" data-i="4"><button type="button" data-v="1">네</button><button type="button" data-v="0">아직이요</button></div></div>
+  <div id="res" class="hidden">
+    <div class="result" aria-live="polite"><div class="lab">우리 집 잔금 날 준비</div><div class="num" id="level"></div><p id="desc"></p></div>
+    <div class="tips"><b>이렇게 하면 더 편해요</b><ol>
+      <li>사장님께 “추가된 것 목록이랑 금액, 정리해서 보내 주실 수 있을까요?”라고 부탁해 보세요.</li>
+      <li>앞으로 추가로 부탁할 때는 “얼마 정도일까요?”를 같이 여쭤보세요.</li>
+      <li>받은 목록은 잘 보관해 두고, 잔금 날 합계를 함께 맞춰 보세요.</li>
+    </ol></div>
+    <div class="actions">
+      <button class="pill kakao-btn" id="toOwner" type="button">사장님께 정리 부탁드리기</button>
+      <button class="pill light" id="toFriend" type="button">공사 중인 친구한테 보내기</button>
+    </div>
+    <p class="note">답한 내용은 저장하지 않아요.</p>
+  </div>
+</section>
+<script>
+
+function share(text, url) {
+  var full = text + '\n' + url;
+  if (navigator.share) { navigator.share({ text: text, url: url }).catch(function () {}); return; }
+  var done = function () { var t = document.createElement('div'); t.className = 'toast2'; t.textContent = '복사됐어요. 카톡 대화방에 붙여 넣으세요'; document.body.appendChild(t); setTimeout(function () { t.remove(); }, 2200); };
+  if (navigator.clipboard) navigator.clipboard.writeText(full).then(done, done); else { window.prompt('복사해서 보내세요', full); }
+}
+
+var A = {};
+var LV = [['미리 정리해 두면 좋아요', '지금 사장님께 한 번 정리를 부탁드리면 잔금 날이 훨씬 편해져요.'], ['미리 정리해 두면 좋아요', '지금 사장님께 한 번 정리를 부탁드리면 잔금 날이 훨씬 편해져요.'],
+  ['거의 다 됐어요', '빠진 것만 사장님과 한 번 맞춰 두면 돼요.'], ['거의 다 됐어요', '빠진 것만 사장님과 한 번 맞춰 두면 돼요.'],
+  ['거의 다 됐어요', '빠진 것만 사장님과 한 번 맞춰 두면 돼요.'], ['준비 완료', '사장님과 이미 잘 정리돼 있어요. 잔금 날 편하게 끝낼 수 있어요.']];
+function show() {
+  if (Object.keys(A).length < 5) return;
+  var s = 0; for (var k in A) s += A[k];
+  var r = document.getElementById('res'); r.classList.remove('hidden');
+  var lv = document.getElementById('level'); lv.textContent = LV[s][0]; lv.style.fontSize = '40px';
+  document.getElementById('desc').textContent = '5개 중 ' + s + '개 준비 · ' + LV[s][1];
+  r.dataset.s = s;
+  if (!show.done) { show.done = 1; r.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+}
+document.querySelectorAll('.yn').forEach(function (g) {
+  g.querySelectorAll('button').forEach(function (b) {
+    b.onclick = function () { g.querySelectorAll('button').forEach(function (x) { x.classList.remove('on'); }); b.classList.add('on'); A[g.dataset.i] = +b.dataset.v; show(); };
+  });
+});
+var f = new URLSearchParams(location.search).get('r');
+if (f && LV[+f]) { var fb = document.getElementById('friend'); fb.style.display = 'block'; fb.textContent = '친구네 집은 “' + LV[+f][0] + '”이래요. 우리 집도 확인해 볼까요?'; }
+document.getElementById('toOwner').onclick = function () {
+  share('사장님~ 추가로 부탁드린 것들, 금액이랑 같이 카톡으로 한 줄씩 정리해 주실 수 있을까요? 이걸로 보내 주시면 저는 확인만 누르면 된대요 :)', 'https://www.someonehastosayyes.com/try');
+};
+document.getElementById('toFriend').onclick = function () {
+  var s = document.getElementById('res').dataset.s || 0;
+  share('인테리어 잔금 날 준비 체크 해 봤는데 “' + LV[s][0] + '” 나왔어. 공사 중이면 너도 해 봐', 'https://www.someonehastosayyes.com/ready?r=' + s);
+};
+</script>
+</main>
+<footer><div class="wrap">
+  <p><a href="/guide">가이드</a><a href="/free">무료 양식</a><a href="/glossary">용어 사전</a><a href="/try">체험하기</a><a href="/about">소개</a></p>
+  <p>인테리어 추가공사를 그때그때 기록하고, 고객 확인까지 받는 무료 도구입니다.<br>이 사이트의 글은 일반적인 정보이며 개별 사건에 대한 법률 자문이 아닙니다.</p>
+  <p>Someone Has To Say Yes · <a href="mailto:hello@someonehastosayyes.com" style="margin:0">hello@someonehastosayyes.com</a> · 최종 업데이트 2026-11-08</p>
+</div></footer>
+</body>
+</html>
