@@ -437,7 +437,7 @@ function lockScreen() {
     title = '고객님이 확인했어요'; body = `${i.desc} · ${i.svc ? '서비스' : won(i.amt)} · 합계에 더했어요`;
   } else {
     return `<div class="lock" style="justify-content:center;gap:14px;text-align:center"><span style="color:#30D158"><svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg></span>
-      <h1 style="color:#fff;font-size:30px">체험 끝!</h1>
+      <h2 style="color:#fff;font-size:30px">체험 끝!</h2>
       <p style="margin:0;font-size:17px;line-height:1.6;color:rgba(255,255,255,.8)">한 줄 쓰고 카톡으로 보내면<br>고객이 확인한 기록이 남고<br>잔금 때 알아서 더해져요.</p>
       <button class="btn" data-act="reset" style="background:#fff;color:#000;margin-top:24px">처음부터 다시</button></div>`;
   }
