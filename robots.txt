@@ -52,4 +52,4 @@ Allow: /
 User-agent: *
 Allow: /
 
-Sitemap: https://someonehastosayyes.com/sitemap.xml
+Sitemap: https://www.someonehastosayyes.com/sitemap.xml
