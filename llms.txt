@@ -4,6 +4,7 @@
 
 ## 가이드
 
+- [인테리어 추가금 폭탄 피하는 법](https://www.someonehastosayyes.com/guide/extra-cost-bomb): 추가금이 문제가 되는 건 대부분 금액보다 ‘말로만 정해서’입니다. 3주 뒤 잔금 날, 서로 기억하는 숫자가 달라져 있거든요. 계약서에 한 문장, 현장에서 금액 묻기, 그날 카톡으로 남기기만 지켜도 잔금 날이 편해집니다.
 - [추가공사할 때 고객한테 뭘 받아 둬야 나중에 안 싸우나요?](https://www.someonehastosayyes.com/guide/what-to-record): 내용, 금액, 일정, 고객의 확인 네 가지를 한 메시지에 남기면 됩니다. 이 네 가지가 같이 있어야 잔금 때 “그건 서비스인 줄 알았다”는 말이 나오지 않습니다.
 - [추가공사 금액, 고객 기분 안 상하게 말하는 법 (문장 10개)](https://www.someonehastosayyes.com/guide/how-to-talk-price): 추가 요청을 받은 그 자리에서 금액을 먼저 말하고, 바로 정리해서 보내는 것이 가장 덜 어색합니다. 미루면 잔금 때 같은 말이 ‘청구’로 들립니다.
 - [카톡으로 고객 확인 받는 3가지 방법](https://www.someonehastosayyes.com/guide/kakao-customer-confirm-methods): ① 정리 문구를 보내고 “확인했습니다” 답 받기, ② 확인서 사진이나 PDF를 보내고 답 받기, ③ 고객이 링크에서 [확인]을 누르게 하기. 세 방법 모두 내용·금액·일정이 고객 확인과 함께 남는다는 점이 핵심입니다.
